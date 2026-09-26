@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Окно до отрисовки Compose: цвет бумаги, чтобы не было белой вспышки -->
+    <style name="Theme.Planner" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+    </style>
+    <color name="paper">#F7F2E8</color>
+    <color name="terracotta">#B5654A</color>
+</resources>

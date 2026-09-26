@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Временная иконка: раскрытый блокнот с закладкой. Заменим, когда выберем название -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F7F2E8"
+        android:pathData="M30,40 Q42,36 54,41 Q66,36 78,40 L78,72 Q66,68 54,73 Q42,68 30,72 Z" />
+    <path
+        android:strokeColor="#C9BBA2"
+        android:strokeWidth="1"
+        android:pathData="M54,41 L54,73 M35,49 L48,49 M35,55 L48,55 M60,49 L73,49 M60,55 L69,55" />
+    <path
+        android:fillColor="#3B3428"
+        android:pathData="M67,35 L67,53 L70.5,49.5 L74,53 L74,35 Z" />
+</vector>

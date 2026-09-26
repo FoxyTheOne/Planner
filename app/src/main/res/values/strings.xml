@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Planner</string>
+
+    <!-- Навигация -->
+    <string name="nav_today">Today</string>
+    <string name="nav_week">Week</string>
+    <string name="nav_lists">Lists</string>
+    <string name="nav_goals">Goals</string>
+    <string name="nav_diary">Diary</string>
+
+    <!-- Дни и части дня -->
+    <string name="day_today">Today</string>
+    <string name="day_tomorrow">Tomorrow</string>
+    <string name="day_today_lower">today</string>
+    <string name="day_tomorrow_lower">tomorrow</string>
+    <string name="day_weekend">Weekend</string>
+    <string name="day_next_week">Next week</string>
+    <string name="day_no_time">no set time</string>
+    <string name="part_morning">morning</string>
+    <string name="part_day">afternoon</string>
+    <string name="part_evening">evening</string>
+    <string name="part_anytime">any time</string>
+    <string name="part_any">Any</string>
+
+    <!-- Общие действия -->
+    <string name="action_add">Add</string>
+    <string name="action_create">Create</string>
+    <string name="action_new_task">Task</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_done">Done</string>
+    <string name="action_ok">OK</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_pick_date">Pick a date</string>
+    <string name="action_to_list">Back to list</string>
+
+    <!-- Сегодня -->
+    <string name="today_progress">%1$d of %2$d</string>
+    <string name="today_empty">A free day. Add something, or take a look at your lists.</string>
+    <plurals name="tomorrow_preview">
+        <item quantity="one">Tomorrow: %d task</item>
+        <item quantity="other">Tomorrow: %d tasks</item>
+    </plurals>
+
+    <!-- Незавершённое -->
+    <plurals name="overdue_banner">
+        <item quantity="one">%d unfinished</item>
+        <item quantity="other">%d unfinished</item>
+    </plurals>
+    <string name="overdue_sort">Sort out</string>
+    <string name="overdue_title">Unfinished</string>
+    <string name="overdue_yesterday">yesterday</string>
+    <string name="overdue_this_week">this week</string>
+    <string name="overdue_older">a while ago</string>
+    <string name="overdue_all_today">All to today</string>
+    <string name="overdue_all_back">All back to lists</string>
+    <string name="overdue_not_now">Not now</string>
+
+    <!-- Сообщения -->
+    <string name="msg_scheduled">Planned for %s</string>
+    <string name="msg_scheduled_at">Planned for %1$s, %2$s</string>
+    <string name="msg_moved_tomorrow">Moved to tomorrow</string>
+    <string name="msg_returned_to_list">Back in the list</string>
+    <string name="msg_deleted">Task deleted</string>
+    <plurals name="msg_returned_to_lists">
+        <item quantity="one">%d task went back to your lists</item>
+        <item quantity="other">%d tasks went back to your lists</item>
+    </plurals>
+
+    <!-- Планирование -->
+    <string name="schedule_title">Plan</string>
+    <string name="schedule_part_of_day">Time of day</string>
+    <string name="schedule_exact_time">Exact time</string>
+
+    <!-- Задача -->
+    <string name="task_title_hint">What needs doing?</string>
+    <string name="task_note_hint">Note</string>
+    <string name="task_no_date">No date</string>
+    <string name="task_list">List</string>
+
+    <!-- Выбор задачи для слота -->
+    <string name="pick_tab_new">New</string>
+    <string name="pick_tab_lists">From lists</string>
+    <string name="pick_search">Search your lists</string>
+    <string name="pick_empty">Your lists are empty for now</string>
+    <string name="pick_nothing_found">Nothing found</string>
+
+    <!-- Неделя -->
+    <string name="week_add">add</string>
+    <string name="week_free">free</string>
+    <string name="planning_title">Plan the week</string>
+    <string name="planning_hint">Long-press a task and drag it to a day, or tap a task and then a day</string>
+    <string name="planning_tray_overdue">Unfinished · %d</string>
+    <string name="planning_tray_empty">Nothing here</string>
+
+    <!-- Списки -->
+    <string name="list_inbox">No list</string>
+    <string name="list_new">New list</string>
+    <string name="list_edit">Edit list</string>
+    <string name="list_name_label">List name</string>
+    <string name="list_name_hint">For example, Home or Books</string>
+    <string name="list_color">Color</string>
+    <string name="list_delete">Delete list</string>
+    <string name="list_delete_hint">Its tasks will stay, just without a list.</string>
+    <string name="lists_search">Search lists and tasks</string>
+    <string name="lists_found_tasks">tasks</string>
+    <string name="list_empty">Nothing here yet. Write down what you\'d like to do someday.</string>
+
+    <!-- Настройки -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_planning">planning</string>
+    <string name="settings_overdue">Unfinished tasks</string>
+    <string name="overdue_mode_banner">Ask me in the morning</string>
+    <string name="overdue_mode_auto">Move to today</string>
+    <string name="settings_return_after">Send forgotten tasks back to lists after</string>
+    <string name="days_short">%d d</string>
+    <string name="settings_appearance">appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_dark_variant">Dark theme</string>
+    <string name="dark_graphite">Graphite</string>
+    <string name="dark_ink">Ink</string>
+    <string name="dark_black">Black</string>
+    <string name="settings_system_colors">System colors</string>
+    <string name="settings_system_colors_hint">Match your wallpaper (Material You)</string>
+    <string name="settings_data">data</string>
+    <string name="export_file">Export to file</string>
+    <string name="import_file">Restore from file</string>
+    <string name="export_done">Backup saved</string>
+    <string name="export_error">Couldn\'t save the file</string>
+    <string name="import_error">Couldn\'t read the file</string>
+    <string name="import_done">Data restored</string>
+    <string name="import_confirm_title">Restore from file?</string>
+    <string name="import_confirm_text">The backup has %1$d tasks and %2$d lists. Your current data will be replaced.</string>
+    <string name="import_confirm_action">Restore</string>
+    <string name="support_text">The app is completely free and has no ads. If it helps you, I\'d be glad of your support:</string>
+    <string name="support_link">Support the project (Boosty)</string>
+    <string name="backup_drive_soon">Google Drive backup is coming in a later update.</string>
+
+    <!-- Скоро -->
+    <string name="coming_soon_goals">Big goals broken into steps are coming in the next update.</string>
+    <string name="coming_soon_diary">A gentle daily diary is coming in a later update.</string>
+
+    <!-- Описания для TalkBack -->
+    <string name="cd_add_task">Add task</string>
+    <string name="cd_add_to_day">Add to %s</string>
+    <string name="cd_mark_done">Mark as done</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_back">Back</string>
+    <string name="cd_prev_week">Previous week</string>
+    <string name="cd_next_week">Next week</string>
+    <string name="cd_clear_date">Remove date</string>
+    <string name="cd_clear_time">Remove time</string>
+    <string name="cd_list_color">List color</string>
+    <string name="cd_edit_list">Edit list</string>
+    <string name="cd_choose_list">Choose a list</string>
+    <string name="cd_clear_search">Clear search</string>
+</resources>
