@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Иконка для заставки: терракотовый круг и раскрытый блокнот, как на иконке приложения.
+    Круг нарисован прямо в картинке, потому что не все версии Android применяют
+    windowSplashScreenIconBackgroundColor — без круга светлый блокнот сливается с бумажным фоном.
+    Android показывает центральные 2/3 картинки, поэтому круг занимает середину холста 108×108.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#B5654A"
+        android:pathData="M54,18 A36,36 0 1,1 53.99,18 Z" />
+    <path
+        android:fillColor="#F7F2E8"
+        android:pathData="M34,42 Q44,39 54,43 Q64,39 74,42 L74,68 Q64,65 54,69 Q44,65 34,68 Z" />
+    <path
+        android:strokeColor="#C9BBA2"
+        android:strokeWidth="1"
+        android:pathData="M54,43 L54,69 M38,49 L49,49 M38,54 L49,54 M59,49 L70,49 M59,54 L66,54" />
+    <path
+        android:fillColor="#3B3428"
+        android:pathData="M64,38 L64,53 L67,50 L70,53 L70,38 Z" />
+</vector>
