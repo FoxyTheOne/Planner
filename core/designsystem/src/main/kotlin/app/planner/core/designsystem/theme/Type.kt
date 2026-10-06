@@ -14,9 +14,18 @@ val SerifFamily: FontFamily = FontFamily.Serif
 internal val PlannerTypography = Typography().run {
     copy(
         displaySmall = displaySmall.copy(fontFamily = SerifFamily, fontWeight = FontWeight.Normal),
-        headlineLarge = headlineLarge.copy(fontFamily = SerifFamily, fontWeight = FontWeight.Normal),
-        headlineMedium = headlineMedium.copy(fontFamily = SerifFamily, fontWeight = FontWeight.Normal),
-        headlineSmall = headlineSmall.copy(fontFamily = SerifFamily, fontWeight = FontWeight.Normal),
+        headlineLarge = headlineLarge.copy(
+            fontFamily = SerifFamily,
+            fontWeight = FontWeight.Normal
+        ),
+        headlineMedium = headlineMedium.copy(
+            fontFamily = SerifFamily,
+            fontWeight = FontWeight.Normal
+        ),
+        headlineSmall = headlineSmall.copy(
+            fontFamily = SerifFamily,
+            fontWeight = FontWeight.Normal
+        ),
         titleLarge = titleLarge.copy(fontFamily = SerifFamily, fontWeight = FontWeight.Normal),
     )
 }

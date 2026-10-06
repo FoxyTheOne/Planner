@@ -1,42 +1,43 @@
 package app.planner.core.data.settings
 
-import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
-import app.planner.core.domain.model.DarkVariant
-import app.planner.core.domain.model.OverdueMode
 import app.planner.core.domain.model.PlannerSettings
-import app.planner.core.domain.model.ThemeMode
-import app.planner.core.domain.repository.SettingsRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
+import app.planner.core.domain.repository.ISettingsRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
+import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
-// Файл настроек на телефоне (files/datastore/settings.preferences_pb).
-// `by preferencesDataStore` гарантирует, что на всё приложение будет один такой объект.
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
-
 /**
  * Хранит [PlannerSettings] в DataStore — современной замене SharedPreferences.
  *
- * DataStore хранит пары «ключ → значение» (строки, числа, флаги). Поэтому здесь
- * два перевода: объект настроек раскладывается по ключам при записи и собирается обратно при чтении.
+ * Сам DataStore (объект библиотеки, который читает и пишет файл) создаётся не здесь,
+ * а в `StorageModule` (di/DataModule.kt), и Hilt передаёт его в конструктор.
+ * Этот класс — прослойка между ним и приложением: DataStore хранит только пары
+ * «ключ → значение» (строки, числа, флаги), а приложению нужен цельный объект [PlannerSettings].
+ * Поэтому здесь два перевода: объект раскладывается по ключам при записи и собирается обратно при чтении.
  * Перечисления (enum) хранятся по имени, время — в минутах от полуночи, дата — днём от 1970 года.
+ *
+ * Как добавить новую настройку:
+ * 1. поле со значением по умолчанию в [PlannerSettings] (модуль domain);
+ * 2. ключ в [Keys];
+ * 3. строчка записи в [update] и строчка чтения в `toSettings()`.
  */
 @Singleton
 class DataStoreSettingsRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
-) : SettingsRepository {
+    private val dataStore: DataStore<Preferences>,
+) : ISettingsRepository {
 
     private object Keys {
         val themeMode = stringPreferencesKey("theme_mode")
@@ -50,10 +51,15 @@ class DataStoreSettingsRepository @Inject constructor(
         val lastListId = longPreferencesKey("last_list_id")
     }
 
-    override val settings: Flow<PlannerSettings> = context.dataStore.data.map { it.toSettings() }
+    // Подписка, которая видит изменения в dataStore.data (после update()), которая преобразует данные (.map) и рассылает подписчикам на settings.
+    // catch: если файл не прочитался (ошибка диска — IOException), отдаём пустые настройки,
+    // то есть значения по умолчанию, вместо того чтобы уронить приложение. Другие ошибки пробрасываем дальше
+    override val settings: Flow<PlannerSettings> = dataStore.data
+        .catch { error -> if (error is IOException) emit(emptyPreferences()) else throw error }
+        .map { it.toSettings() }
 
     override suspend fun update(transform: (PlannerSettings) -> PlannerSettings) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             val new = transform(prefs.toSettings())
             prefs[Keys.themeMode] = new.themeMode.name
             prefs[Keys.darkVariant] = new.darkVariant.name
@@ -63,9 +69,12 @@ class DataStoreSettingsRepository @Inject constructor(
             prefs[Keys.dayStart] = new.dayStart.toMinutes()
             prefs[Keys.eveningStart] = new.eveningStart.toMinutes()
             val hidden = new.overdueBannerHiddenOn
-            if (hidden != null) prefs[Keys.bannerHiddenOn] = hidden.toEpochDay() else prefs.remove(Keys.bannerHiddenOn)
+            if (hidden != null) prefs[Keys.bannerHiddenOn] = hidden.toEpochDay() else prefs.remove(
+                Keys.bannerHiddenOn
+            )
             val lastList = new.lastListId
-            if (lastList != null) prefs[Keys.lastListId] = lastList else prefs.remove(Keys.lastListId)
+            if (lastList != null) prefs[Keys.lastListId] =
+                lastList else prefs.remove(Keys.lastListId)
         }
     }
 

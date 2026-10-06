@@ -8,8 +8,8 @@ import app.planner.common.TodayClock
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
-import app.planner.core.domain.repository.TaskListRepository
-import app.planner.core.domain.repository.TaskRepository
+import app.planner.core.domain.repository.ITaskListRepository
+import app.planner.core.domain.repository.ITaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,8 +45,8 @@ data class WeekUiState(
  */
 @HiltViewModel
 class WeekViewModel @Inject constructor(
-    private val tasks: TaskRepository,
-    listRepository: TaskListRepository,
+    private val tasks: ITaskRepository,
+    listRepository: ITaskListRepository,
     private val commands: TaskCommands,
     private val todayClock: TodayClock,
 ) : ViewModel() {

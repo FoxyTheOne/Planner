@@ -42,6 +42,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.planner.common.SlotSaver
+import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,56 +88,31 @@ fun WeekScreen(
     viewModel: WeekViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var planning by remember { mutableStateOf(false) }
-    var pickSlot by remember { mutableStateOf<Slot?>(null) }
-    var editing by remember { mutableStateOf<Task?>(null) }
+    var planning by rememberSaveable { mutableStateOf(false) }
+    var pickSlot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf<Slot?>(null) }
+    var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     // Для тех, кому неудобно перетаскивать: тап по задаче в лотке, потом тап по дню
-    var selectedFromTray by remember { mutableStateOf<Task?>(null) }
+    var selectedFromTray by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
 
-    Column(Modifier.fillMaxSize().padding(contentPadding)) {
-        WeekHeader(
-            weekStart = state.weekStart,
-            planning = planning,
-            onPrev = viewModel::previousWeek,
-            onNext = viewModel::nextWeek,
-            onThisWeek = viewModel::thisWeek,
-            onTogglePlanning = { planning = !planning; selectedFromTray = null },
-        )
-        LazyColumn(
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.weight(1f),
-        ) {
-            items(state.days, key = { it.toEpochDay() }) { day ->
-                DayBlock(
-                    day = day,
-                    isToday = day == state.today,
-                    tasks = state.tasksByDay[day].orEmpty(),
-                    state = state,
-                    planning = planning,
-                    onOpenDay = { onOpenDay(day) },
-                    onAdd = { pickSlot = Slot(day) },
-                    onToggle = viewModel::toggle,
-                    onEdit = { editing = it },
-                    onDrop = { taskId -> viewModel.dropOnDay(taskId, day) },
-                    onTapInPlanning = selectedFromTray?.let { task ->
-                        {
-                            viewModel.dropOnDay(task.id, day)
-                            selectedFromTray = null
-                        }
-                    },
-                )
-            }
-        }
-        if (planning) {
-            PlanningTray(
-                overdue = state.overdue,
-                unscheduled = state.unscheduled,
-                selected = selectedFromTray,
-                onSelect = { selectedFromTray = if (selectedFromTray?.id == it.id) null else it },
-            )
-        }
-    }
+    WeekContent(
+        state = state,
+        planning = planning,
+        selectedFromTray = selectedFromTray,
+        contentPadding = contentPadding,
+        onPrev = viewModel::previousWeek,
+        onNext = viewModel::nextWeek,
+        onThisWeek = viewModel::thisWeek,
+        onTogglePlanning = { planning = !planning; selectedFromTray = null },
+        onOpenDay = onOpenDay,
+        onAdd = { day -> pickSlot = Slot(day) },
+        onToggle = viewModel::toggle,
+        onEdit = { editing = it },
+        onDrop = { taskId, day ->
+            viewModel.dropOnDay(taskId, day)
+            selectedFromTray = null
+        },
+        onSelectFromTray = { selectedFromTray = if (selectedFromTray?.id == it.id) null else it },
+    )
 
     pickSlot?.let { slot ->
         PickTaskSheet(
@@ -156,6 +134,70 @@ fun WeekScreen(
             onSave = { task, newList -> viewModel.save(task, newList); editing = null },
             onDelete = { viewModel.delete(it); editing = null },
         )
+    }
+}
+
+/**
+ * Рисующая часть «Недели»: только разметка, без ViewModel и шторок.
+ * Режим планирования и выбранная в лотке задача приходят параметрами,
+ * поэтому превью может показать и обычный вид, и режим планирования (см. `WeekPreviews.kt`).
+ */
+@Composable
+fun WeekContent(
+    state: WeekUiState,
+    planning: Boolean,
+    selectedFromTray: Task?,
+    contentPadding: PaddingValues,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onThisWeek: () -> Unit,
+    onTogglePlanning: () -> Unit,
+    onOpenDay: (LocalDate) -> Unit,
+    onAdd: (LocalDate) -> Unit,
+    onToggle: (Task) -> Unit,
+    onEdit: (Task) -> Unit,
+    onDrop: (taskId: Long, day: LocalDate) -> Unit,
+    onSelectFromTray: (Task) -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(contentPadding)) {
+        WeekHeader(
+            weekStart = state.weekStart,
+            planning = planning,
+            onPrev = onPrev,
+            onNext = onNext,
+            onThisWeek = onThisWeek,
+            onTogglePlanning = onTogglePlanning,
+        )
+        LazyColumn(
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            items(state.days, key = { it.toEpochDay() }) { day ->
+                DayBlock(
+                    day = day,
+                    isToday = day == state.today,
+                    tasks = state.tasksByDay[day].orEmpty(),
+                    state = state,
+                    planning = planning,
+                    onOpenDay = { onOpenDay(day) },
+                    onAdd = { onAdd(day) },
+                    onToggle = onToggle,
+                    onEdit = onEdit,
+                    onDrop = { taskId -> onDrop(taskId, day) },
+                    // Выбрали задачу в лотке — тап по дню ставит её туда
+                    onTapInPlanning = selectedFromTray?.let { task -> { onDrop(task.id, day) } },
+                )
+            }
+        }
+        if (planning) {
+            PlanningTray(
+                overdue = state.overdue,
+                unscheduled = state.unscheduled,
+                selected = selectedFromTray,
+                onSelect = onSelectFromTray,
+            )
+        }
     }
 }
 
@@ -306,7 +348,7 @@ private fun PlanningTray(
     onSelect: (Task) -> Unit,
 ) {
     val paper = PlannerTheme.paper
-    var tab by remember { mutableIntStateOf(if (overdue.isNotEmpty()) 0 else 1) }
+    var tab by rememberSaveable { mutableIntStateOf(if (overdue.isNotEmpty()) 0 else 1) }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 2.dp) {
         Column {
             PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {

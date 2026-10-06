@@ -45,6 +45,7 @@ import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.DarkVariant
 import app.planner.core.domain.model.OverdueMode
+import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.ThemeMode
 import java.time.LocalDate
 
@@ -58,7 +59,6 @@ private const val DONATE_URL = "https://boosty.to/foxynest/donate"
  * Сами настройки хранятся в DataStore (см. `DataStoreSettingsRepository`), экран лишь
  * показывает текущие значения и отправляет изменения в [SettingsViewModel].
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -72,7 +72,6 @@ fun SettingsScreen(
     val resolver = LocalContext.current.contentResolver
     // Открывает ссылку в браузере (для кнопки «Поддержать»)
     val uriHandler = LocalUriHandler.current
-    val paper = PlannerTheme.paper
 
     // Системные окна выбора файла (Storage Access Framework). Приложению не нужно разрешение
     // на доступ ко всей памяти: пользователь сам выбирает, куда сохранить и что открыть.
@@ -84,6 +83,50 @@ fun SettingsScreen(
         if (uri != null) viewModel.readForRestore(resolver, uri)
     }
 
+    SettingsContent(
+        settings = settings,
+        showDonate = BuildConfig.SHOW_DONATE,
+        contentPadding = contentPadding,
+        onBack = onBack,
+        onUpdate = viewModel::update,
+        onExport = { exportLauncher.launch("planner-${LocalDate.now()}.json") },
+        onImport = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
+        onDonate = { uriHandler.openUri(DONATE_URL) },
+    )
+
+    pendingRestore?.let { snapshot ->
+        AlertDialog(
+            onDismissRequest = viewModel::cancelRestore,
+            title = { Text(stringResource(R.string.import_confirm_title)) },
+            text = { Text(stringResource(R.string.import_confirm_text, snapshot.tasks.size, snapshot.lists.count { !it.isInbox })) },
+            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text(stringResource(R.string.import_confirm_action)) } },
+            dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+}
+
+/**
+ * Рисующая часть настроек: только разметка. Файлы, ссылки и ViewModel остаются в [SettingsScreen],
+ * поэтому экран можно показать в превью (см. `SettingsPreviews.kt`).
+ *
+ * @param onUpdate изменить настройки: получает текущие, возвращает новые.
+ * @param showDonate показывать ли «Поддержать проект». В приложении это BuildConfig.SHOW_DONATE:
+ *   true в сборке для RuStore, false для Google Play — правила Play запрещают вести
+ *   пользователя на сторонние способы оплаты, кроме пожертвований на благотворительность.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SettingsContent(
+    settings: PlannerSettings,
+    showDonate: Boolean,
+    contentPadding: PaddingValues,
+    onBack: () -> Unit,
+    onUpdate: ((PlannerSettings) -> PlannerSettings) -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+    onDonate: () -> Unit,
+) {
+    val paper = PlannerTheme.paper
     Column(
         Modifier
             .fillMaxSize()
@@ -103,12 +146,12 @@ fun SettingsScreen(
                 PaperChip(
                     stringResource(R.string.overdue_mode_banner),
                     settings.overdueMode == OverdueMode.BANNER,
-                    { viewModel.update { it.copy(overdueMode = OverdueMode.BANNER) } },
+                    { onUpdate { it.copy(overdueMode = OverdueMode.BANNER) } },
                 )
                 PaperChip(
                     stringResource(R.string.overdue_mode_auto),
                     settings.overdueMode == OverdueMode.AUTO_MOVE_TO_TODAY,
-                    { viewModel.update { it.copy(overdueMode = OverdueMode.AUTO_MOVE_TO_TODAY) } },
+                    { onUpdate { it.copy(overdueMode = OverdueMode.AUTO_MOVE_TO_TODAY) } },
                 )
             }
             SettingTitle(stringResource(R.string.settings_return_after))
@@ -117,7 +160,7 @@ fun SettingsScreen(
                     PaperChip(
                         stringResource(R.string.days_short, days),
                         settings.returnAfterDays == days,
-                        { viewModel.update { it.copy(returnAfterDays = days) } },
+                        { onUpdate { it.copy(returnAfterDays = days) } },
                     )
                 }
             }
@@ -130,7 +173,7 @@ fun SettingsScreen(
                     ThemeMode.LIGHT to R.string.theme_light,
                     ThemeMode.DARK to R.string.theme_dark,
                 ).forEach { (mode, label) ->
-                    PaperChip(stringResource(label), settings.themeMode == mode, { viewModel.update { it.copy(themeMode = mode) } })
+                    PaperChip(stringResource(label), settings.themeMode == mode, { onUpdate { it.copy(themeMode = mode) } })
                 }
             }
             SettingTitle(stringResource(R.string.settings_dark_variant))
@@ -140,31 +183,27 @@ fun SettingsScreen(
                     DarkVariant.INK to R.string.dark_ink,
                     DarkVariant.BLACK to R.string.dark_black,
                 ).forEach { (variant, label) ->
-                    PaperChip(stringResource(label), settings.darkVariant == variant, { viewModel.update { it.copy(darkVariant = variant) } })
+                    PaperChip(stringResource(label), settings.darkVariant == variant, { onUpdate { it.copy(darkVariant = variant) } })
                 }
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { viewModel.update { it.copy(systemColors = !it.systemColors) } }
+                    .clickable { onUpdate { it.copy(systemColors = !it.systemColors) } }
                     .padding(vertical = 12.dp),
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_system_colors))
                     Text(stringResource(R.string.settings_system_colors_hint), color = paper.inkMuted, style = MaterialTheme.typography.bodySmall)
                 }
-                Switch(checked = settings.systemColors, onCheckedChange = { checked -> viewModel.update { it.copy(systemColors = checked) } })
+                Switch(checked = settings.systemColors, onCheckedChange = { checked -> onUpdate { it.copy(systemColors = checked) } })
             }
 
             SectionLabel(stringResource(R.string.settings_data), modifier = Modifier.padding(top = 8.dp))
-            ActionRow(Icons.Outlined.FileUpload, stringResource(R.string.export_file)) {
-                exportLauncher.launch("planner-${LocalDate.now()}.json")
-            }
+            ActionRow(Icons.Outlined.FileUpload, stringResource(R.string.export_file), onExport)
             DashedRule()
-            ActionRow(Icons.Outlined.FileDownload, stringResource(R.string.import_file)) {
-                importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
-            }
+            ActionRow(Icons.Outlined.FileDownload, stringResource(R.string.import_file), onImport)
             Text(
                 stringResource(R.string.backup_drive_soon),
                 color = paper.inkMuted,
@@ -172,30 +211,15 @@ fun SettingsScreen(
                 modifier = Modifier.padding(top = 8.dp),
             )
 
-            // BuildConfig.SHOW_DONATE задаётся во flavor в app/build.gradle.kts:
-            // true в сборке для RuStore, false для Google Play — правила Play запрещают
-            // вести пользователя на сторонние способы оплаты, кроме пожертвований на благотворительность
-            if (BuildConfig.SHOW_DONATE) {
+            if (showDonate) {
                 Text(
                     stringResource(R.string.support_text),
                     color = paper.inkMuted,
                     modifier = Modifier.padding(top = 32.dp),
                 )
-                ActionRow(Icons.Outlined.LocalCafe, stringResource(R.string.support_link)) {
-                    uriHandler.openUri(DONATE_URL)
-                }
+                ActionRow(Icons.Outlined.LocalCafe, stringResource(R.string.support_link), onDonate)
             }
         }
-    }
-
-    pendingRestore?.let { snapshot ->
-        AlertDialog(
-            onDismissRequest = viewModel::cancelRestore,
-            title = { Text(stringResource(R.string.import_confirm_title)) },
-            text = { Text(stringResource(R.string.import_confirm_text, snapshot.tasks.size, snapshot.lists.count { !it.isInbox })) },
-            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text(stringResource(R.string.import_confirm_action)) } },
-            dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.action_cancel)) } },
-        )
     }
 }
 

@@ -8,9 +8,10 @@ import app.planner.common.TodayClock
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
-import app.planner.core.domain.repository.SettingsRepository
-import app.planner.core.domain.repository.TaskListRepository
-import app.planner.core.domain.repository.TaskRepository
+import app.planner.core.domain.repository.ISettingsRepository
+import app.planner.core.domain.repository.ITaskListRepository
+import app.planner.core.domain.repository.ITaskRepository
+import app.planner.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -41,14 +42,14 @@ data class ListDetailUiState(
 @HiltViewModel
 class ListDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
-    tasks: TaskRepository,
-    private val listRepository: TaskListRepository,
-    private val settingsRepository: SettingsRepository,
+    tasks: ITaskRepository,
+    private val listRepository: ITaskListRepository,
+    private val settingsRepository: ISettingsRepository,
     private val commands: TaskCommands,
     todayClock: TodayClock,
 ) : ViewModel() {
 
-    private val listId: Long = checkNotNull(savedStateHandle.get<Long>(ARG_LIST_ID))
+    private val listId: Long = checkNotNull(savedStateHandle.get<Long>(Routes.ARG_LIST_ID))
 
     init {
         viewModelScope.launch { settingsRepository.update { it.copy(lastListId = listId) } }
@@ -78,9 +79,5 @@ class ListDetailViewModel @Inject constructor(
     fun deleteList(list: TaskList) = viewModelScope.launch {
         listRepository.delete(list)
         settingsRepository.update { if (it.lastListId == list.id) it.copy(lastListId = null) else it }
-    }
-
-    companion object {
-        const val ARG_LIST_ID = "listId"
     }
 }

@@ -62,7 +62,7 @@ interface TaskDao {
 
     // @Upsert = insert или update: если строки с таким id нет — вставит, есть — обновит
     @Upsert
-    suspend fun upsert(task: TaskEntity): Long
+    suspend fun addOrUpdate(task: TaskEntity): Long
 
     @Upsert
     suspend fun upsertAll(tasks: List<TaskEntity>)

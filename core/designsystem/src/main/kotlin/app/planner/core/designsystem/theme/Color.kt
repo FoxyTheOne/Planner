@@ -67,7 +67,14 @@ internal val LightPaper = PaperColors(
     labels = LightLabels,
 )
 
-private fun darkPaper(paper: Color, ink: Color, muted: Color, faint: Color, rule: Color, highlight: Color) =
+private fun darkPaper(
+    paper: Color,
+    ink: Color,
+    muted: Color,
+    faint: Color,
+    rule: Color,
+    highlight: Color
+) =
     PaperColors(
         paper = paper,
         ink = ink,

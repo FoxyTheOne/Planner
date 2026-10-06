@@ -5,7 +5,7 @@ import app.planner.core.data.db.PlannerDatabase
 import app.planner.core.data.db.toDomain
 import app.planner.core.data.db.toEntity
 import app.planner.core.domain.model.TaskList
-import app.planner.core.domain.repository.TaskListRepository
+import app.planner.core.domain.repository.ITaskListRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -20,7 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class RoomTaskListRepository @Inject constructor(
     private val db: PlannerDatabase,
-) : TaskListRepository {
+) : ITaskListRepository {
 
     private val dao = db.taskListDao()
 
@@ -42,10 +42,21 @@ class RoomTaskListRepository @Inject constructor(
     }
 
     /**
-     * id «Входящих». Список создаётся при первом обращении, поэтому заранее заводить его не нужно.
-     * Название в базе пустое: на экране оно берётся из ресурсов по флагу isInbox,
-     * чтобы менялось вместе с языком телефона.
+     * id служебного списка «Без списка» (в коде — inbox). Это СПИСОК, а не задача.
+     *
+     * Список создаётся при первом обращении, поэтому заранее заводить его не нужно:
+     * - dao.inboxId() ищет его в базе и возвращает id или null, если его ещё нет;
+     * - `?:` («элвис») — «если слева null, сделай то, что справа»: создаём список
+     *   и возвращаем его новый id (upsert новой строки возвращает её id).
+     *
+     * Название в базе пустое: на экране оно берётся из ресурсов по флагу isInbox
+     * («Без списка» / «Без спіса» / «No list»), чтобы менялось вместе с языком телефона.
+     *
+     * withTransaction: «найти, а если нет — создать» — это две операции. Если два места
+     * спросят inboxId одновременно (при первом запуске так и бывает), без транзакции оба
+     * могли бы не найти список и создать два. Транзакция выполняет их по очереди.
      */
-    override suspend fun inboxId(): Long =
+    override suspend fun inboxId(): Long = db.withTransaction {
         dao.inboxId() ?: dao.upsert(TaskList(name = "", isInbox = true).toEntity())
+    }
 }

@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Окно до отрисовки Compose: цвет бумаги, чтобы не было белой вспышки -->
+    <!--
+        Тема заставки (splash screen) — её Android показывает в первые мгновения запуска,
+        пока приложение загружается. Фон — цвет бумаги, в центре — иконка приложения.
+        Заставка держится, пока не прочитаны настройки (см. MainActivity), а потом
+        окно переключается на основную тему postSplashScreenTheme.
+    -->
+    <style name="Theme.Planner.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/paper</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.Planner</item>
+    </style>
+
+    <!-- Основная тема окна. Сам интерфейс рисует Compose (PlannerTheme), здесь только фон окна -->
     <style name="Theme.Planner" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/paper</item>
     </style>

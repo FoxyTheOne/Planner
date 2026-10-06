@@ -50,37 +50,64 @@ fun OverdueSheet(
     onNotNow: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
-            Text(stringResource(R.string.overdue_title), style = MaterialTheme.typography.titleLarge)
+        OverdueSheetBody(
+            overdue = overdue,
+            today = today,
+            onSchedule = onSchedule,
+            onReturnToList = onReturnToList,
+            onAllToToday = onAllToToday,
+            onAllBack = onAllBack,
+            onNotNow = onNotNow,
+        )
+    }
+}
 
-            LazyColumn(Modifier.heightIn(max = 440.dp)) {
-                OverdueGroup.entries.forEach { group ->
-                    val groupTasks = overdue[group].orEmpty()
-                    if (groupTasks.isNotEmpty()) {
-                        item(key = "g_$group") { SectionLabel(stringResource(group.labelRes())) }
-                        items(groupTasks, key = { it.id }) { task ->
-                            OverdueItem(
-                                task = task,
-                                onToday = { onSchedule(task, Slot(today, task.partOfDay)) },
-                                onTomorrow = { onSchedule(task, Slot(today.plusDays(1), task.partOfDay)) },
-                                onBack = { onReturnToList(task) },
-                            )
-                        }
+/**
+ * Содержимое шторки без выезжающей рамки ModalBottomSheet.
+ * Вынесено отдельно, чтобы его можно было показать в превью Android Studio:
+ * сама шторка — всплывающее окно, а такие окна обычное превью не рисует.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OverdueSheetBody(
+    overdue: Map<OverdueGroup, List<Task>>,
+    today: LocalDate,
+    onSchedule: (Task, Slot) -> Unit,
+    onReturnToList: (Task) -> Unit,
+    onAllToToday: () -> Unit,
+    onAllBack: () -> Unit,
+    onNotNow: () -> Unit,
+) {
+    Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
+        Text(stringResource(R.string.overdue_title), style = MaterialTheme.typography.titleLarge)
+
+        LazyColumn(Modifier.heightIn(max = 440.dp)) {
+            OverdueGroup.entries.forEach { group ->
+                val groupTasks = overdue[group].orEmpty()
+                if (groupTasks.isNotEmpty()) {
+                    item(key = "g_$group") { SectionLabel(stringResource(group.labelRes())) }
+                    items(groupTasks, key = { it.id }) { task ->
+                        OverdueItem(
+                            task = task,
+                            onToday = { onSchedule(task, Slot(today, task.partOfDay)) },
+                            onTomorrow = { onSchedule(task, Slot(today.plusDays(1), task.partOfDay)) },
+                            onBack = { onReturnToList(task) },
+                        )
                     }
                 }
             }
+        }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                OutlinedButton(onClick = onAllToToday, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.overdue_all_today), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                OutlinedButton(onClick = onAllBack, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.overdue_all_back), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+            OutlinedButton(onClick = onAllToToday, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.overdue_all_today), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            TextButton(onClick = onNotNow, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                Text(stringResource(R.string.overdue_not_now))
+            OutlinedButton(onClick = onAllBack, modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.overdue_all_back), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+        }
+        TextButton(onClick = onNotNow, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text(stringResource(R.string.overdue_not_now))
         }
     }
 }

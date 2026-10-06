@@ -4,12 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarViewWeek
-import androidx.compose.material.icons.outlined.Checklist
-import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -26,15 +20,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -43,169 +35,236 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.planner.R
-import app.planner.common.DailyMaintenance
-import app.planner.common.MessageBus
-import app.planner.common.TodayClock
+import app.planner.common.UiMessage
 import app.planner.common.resolve
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.feature.lists.ListDetailScreen
-import app.planner.feature.lists.ListDetailViewModel
 import app.planner.feature.lists.ListsOverviewScreen
 import app.planner.feature.settings.SettingsScreen
 import app.planner.feature.today.TodayScreen
 import app.planner.feature.week.DayScreen
 import app.planner.feature.week.WeekScreen
-import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import javax.inject.Inject
 
-/** Вкладки нижней панели: адрес экрана, подпись и иконка. */
-private enum class Tab(val route: String, val label: Int, val icon: ImageVector) {
-    TODAY("today", R.string.nav_today, Icons.Outlined.WbSunny),
-    WEEK("week", R.string.nav_week, Icons.Outlined.CalendarViewWeek),
-    // У «Списков» внутри два экрана (оглавление и список), поэтому адрес вкладки — адрес вложенного графа
-    LISTS("lists_tab", R.string.nav_lists, Icons.Outlined.Checklist),
-    GOALS("goals", R.string.nav_goals, Icons.Outlined.Flag),
-    DIARY("diary", R.string.nav_diary, Icons.Outlined.EditNote),
-}
-
-private const val ROUTE_DAY = "day/{epochDay}"
-private const val ROUTE_SETTINGS = "settings"
-private const val ROUTE_LISTS_OVERVIEW = "lists"
-private const val ROUTE_LIST_DETAIL = "list/{${ListDetailViewModel.ARG_LIST_ID}}"
-
-/**
- * ViewModel всего приложения (а не одного экрана): запускает ежедневную уборку хвостов
- * и отдаёт общую шину сообщений, из которой [PlannerApp] показывает Snackbar с «Отменить».
- */
-@HiltViewModel
-class AppViewModel @Inject constructor(
-    val messages: MessageBus,
-    maintenance: DailyMaintenance,
-    todayClock: TodayClock,
-) : ViewModel() {
-    init {
-        // Каждый новый день — разбор хвостов: забытое возвращается в списки
-        viewModelScope.launch { todayClock.todayFlow.collect { maintenance.run(it) } }
-    }
-
-    fun runUndo(undo: suspend () -> Unit) = viewModelScope.launch { undo() }
-}
-
-/**
- * Каркас приложения: нижняя панель с пятью вкладками, общий Snackbar и навигация между экранами.
+/*
+ * КАРКАС ПРИЛОЖЕНИЯ И НАВИГАЦИЯ
  *
- * - Scaffold — стандартная «рама» экрана Material 3: места для панели навигации и Snackbar,
- *   а в `padding` — отступы, чтобы содержимое не залезало под них.
- * - NavHost — «переключатель экранов»: по адресу (route) показывает нужный экран
- *   и помнит историю для кнопки «Назад».
- * - Нижняя панель видна на главных вкладках (включая экран одного списка);
- *   на экране дня и в настройках скрыта.
+ * В приложении одна Activity, а экраны — composable-функции. «Перейти на другой экран» —
+ * значит попросить NavHost нарисовать другую функцию на месте текущей.
+ *
+ * Главные действующие лица:
+ * - NavController (navController) — «пульт» навигации. Хранит историю экранов (back stack)
+ *   и умеет: navigate("адрес") — открыть экран поверх текущего; popBackStack() — вернуться назад.
+ * - NavHost — «рамка», в которой рисуется текущий экран, и одновременно карта:
+ *   какой адрес какой функции соответствует (см. PlannerNavHost ниже).
+ * - Scaffold — рама Material 3 вокруг экранов: снизу панель вкладок, над ней место для Snackbar.
+ *
+ * Адреса экранов описаны в Routes.kt.
+ */
+
+/**
+ * Каркас всего приложения: Scaffold с нижней панелью вкладок, общий Snackbar и NavHost с экранами.
+ *
+ * @param messages сообщения для Snackbar («Перенесено на завтра · Отменить») со всех экранов.
+ * @param onUndo что сделать, когда в Snackbar нажали «Отменить».
  */
 @Composable
-fun PlannerApp(viewModel: AppViewModel = hiltViewModel()) {
+fun PlannerApp(
+    messages: SharedFlow<UiMessage>,
+    onUndo: (suspend () -> Unit) -> Unit,
+) {
+    // rememberNavController создаёт «пульт» навигации один раз и помнит его между перерисовками
     val navController = rememberNavController()
+
+    // Состояние Snackbar: какое сообщение сейчас показано. SnackbarHost (ниже) рисует его,
+    // а SnackbarMessages кладёт в него новые сообщения
     val snackbar = remember { SnackbarHostState() }
-    val resources = LocalContext.current.resources
-    val undoLabel = stringResource(R.string.action_undo)
+    SnackbarMessages(messages = messages, snackbar = snackbar, onUndo = onUndo)
 
-    LaunchedEffect(Unit) {
-        viewModel.messages.messages.collect { message ->
-            // Новое сообщение заменяет старое: «Отменить» относится к последнему действию
-            snackbar.currentSnackbarData?.dismiss()
-            launch {
-                val result = snackbar.showSnackbar(
-                    message = message.text.resolve(resources),
-                    actionLabel = if (message.undo != null) undoLabel else null,
-                    duration = SnackbarDuration.Short,
-                )
-                if (result == SnackbarResult.ActionPerformed) message.undo?.let(viewModel::runUndo)
-            }
-        }
-    }
-
+    // Какой экран сейчас открыт. currentBackStackEntryAsState — «подписка»: при каждом переходе
+    // эта переменная меняется, и Compose перерисовывает панель вкладок (подсветка, видимость)
     val backStack by navController.currentBackStackEntryAsState()
     val destination = backStack?.destination
-    val showBar = Tab.entries.any { tab -> destination?.hierarchy?.any { it.route == tab.route } == true }
+
+    // Показывать ли панель вкладок. Здесь перечислено, где панель ЕСТЬ, а не где её нет:
+    // «открытый экран находится внутри какой-нибудь вкладки из Tab?»
+    // - «Сегодня» (адрес "today") — да, это вкладка TODAY → панель видна;
+    // - один список ("list/{listId}") — да, он внутри вкладки LISTS ("lists_tab") → видна;
+    // - настройки ("settings") и день ("day/{epochDay}") — ни в одной вкладке их нет → скрыта.
+    // Новый экран вне вкладок (например, будущий «Обзор недели») тоже будет без панели — сам.
+    val showBar = Tab.entries.any { tab -> destination.isInside(tab) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            if (showBar) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
-                    Tab.entries.forEach { tab ->
-                        val selected = destination?.hierarchy?.any { it.route == tab.route } == true
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                if (selected && tab == Tab.LISTS) {
-                                    // Повторное нажатие на открытую вкладку «Списки» — назад к оглавлению
-                                    navController.popBackStack(ROUTE_LISTS_OVERVIEW, inclusive = false)
-                                } else {
-                                    // Переход на вкладку: saveState/restoreState запоминают, где человек
-                                    // был на каждой вкладке, и возвращают туда же
-                                    navController.navigate(tab.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            },
-                            icon = { Icon(tab.icon, null) },
-                            label = { Text(stringResource(tab.label)) },
-                            colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                unselectedIconColor = PlannerTheme.paper.inkMuted,
-                                unselectedTextColor = PlannerTheme.paper.inkMuted,
-                            ),
-                        )
-                    }
-                }
-            }
+            if (showBar) BottomTabs(navController = navController, destination = destination)
         },
     ) { padding ->
-        NavHost(navController, startDestination = Tab.TODAY.route, modifier = Modifier.fillMaxSize()) {
-            composable(Tab.TODAY.route) {
-                TodayScreen(onOpenSettings = { navController.navigate(ROUTE_SETTINGS) }, contentPadding = padding)
-            }
-            composable(Tab.WEEK.route) {
-                WeekScreen(onOpenDay = { navController.navigate("day/${it.toEpochDay()}") }, contentPadding = padding)
-            }
-            // Вложенный граф: оглавление списков → конкретный список. Нижняя панель видна на обоих
-            navigation(route = Tab.LISTS.route, startDestination = ROUTE_LISTS_OVERVIEW) {
-                composable(ROUTE_LISTS_OVERVIEW) {
-                    ListsOverviewScreen(
-                        onOpenList = { id -> navController.navigate("list/$id") },
-                        contentPadding = padding,
-                    )
-                }
-                composable(
-                    ROUTE_LIST_DETAIL,
-                    arguments = listOf(navArgument(ListDetailViewModel.ARG_LIST_ID) { type = NavType.LongType }),
-                ) {
-                    ListDetailScreen(onBack = navController::popBackStack, contentPadding = padding)
-                }
-            }
-            composable(Tab.GOALS.route) { ComingSoon(R.string.nav_goals, R.string.coming_soon_goals, padding) }
-            composable(Tab.DIARY.route) { ComingSoon(R.string.nav_diary, R.string.coming_soon_diary, padding) }
-            composable(ROUTE_DAY, arguments = listOf(navArgument("epochDay") { type = NavType.LongType })) { entry ->
-                DayScreen(
-                    date = LocalDate.ofEpochDay(entry.arguments!!.getLong("epochDay")),
-                    onBack = navController::popBackStack,
-                    contentPadding = padding,
+        // padding — отступы, которые Scaffold просит соблюдать: снизу высота панели вкладок,
+        // сверху — строка состояния телефона. Каждый экран получает их как contentPadding
+        PlannerNavHost(navController = navController, padding = padding)
+    }
+}
+
+/**
+ * Показывает сообщения из [messages] в Snackbar — по одному, новое вместо старого.
+ *
+ * Здесь ничего не рисуется: это «эффект», то есть код, который просто работает в фоне,
+ * пока каркас приложения на экране.
+ */
+@Composable
+private fun SnackbarMessages(
+    messages: SharedFlow<UiMessage>,
+    snackbar: SnackbarHostState,
+    onUndo: (suspend () -> Unit) -> Unit,
+) {
+    // Строки берём заранее: внутри LaunchedEffect функции вроде stringResource вызывать нельзя
+    val resources = LocalContext.current.resources
+    val undoLabel = stringResource(R.string.action_undo)
+
+    // LaunchedEffect запускает корутину, когда эта функция впервые появляется на экране,
+    // и отменяет её, когда функция исчезает. Unit — «запустить один раз и не перезапускать».
+    LaunchedEffect(Unit) {
+        // collect — «жди сообщения и на каждое выполняй блок». Этот цикл не заканчивается:
+        // он ждёт новые сообщения всё время, пока приложение открыто.
+        messages.collect { message ->
+            // 1. Если какое-то сообщение ещё на экране — убираем его.
+            //    Иначе новое встало бы в очередь и появилось только через несколько секунд,
+            //    а «Отменить» должно относиться к последнему действию человека.
+            snackbar.currentSnackbarData?.dismiss()
+
+            // 2. Показываем новое. showSnackbar «ждёт», пока сообщение не исчезнет
+            //    (само через несколько секунд, по кнопке или после dismiss), и только потом
+            //    возвращает результат. Поэтому запускаем его в отдельной корутине (launch):
+            //    иначе collect не смог бы принять следующее сообщение, пока висит текущее.
+            launch {
+                val result = snackbar.showSnackbar(
+                    message = message.text.resolve(resources),
+                    // Кнопка «Отменить» — только если у сообщения есть что отменять
+                    actionLabel = if (message.undo != null) undoLabel else null,
+                    duration = SnackbarDuration.Short,
                 )
-            }
-            composable(ROUTE_SETTINGS) {
-                SettingsScreen(onBack = navController::popBackStack, contentPadding = padding)
+                // 3. ActionPerformed — нажали «Отменить». Тогда выполняем отмену.
+                //    message.undo?.let(onUndo) — «если undo не null, передай его в onUndo».
+                if (result == SnackbarResult.ActionPerformed) message.undo?.let(onUndo)
             }
         }
     }
 }
 
-/** Разделы следующих этапов: цели и дневник. */
+/** Нижняя панель с пятью вкладками. */
+@Composable
+private fun BottomTabs(navController: NavHostController, destination: NavDestination?) {
+    NavigationBar(containerColor = MaterialTheme.colorScheme.background, tonalElevation = 0.dp) {
+        Tab.entries.forEach { tab ->
+            val selected = destination.isInside(tab)
+            NavigationBarItem(
+                selected = selected,
+                onClick = {
+                    if (selected && tab == Tab.LISTS) {
+                        // Повторное нажатие на открытую вкладку «Списки» — назад к оглавлению.
+                        // popBackStack(адрес, inclusive = false) убирает из истории всё,
+                        // что открыто поверх этого адреса, а сам адрес оставляет
+                        navController.popBackStack(Routes.LISTS_OVERVIEW, inclusive = false)
+                    } else {
+                        navController.navigate(tab.route) {
+                            // Стандартный рецепт для вкладок:
+                            // - popUpTo(начальный экран) — не копить историю: если пройти
+                            //   Сегодня → Неделя → Списки, «Назад» вернёт на «Сегодня», а не по всем вкладкам;
+                            // - saveState / restoreState — запомнить, где человек был внутри вкладки
+                            //   (например, в списке «Книги»), и вернуть туда же при возврате на вкладку;
+                            // - launchSingleTop — не открывать второй экземпляр той же вкладки.
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                },
+                icon = { Icon(tab.icon, null) },
+                label = { Text(stringResource(tab.label)) },
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    unselectedIconColor = PlannerTheme.paper.inkMuted,
+                    unselectedTextColor = PlannerTheme.paper.inkMuted,
+                ),
+            )
+        }
+    }
+}
+
+/**
+ * Карта экранов: какой адрес какой функции соответствует.
+ *
+ * `composable("адрес") { ... }` — «когда открыт этот адрес, нарисуй это».
+ * Каждому экрану передаём, что делать при переходах (например, onBack = popBackStack) —
+ * сами экраны про навигацию ничего не знают, так их проще переиспользовать и показывать в превью.
+ */
+@Composable
+private fun PlannerNavHost(navController: NavHostController, padding: PaddingValues) {
+    NavHost(navController, startDestination = Tab.TODAY.route, modifier = Modifier.fillMaxSize()) {
+        composable(Tab.TODAY.route) {
+            TodayScreen(onOpenSettings = { navController.navigate(Routes.SETTINGS) }, contentPadding = padding)
+        }
+
+        composable(Tab.WEEK.route) {
+            WeekScreen(onOpenDay = { date -> navController.navigate(Routes.day(date)) }, contentPadding = padding)
+        }
+
+        // Экран дня: адрес "day/{epochDay}". В arguments объясняем навигации, что в {epochDay}
+        // лежит число (LongType) — тогда она сама вынет его из адреса "day/20720" и положит в entry.arguments
+        composable(
+            Routes.DAY,
+            arguments = listOf(navArgument(Routes.ARG_EPOCH_DAY) { type = NavType.LongType }),
+        ) { entry ->
+            val epochDay = entry.arguments!!.getLong(Routes.ARG_EPOCH_DAY)
+            DayScreen(
+                date = LocalDate.ofEpochDay(epochDay),
+                onBack = navController::popBackStack,
+                contentPadding = padding,
+            )
+        }
+
+        // Вкладка «Списки» — вложенный граф: группа из двух экранов под одним адресом вкладки.
+        // Нижняя панель считает вкладку открытой на обоих (см. isInside)
+        navigation(route = Tab.LISTS.route, startDestination = Routes.LISTS_OVERVIEW) {
+            composable(Routes.LISTS_OVERVIEW) {
+                ListsOverviewScreen(
+                    onOpenList = { id -> navController.navigate(Routes.list(id)) },
+                    contentPadding = padding,
+                )
+            }
+            // id списка из адреса "list/4" навигация положит в аргумент listId,
+            // а ListDetailViewModel достанет его через SavedStateHandle
+            composable(
+                Routes.LIST_DETAIL,
+                arguments = listOf(navArgument(Routes.ARG_LIST_ID) { type = NavType.LongType }),
+            ) {
+                ListDetailScreen(onBack = navController::popBackStack, contentPadding = padding)
+            }
+        }
+
+        composable(Tab.GOALS.route) { ComingSoon(R.string.nav_goals, R.string.coming_soon_goals, padding) }
+        composable(Tab.DIARY.route) { ComingSoon(R.string.nav_diary, R.string.coming_soon_diary, padding) }
+
+        composable(Routes.SETTINGS) {
+            SettingsScreen(onBack = navController::popBackStack, contentPadding = padding)
+        }
+    }
+}
+
+/**
+ * Находится ли открытый экран внутри вкладки [tab].
+ * hierarchy — экран и все группы, в которые он вложен: для экрана списка это
+ * "list/{listId}" и "lists_tab", поэтому вкладка «Списки» подсвечена и там.
+ */
+private fun NavDestination?.isInside(tab: Tab): Boolean =
+    this?.hierarchy?.any { it.route == tab.route } == true
+
+/** Заглушка для разделов следующих этапов: цели и дневник. */
 @Composable
 private fun ComingSoon(title: Int, text: Int, padding: PaddingValues) {
     Column(Modifier.fillMaxSize().padding(padding).padding(20.dp)) {

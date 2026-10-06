@@ -30,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.planner.common.TaskListSaver
+import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,7 +62,6 @@ import app.planner.core.domain.model.TaskList
  *
  * @param onOpenList открыть список (переход на экран [ListDetailScreen]).
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ListsOverviewScreen(
     onOpenList: (Long) -> Unit,
@@ -68,26 +69,71 @@ fun ListsOverviewScreen(
     viewModel: ListsOverviewViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var editingList by remember { mutableStateOf<TaskList?>(null) }
-    var newTask by remember { mutableStateOf<Task?>(null) }
-    val paper = PlannerTheme.paper
+    var editingList by rememberSaveable(stateSaver = TaskListSaver) { mutableStateOf<TaskList?>(null) }
+    var newTask by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
 
     // LaunchedEffect(Unit) выполняется один раз, когда экран появляется
     LaunchedEffect(Unit) {
         viewModel.listToRestore()?.let(onOpenList)
     }
 
+    ListsOverviewContent(
+        state = state,
+        contentPadding = contentPadding,
+        onQueryChange = viewModel::setQuery,
+        onOpenList = onOpenList,
+        onEditList = { editingList = it },
+        onNewList = { editingList = TaskList(name = "", color = nextListColor(state.allLists)) },
+        onAddTask = { newTask = Task(title = "") },
+    )
+
+    newTask?.let { task ->
+        TaskEditorSheet(
+            initial = task,
+            lists = state.allLists,
+            today = state.today,
+            onDismiss = { newTask = null },
+            onSave = { t, newList -> viewModel.saveTask(t, newList); newTask = null },
+        )
+    }
+    editingList?.let { list ->
+        ListDialog(
+            initial = list,
+            onDismiss = { editingList = null },
+            // Новый список сразу открываем — чтобы можно было начать его заполнять
+            onSave = { viewModel.saveList(it) { id -> if (list.id == 0L) onOpenList(id) }; editingList = null },
+            onDelete = { viewModel.deleteList(it); editingList = null },
+        )
+    }
+}
+
+/**
+ * Рисующая часть оглавления: только разметка, без ViewModel и диалогов.
+ * Её показывает превью в Android Studio (см. `ListsPreviews.kt`).
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun ListsOverviewContent(
+    state: ListsOverviewUiState,
+    contentPadding: PaddingValues,
+    onQueryChange: (String) -> Unit,
+    onOpenList: (Long) -> Unit,
+    onEditList: (TaskList) -> Unit,
+    onNewList: () -> Unit,
+    onAddTask: () -> Unit,
+) {
+    val paper = PlannerTheme.paper
     Box(Modifier.fillMaxSize().padding(contentPadding)) {
         LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp)) {
             item {
                 Text(stringResource(R.string.nav_lists), style = MaterialTheme.typography.headlineMedium)
                 OutlinedTextField(
                     value = state.query,
-                    onValueChange = viewModel::setQuery,
+                    onValueChange = onQueryChange,
                     leadingIcon = { Icon(Icons.Outlined.Search, null) },
                     trailingIcon = {
                         if (state.query.isNotEmpty()) {
-                            IconButton(onClick = { viewModel.setQuery("") }) {
+                            IconButton(onClick = { onQueryChange("") }) {
                                 Icon(Icons.Outlined.Close, stringResource(R.string.cd_clear_search))
                             }
                         }
@@ -105,7 +151,7 @@ fun ListsOverviewScreen(
                         row = row,
                         onClick = { onOpenList(row.list.id) },
                         // Долгое нажатие — быстрый путь к переименованию, основной — карандаш внутри списка
-                        onLongClick = { if (!row.list.isInbox) editingList = row.list },
+                        onLongClick = { if (!row.list.isInbox) onEditList(row.list) },
                     )
                 }
                 item {
@@ -113,7 +159,7 @@ fun ListsOverviewScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { editingList = TaskList(name = "", color = nextListColor(state.allLists)) }
+                            .clickable(onClick = onNewList)
                             .padding(vertical = 14.dp),
                     ) {
                         Icon(Icons.Outlined.Add, null, tint = paper.inkMuted, modifier = Modifier.size(20.dp))
@@ -149,31 +195,12 @@ fun ListsOverviewScreen(
         }
 
         ExtendedFloatingActionButton(
-            onClick = { newTask = Task(title = "") },
+            onClick = onAddTask,
             icon = { Icon(Icons.Outlined.Add, null) },
             text = { Text(stringResource(R.string.action_new_task)) },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-        )
-    }
-
-    newTask?.let { task ->
-        TaskEditorSheet(
-            initial = task,
-            lists = state.allLists,
-            today = state.today,
-            onDismiss = { newTask = null },
-            onSave = { t, newList -> viewModel.saveTask(t, newList); newTask = null },
-        )
-    }
-    editingList?.let { list ->
-        ListDialog(
-            initial = list,
-            onDismiss = { editingList = null },
-            // Новый список сразу открываем — чтобы можно было начать его заполнять
-            onSave = { viewModel.saveList(it) { id -> if (list.id == 0L) onOpenList(id) }; editingList = null },
-            onDelete = { viewModel.deleteList(it); editingList = null },
         )
     }
 }

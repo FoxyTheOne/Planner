@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Доступ к настройкам. Реализация — `DataStoreSettingsRepository` в модуле `data`.
  */
-interface SettingsRepository {
+interface ISettingsRepository {
     /** Текущие настройки; присылает новое значение при каждом изменении. */
     val settings: Flow<PlannerSettings>
 

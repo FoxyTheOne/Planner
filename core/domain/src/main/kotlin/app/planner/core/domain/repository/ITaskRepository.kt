@@ -2,7 +2,6 @@ package app.planner.core.domain.repository
 
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
-import app.planner.core.domain.model.TaskList
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -16,7 +15,7 @@ import java.time.LocalDate
  * `Flow` — поток значений, который присылает новый список при каждом изменении данных.
  * `suspend` — функция, которая может «подождать» (работа с диском), не блокируя экран.
  */
-interface TaskRepository {
+interface ITaskRepository {
     /** Задачи с датой в промежутке [from]..[to] включительно — для «Сегодня» и «Недели». */
     fun observeTasksBetween(from: LocalDate, to: LocalDate): Flow<List<Task>>
 
@@ -38,7 +37,7 @@ interface TaskRepository {
     suspend fun getTask(id: Long): Task?
 
     /** Создать (id = 0) или сохранить задачу. Задача без списка попадает во «Входящие». Возвращает id. */
-    suspend fun upsert(task: Task): Long
+    suspend fun addOrUpdate(task: Task): Long
     suspend fun delete(task: Task)
     suspend fun setDone(id: Long, done: Boolean)
 
@@ -59,20 +58,4 @@ interface TaskRepository {
 
     /** Задачи без списка переселяются во «Входящие», чтобы ничего не потерялось. */
     suspend fun moveOrphansToInbox()
-}
-
-/**
- * Что приложение умеет делать со списками «Когда-нибудь».
- * Реализация — `RoomTaskListRepository` в модуле `data`.
- */
-interface TaskListRepository {
-    /** Все списки; «Входящие» — первыми. */
-    fun observeLists(): Flow<List<TaskList>>
-    suspend fun upsert(list: TaskList): Long
-
-    /** Удалить список; его задачи переедут во «Входящие». Сами «Входящие» не удаляются. */
-    suspend fun delete(list: TaskList)
-
-    /** id системного списка «Входящие» (создаётся при первом обращении). */
-    suspend fun inboxId(): Long
 }

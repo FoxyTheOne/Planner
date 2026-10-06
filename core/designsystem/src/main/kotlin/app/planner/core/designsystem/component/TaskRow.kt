@@ -103,7 +103,9 @@ fun TaskRow(
             )
         }
         if (labelColor != null) {
-            Box(Modifier.size(7.dp).background(labelColor, CircleShape))
+            Box(Modifier
+                .size(7.dp)
+                .background(labelColor, CircleShape))
         }
         trailing?.invoke()
     }
@@ -123,7 +125,9 @@ fun PaperCheckbox(checked: Boolean, onToggle: () -> Unit, description: String? =
             // Зона нажатия 40dp, сам квадрат — 18dp
             .size(40.dp)
             .clickable(role = Role.Checkbox, onClick = onToggle)
-            .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
+            .then(if (description != null) Modifier.semantics {
+                contentDescription = description
+            } else Modifier),
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -134,22 +138,38 @@ fun PaperCheckbox(checked: Boolean, onToggle: () -> Unit, description: String? =
                     else Modifier.border(1.2.dp, paper.inkMuted, shape),
                 ),
         ) {
-            if (checked) Icon(Icons.Rounded.Check, null, tint = paper.paper, modifier = Modifier.size(14.dp))
+            if (checked) Icon(
+                Icons.Rounded.Check,
+                null,
+                tint = paper.paper,
+                modifier = Modifier.size(14.dp)
+            )
         }
     }
 }
 
 /** «утро», «день», «вечер» — подпись раздела курсивом. */
 @Composable
-fun SectionLabel(text: String, modifier: Modifier = Modifier, color: Color = PlannerTheme.paper.inkMuted) {
-    Text(text, style = SectionLabelStyle, color = color, modifier = modifier.padding(top = 14.dp, bottom = 2.dp))
+fun SectionLabel(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = PlannerTheme.paper.inkMuted
+) {
+    Text(
+        text,
+        style = SectionLabelStyle,
+        color = color,
+        modifier = modifier.padding(top = 14.dp, bottom = 2.dp)
+    )
 }
 
 /** Пунктирная линовка между строками. */
 @Composable
 fun DashedRule(modifier: Modifier = Modifier) {
     val color = PlannerTheme.paper.rule
-    Canvas(modifier.fillMaxWidth().height(1.dp)) {
+    Canvas(modifier
+        .fillMaxWidth()
+        .height(1.dp)) {
         drawLine(
             color = color,
             start = Offset(0f, 0f),

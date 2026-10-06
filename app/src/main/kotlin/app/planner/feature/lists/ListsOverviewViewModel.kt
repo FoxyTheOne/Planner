@@ -6,9 +6,9 @@ import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
-import app.planner.core.domain.repository.SettingsRepository
-import app.planner.core.domain.repository.TaskListRepository
-import app.planner.core.domain.repository.TaskRepository
+import app.planner.core.domain.repository.ISettingsRepository
+import app.planner.core.domain.repository.ITaskListRepository
+import app.planner.core.domain.repository.ITaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -54,9 +54,9 @@ class ListsLaunchMemory @Inject constructor() {
  */
 @HiltViewModel
 class ListsOverviewViewModel @Inject constructor(
-    tasks: TaskRepository,
-    private val listRepository: TaskListRepository,
-    private val settingsRepository: SettingsRepository,
+    tasks: ITaskRepository,
+    private val listRepository: ITaskListRepository,
+    private val settingsRepository: ISettingsRepository,
     private val commands: TaskCommands,
     private val launchMemory: ListsLaunchMemory,
     todayClock: TodayClock,

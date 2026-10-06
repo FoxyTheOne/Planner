@@ -11,7 +11,7 @@ import app.planner.common.UiText
 import app.planner.core.data.backup.BackupManager
 import app.planner.core.data.backup.BackupSnapshot
 import app.planner.core.domain.model.PlannerSettings
-import app.planner.core.domain.repository.SettingsRepository
+import app.planner.core.domain.repository.ISettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +35,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository,
+    private val settingsRepository: ISettingsRepository,
     private val backup: BackupManager,
     private val messages: MessageBus,
 ) : ViewModel() {

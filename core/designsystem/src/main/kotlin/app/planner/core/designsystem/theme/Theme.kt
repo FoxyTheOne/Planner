@@ -60,6 +60,7 @@ fun PlannerTheme(
             val context = LocalContext.current
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
+
         dark -> paper.toDarkScheme()
         else -> paper.toLightScheme()
     }

@@ -11,9 +11,9 @@ import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.overdue.Overdue
 import app.planner.core.domain.overdue.OverdueGroup
-import app.planner.core.domain.repository.SettingsRepository
-import app.planner.core.domain.repository.TaskListRepository
-import app.planner.core.domain.repository.TaskRepository
+import app.planner.core.domain.repository.ISettingsRepository
+import app.planner.core.domain.repository.ITaskListRepository
+import app.planner.core.domain.repository.ITaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -61,9 +61,9 @@ data class TodayUiState(
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class TodayViewModel @Inject constructor(
-    private val tasks: TaskRepository,
-    listRepository: TaskListRepository,
-    private val settingsRepository: SettingsRepository,
+    private val tasks: ITaskRepository,
+    listRepository: ITaskListRepository,
+    private val settingsRepository: ISettingsRepository,
     private val commands: TaskCommands,
     todayClock: TodayClock,
 ) : ViewModel() {

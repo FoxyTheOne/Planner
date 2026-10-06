@@ -29,7 +29,8 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.planner.common.TaskSaver
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,58 +72,21 @@ fun TodayScreen(
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var editing by remember { mutableStateOf<Task?>(null) }
-    var scheduling by remember { mutableStateOf<Task?>(null) }
-    var showOverdue by remember { mutableStateOf(false) }
+    var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
+    var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
+    var showOverdue by rememberSaveable { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().padding(contentPadding)) {
-        LazyColumn(
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            item { TodayHeader(state, onOpenSettings) }
-
-            if (state.showOverdueBanner) {
-                item { OverdueBanner(count = state.overdueCount, onClick = { showOverdue = true }) }
-            }
-
-            if (state.isEmpty) {
-                item {
-                    Text(
-                        stringResource(R.string.today_empty),
-                        color = PlannerTheme.paper.inkMuted,
-                        modifier = Modifier.padding(top = 32.dp),
-                    )
-                }
-            }
-
-            DaySection.entries.forEach { section ->
-                val sectionTasks = state.sections[section].orEmpty()
-                if (sectionTasks.isNotEmpty()) {
-                    item(key = "s_$section") { SectionLabel(stringResource(section.labelRes())) }
-                    items(sectionTasks, key = { it.id }) { task ->
-                        SwipeableTaskRow(
-                            task = task,
-                            lists = state.lists,
-                            onToggle = { viewModel.toggle(task) },
-                            onClick = { editing = task },
-                            onSwipeTomorrow = { viewModel.moveToTomorrow(task) },
-                            onSwipeSchedule = { scheduling = task },
-                            modifier = Modifier.animateItem(),
-                        )
-                    }
-                }
-            }
-
-            item { TomorrowPreview(state) }
-        }
-
-        FloatingActionButton(
-            onClick = { editing = Task(title = "", date = state.today) },
-            containerColor = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
-        ) { Icon(Icons.Outlined.Add, stringResource(R.string.cd_add_task)) }
-    }
+    TodayContent(
+        state = state,
+        contentPadding = contentPadding,
+        onOpenSettings = onOpenSettings,
+        onOpenOverdue = { showOverdue = true },
+        onToggle = viewModel::toggle,
+        onEdit = { editing = it },
+        onSwipeTomorrow = viewModel::moveToTomorrow,
+        onSwipeSchedule = { scheduling = it },
+        onAdd = { editing = Task(title = "", date = state.today) },
+    )
 
     editing?.let { task ->
         TaskEditorSheet(
@@ -153,6 +117,75 @@ fun TodayScreen(
             onAllBack = { viewModel.allOverdueBackToLists(); showOverdue = false },
             onNotNow = { viewModel.hideOverdueBannerForToday(); showOverdue = false },
         )
+    }
+}
+
+/**
+ * Рисующая часть экрана «Сегодня»: получает готовое состояние и сообщает о нажатиях наверх.
+ *
+ * Здесь нет ViewModel и шторок — только разметка. Поэтому этот экран можно показать
+ * в превью Android Studio на выдуманных данных (см. `TodayPreviews.kt`), не запуская приложение.
+ * Такое разделение называется «поднятие состояния» (state hoisting).
+ */
+@Composable
+fun TodayContent(
+    state: TodayUiState,
+    contentPadding: PaddingValues,
+    onOpenSettings: () -> Unit,
+    onOpenOverdue: () -> Unit,
+    onToggle: (Task) -> Unit,
+    onEdit: (Task) -> Unit,
+    onSwipeTomorrow: (Task) -> Unit,
+    onSwipeSchedule: (Task) -> Unit,
+    onAdd: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize().padding(contentPadding)) {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            item { TodayHeader(state, onOpenSettings) }
+
+            if (state.showOverdueBanner) {
+                item { OverdueBanner(count = state.overdueCount, onClick = onOpenOverdue) }
+            }
+
+            if (state.isEmpty) {
+                item {
+                    Text(
+                        stringResource(R.string.today_empty),
+                        color = PlannerTheme.paper.inkMuted,
+                        modifier = Modifier.padding(top = 32.dp),
+                    )
+                }
+            }
+
+            DaySection.entries.forEach { section ->
+                val sectionTasks = state.sections[section].orEmpty()
+                if (sectionTasks.isNotEmpty()) {
+                    item(key = "s_$section") { SectionLabel(stringResource(section.labelRes())) }
+                    items(sectionTasks, key = { it.id }) { task ->
+                        SwipeableTaskRow(
+                            task = task,
+                            lists = state.lists,
+                            onToggle = { onToggle(task) },
+                            onClick = { onEdit(task) },
+                            onSwipeTomorrow = { onSwipeTomorrow(task) },
+                            onSwipeSchedule = { onSwipeSchedule(task) },
+                            modifier = Modifier.animateItem(),
+                        )
+                    }
+                }
+            }
+
+            item { TomorrowPreview(state) }
+        }
+
+        FloatingActionButton(
+            onClick = onAdd,
+            containerColor = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+        ) { Icon(Icons.Outlined.Add, stringResource(R.string.cd_add_task)) }
     }
 }
 

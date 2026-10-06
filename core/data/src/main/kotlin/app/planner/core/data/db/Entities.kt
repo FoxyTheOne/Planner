@@ -73,6 +73,8 @@ fun Task.toEntity() = TaskEntity(
     listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
 )
 
-fun TaskListEntity.toDomain() = TaskList(id = id, name = name, color = color, position = position, isInbox = isInbox)
+fun TaskListEntity.toDomain() =
+    TaskList(id = id, name = name, color = color, position = position, isInbox = isInbox)
 
-fun TaskList.toEntity() = TaskListEntity(id = id, name = name, color = color, position = position, isInbox = isInbox)
+fun TaskList.toEntity() =
+    TaskListEntity(id = id, name = name, color = color, position = position, isInbox = isInbox)

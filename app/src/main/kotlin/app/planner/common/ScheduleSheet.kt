@@ -31,7 +31,7 @@ import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,11 +59,32 @@ fun ScheduleSheet(
     onDismiss: () -> Unit,
     onConfirm: (Slot) -> Unit,
 ) {
-    var date by remember { mutableStateOf(initial?.date ?: today.plusDays(1)) }
-    var part by remember { mutableStateOf(initial?.partOfDay) }
-    var time by remember { mutableStateOf(initial?.time) }
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        ScheduleSheetBody(
+            today = today,
+            initial = initial,
+            onConfirm = onConfirm,
+        )
+    }
+}
+
+/**
+ * Содержимое шторки без выезжающей рамки ModalBottomSheet.
+ * Вынесено отдельно, чтобы его можно было показать в превью Android Studio:
+ * сама шторка — всплывающее окно, а такие окна обычное превью не рисует.
+ */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun ScheduleSheetBody(
+    today: LocalDate,
+    initial: Slot?,
+    onConfirm: (Slot) -> Unit,
+) {
+    var date by rememberSaveable { mutableStateOf(initial?.date ?: today.plusDays(1)) }
+    var part by rememberSaveable { mutableStateOf(initial?.partOfDay) }
+    var time by rememberSaveable { mutableStateOf(initial?.time) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
 
     val quickDates = listOf(
         R.string.day_today to today,
@@ -73,65 +94,63 @@ fun ScheduleSheet(
     )
     val customDate = quickDates.none { it.second == date }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(
-            Modifier
-                .padding(horizontal = 20.dp)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp),
-        ) {
-            Text(stringResource(R.string.schedule_title), style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(12.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                quickDates.forEach { (label, value) ->
-                    PaperChip(stringResource(label), selected = date == value, onClick = { date = value })
-                }
-                PaperChip(
-                    text = if (customDate) DateTexts.shortDay(date) else stringResource(R.string.action_pick_date),
-                    selected = customDate,
-                    onClick = { showDatePicker = true },
-                )
+    Column(
+        Modifier
+            .padding(horizontal = 20.dp)
+            .navigationBarsPadding()
+            .padding(bottom = 16.dp),
+    ) {
+        Text(stringResource(R.string.schedule_title), style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(12.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            quickDates.forEach { (label, value) ->
+                PaperChip(stringResource(label), selected = date == value, onClick = { date = value })
             }
-
-            Text(
-                stringResource(R.string.schedule_part_of_day),
-                style = MaterialTheme.typography.labelLarge,
-                color = PlannerTheme.paper.inkMuted,
-                modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+            PaperChip(
+                text = if (customDate) DateTexts.shortDay(date) else stringResource(R.string.action_pick_date),
+                selected = customDate,
+                onClick = { showDatePicker = true },
             )
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PaperChip(stringResource(R.string.part_any), selected = part == null && time == null, onClick = { part = null; time = null })
-                PartOfDay.entries.forEach { p ->
-                    PaperChip(stringResource(p.labelRes()), selected = part == p && time == null, onClick = { part = p; time = null })
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp)
-                    .clickable { showTimePicker = true }
-                    .padding(vertical = 8.dp),
-            ) {
-                Icon(Icons.Outlined.Schedule, null, tint = PlannerTheme.paper.inkMuted)
-                Text(
-                    text = time?.let(DateTexts::time) ?: stringResource(R.string.schedule_exact_time),
-                    color = if (time != null) PlannerTheme.paper.timeAccent else PlannerTheme.paper.ink,
-                    modifier = Modifier.padding(start = 12.dp).weight(1f),
-                )
-                if (time != null) {
-                    IconButton(onClick = { time = null }) {
-                        Icon(Icons.Outlined.Close, stringResource(R.string.cd_clear_time))
-                    }
-                }
-            }
-
-            Button(
-                onClick = { onConfirm(Slot(date, part, time)) },
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            ) { Text(stringResource(R.string.action_done)) }
         }
+
+        Text(
+            stringResource(R.string.schedule_part_of_day),
+            style = MaterialTheme.typography.labelLarge,
+            color = PlannerTheme.paper.inkMuted,
+            modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            PaperChip(stringResource(R.string.part_any), selected = part == null && time == null, onClick = { part = null; time = null })
+            PartOfDay.entries.forEach { p ->
+                PaperChip(stringResource(p.labelRes()), selected = part == p && time == null, onClick = { part = p; time = null })
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+                .clickable { showTimePicker = true }
+                .padding(vertical = 8.dp),
+        ) {
+            Icon(Icons.Outlined.Schedule, null, tint = PlannerTheme.paper.inkMuted)
+            Text(
+                text = time?.let(DateTexts::time) ?: stringResource(R.string.schedule_exact_time),
+                color = if (time != null) PlannerTheme.paper.timeAccent else PlannerTheme.paper.ink,
+                modifier = Modifier.padding(start = 12.dp).weight(1f),
+            )
+            if (time != null) {
+                IconButton(onClick = { time = null }) {
+                    Icon(Icons.Outlined.Close, stringResource(R.string.cd_clear_time))
+                }
+            }
+        }
+
+        Button(
+            onClick = { onConfirm(Slot(date, part, time)) },
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        ) { Text(stringResource(R.string.action_done)) }
     }
 
     if (showDatePicker) {

@@ -1,14 +1,20 @@
 package app.planner.core.data.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import app.planner.core.data.db.PlannerDatabase
 import app.planner.core.data.repository.RoomTaskListRepository
 import app.planner.core.data.repository.RoomTaskRepository
 import app.planner.core.data.settings.DataStoreSettingsRepository
-import app.planner.core.domain.repository.SettingsRepository
-import app.planner.core.domain.repository.TaskListRepository
-import app.planner.core.domain.repository.TaskRepository
+import app.planner.core.domain.repository.ITaskListRepository
+import app.planner.core.domain.repository.ITaskRepository
+import app.planner.core.domain.repository.ISettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -28,16 +34,39 @@ import javax.inject.Singleton
  */
 
 /**
- * Как создать базу данных. `@Provides` — для объектов, которые нельзя просто создать
- * через `@Inject constructor` (Room-базу строит специальный builder).
+ * Как создать хранилища: базу данных и файл настроек. Все хранилища приложения создаются здесь,
+ * в одном месте.
+ *
+ * `@Provides` — для объектов, которые нельзя просто создать через `@Inject constructor`
+ * (их строят специальные «фабрики» библиотек). `@Singleton` — Hilt создаст объект один раз
+ * и всем будет отдавать его же. Для DataStore это обязательно: два DataStore на один файл
+ * роняют приложение.
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object DatabaseModule {
+object StorageModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): PlannerDatabase =
         Room.databaseBuilder(context, PlannerDatabase::class.java, "planner.db").build()
+
+    /**
+     * Файл настроек: files/datastore/settings.preferences_pb.
+     * Имя "settings" то же, что было раньше, поэтому уже сохранённые настройки не потеряются.
+     *
+     * corruptionHandler — что делать, если файл повреждён (например, телефон выключился
+     * посреди записи): не падать, а начать с пустых настроек, то есть со значений по умолчанию.
+     *
+     * Если понадобится ещё один файл настроек (например, для виджетов), рядом появится второй
+     * такой метод, а различать их будем аннотациями-«ярлыками» (@Qualifier).
+     */
+    @Provides
+    @Singleton
+    fun provideSettingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
+        PreferenceDataStoreFactory.create(
+            corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+            produceFile = { context.preferencesDataStoreFile("settings") },
+        )
 }
 
 /**
@@ -47,7 +76,10 @@ object DatabaseModule {
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
-    @Binds abstract fun taskRepository(impl: RoomTaskRepository): TaskRepository
-    @Binds abstract fun taskListRepository(impl: RoomTaskListRepository): TaskListRepository
-    @Binds abstract fun settingsRepository(impl: DataStoreSettingsRepository): SettingsRepository
+    @Binds
+    abstract fun taskRepository(impl: RoomTaskRepository): ITaskRepository
+    @Binds
+    abstract fun taskListRepository(impl: RoomTaskListRepository): ITaskListRepository
+    @Binds
+    abstract fun settingsRepository(impl: DataStoreSettingsRepository): ISettingsRepository
 }

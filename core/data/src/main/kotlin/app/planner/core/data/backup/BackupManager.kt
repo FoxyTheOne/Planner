@@ -25,9 +25,20 @@ import javax.inject.Singleton
 class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
+    companion object {
+        const val FORMAT_VERSION = 1
+    }
+
+    // Настройки перевода объектов в JSON-текст и обратно
     private val json = Json {
+        // false — писать JSON одной строкой, без отступов: файл меньше. Человеку его читать не нужно
         prettyPrint = false
+        // Если в файле есть поле, которого нет в наших классах (копию сделала более новая
+        // версия приложения с дополнительным полем), — пропустить его, а не падать с ошибкой
         ignoreUnknownKeys = true
+        // Записывать и поля, равные значениям по умолчанию (например, note = "").
+        // Иначе они в файл не попадут, и если мы потом поменяем значение по умолчанию,
+        // старая копия прочитается уже с новым — и смысл данных незаметно изменится
         encodeDefaults = true
     }
 
@@ -40,12 +51,16 @@ class BackupManager @Inject constructor(
                 tasks = db.taskDao().getAll().map { it.toDto() },
             )
         }
-        output.bufferedWriter().use { it.write(json.encodeToString(BackupSnapshot.serializer(), snapshot)) }
+        output.bufferedWriter().use {
+            it.write(json.encodeToString(BackupSnapshot.serializer(), snapshot))
+        }
     }
 
     /** Читает копию, не трогая базу: чтобы показать, что внутри, до восстановления. */
     fun read(input: InputStream): BackupSnapshot {
-        val snapshot = json.decodeFromString(BackupSnapshot.serializer(), input.bufferedReader().use { it.readText() })
+        val snapshot = json.decodeFromString(
+            BackupSnapshot.serializer(),
+            input.bufferedReader().use { it.readText() })
         require(snapshot.formatVersion <= FORMAT_VERSION) { "Backup is newer than the app" }
         return snapshot
     }
@@ -56,10 +71,6 @@ class BackupManager @Inject constructor(
         db.taskListDao().deleteAll()
         db.taskListDao().insertAll(snapshot.lists.map { it.toEntity() })
         db.taskDao().insertAll(snapshot.tasks.map { it.toEntity() })
-    }
-
-    companion object {
-        const val FORMAT_VERSION = 1
     }
 }
 

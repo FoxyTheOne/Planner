@@ -23,9 +23,9 @@ object Overdue {
     /** Открытая задача с датой в прошлом. События с точным временем не копятся — они уходят в историю. */
     fun isOverdue(task: Task, today: LocalDate): Boolean =
         task.status == TaskStatus.OPEN &&
-            task.date != null &&
-            task.date < today &&
-            !task.isTimedEvent
+                task.date != null &&
+                task.date < today &&
+                !task.isTimedEvent
 
     /** В какую группу шторки попадает хвост — по тому, сколько дней прошло с его даты. */
     fun group(task: Task, today: LocalDate): OverdueGroup {
@@ -49,7 +49,11 @@ object Overdue {
      * её не забыли, ею занимаются.
      */
     fun shouldReturnToList(task: Task, today: LocalDate, returnAfterDays: Int): Boolean =
-        isOverdue(task, today) && ChronoUnit.DAYS.between(task.date, today) > returnAfterDays
+        isOverdue(task, today) &&
+                ChronoUnit.DAYS.between(
+                    task.date,
+                    today
+                ) > returnAfterDays
 
     /** Та же задача, но без даты и времени — в своём списке, а если списка нет — во «Входящих». */
     fun returnedToList(task: Task, inboxId: Long): Task =

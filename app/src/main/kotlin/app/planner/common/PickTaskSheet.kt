@@ -28,7 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -59,78 +59,103 @@ fun PickTaskSheet(
     onPick: (Task) -> Unit,
     onCreate: (String) -> Unit,
 ) {
-    var tab by remember { mutableIntStateOf(if (candidates.isEmpty()) 0 else 1) }
-    var newTitle by remember { mutableStateOf("") }
-    var query by remember { mutableStateOf("") }
-
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(
-            Modifier
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(bottom = 16.dp),
-        ) {
-            Text(
-                slotText(slot, today),
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-            PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.padding(top = 8.dp)) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.pick_tab_new)) })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.pick_tab_lists)) })
-            }
+        PickTaskSheetBody(
+            slot = slot,
+            today = today,
+            candidates = candidates,
+            lists = lists,
+            onPick = onPick,
+            onCreate = onCreate,
+        )
+    }
+}
 
-            if (tab == 0) {
-                Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
-                    OutlinedTextField(
-                        value = newTitle,
-                        onValueChange = { newTitle = it },
-                        placeholder = { Text(stringResource(R.string.task_title_hint)) },
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { if (newTitle.isNotBlank()) onCreate(newTitle.trim()) }),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Button(
-                        onClick = { onCreate(newTitle.trim()) },
-                        enabled = newTitle.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    ) { Text(stringResource(R.string.action_add)) }
-                }
-            } else {
+/**
+ * Содержимое шторки без выезжающей рамки ModalBottomSheet.
+ * Вынесено отдельно, чтобы его можно было показать в превью Android Studio:
+ * сама шторка — всплывающее окно, а такие окна обычное превью не рисует.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PickTaskSheetBody(
+    slot: Slot,
+    today: LocalDate,
+    candidates: List<Task>,
+    lists: List<TaskList>,
+    onPick: (Task) -> Unit,
+    onCreate: (String) -> Unit,
+) {
+    var tab by rememberSaveable { mutableIntStateOf(if (candidates.isEmpty()) 0 else 1) }
+    var newTitle by rememberSaveable { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
+
+    Column(
+        Modifier
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(bottom = 16.dp),
+    ) {
+        Text(
+            slotText(slot, today),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(horizontal = 20.dp),
+        )
+        PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.padding(top = 8.dp)) {
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.pick_tab_new)) })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.pick_tab_lists)) })
+        }
+
+        if (tab == 0) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
                 OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                    placeholder = { Text(stringResource(R.string.pick_search)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                    value = newTitle,
+                    onValueChange = { newTitle = it },
+                    placeholder = { Text(stringResource(R.string.task_title_hint)) },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (newTitle.isNotBlank()) onCreate(newTitle.trim()) }),
+                    modifier = Modifier.fillMaxWidth(),
                 )
-                val filtered = candidates.filter { query.isBlank() || it.title.contains(query.trim(), ignoreCase = true) }
-                if (filtered.isEmpty()) {
-                    Text(
-                        stringResource(if (candidates.isEmpty()) R.string.pick_empty else R.string.pick_nothing_found),
-                        color = PlannerTheme.paper.inkMuted,
-                        modifier = Modifier.padding(20.dp),
-                    )
-                } else {
-                    val byList = filtered.groupBy { it.listId }
-                    val listsById = lists.associateBy { it.id }
-                    LazyColumn(Modifier.heightIn(max = 420.dp).padding(horizontal = 20.dp)) {
-                        byList.forEach { (listId, tasks) ->
-                            item(key = "h$listId") {
-                                val list = listId?.let(listsById::get)
-                                SectionLabel(list?.let { listName(it) } ?: stringResource(R.string.list_inbox))
-                            }
-                            items(tasks, key = { it.id }) { task ->
-                                Column {
-                                    Row(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .clickable { onPick(task) }
-                                            .padding(vertical = 12.dp),
-                                    ) { Text(task.title, style = MaterialTheme.typography.bodyLarge) }
-                                    DashedRule()
-                                }
+                Button(
+                    onClick = { onCreate(newTitle.trim()) },
+                    enabled = newTitle.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                ) { Text(stringResource(R.string.action_add)) }
+            }
+        } else {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                leadingIcon = { Icon(Icons.Outlined.Search, null) },
+                placeholder = { Text(stringResource(R.string.pick_search)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            )
+            val filtered = candidates.filter { query.isBlank() || it.title.contains(query.trim(), ignoreCase = true) }
+            if (filtered.isEmpty()) {
+                Text(
+                    stringResource(if (candidates.isEmpty()) R.string.pick_empty else R.string.pick_nothing_found),
+                    color = PlannerTheme.paper.inkMuted,
+                    modifier = Modifier.padding(20.dp),
+                )
+            } else {
+                val byList = filtered.groupBy { it.listId }
+                val listsById = lists.associateBy { it.id }
+                LazyColumn(Modifier.heightIn(max = 420.dp).padding(horizontal = 20.dp)) {
+                    byList.forEach { (listId, tasks) ->
+                        item(key = "h$listId") {
+                            val list = listId?.let(listsById::get)
+                            SectionLabel(list?.let { listName(it) } ?: stringResource(R.string.list_inbox))
+                        }
+                        items(tasks, key = { it.id }) { task ->
+                            Column {
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onPick(task) }
+                                        .padding(vertical = 12.dp),
+                                ) { Text(task.title, style = MaterialTheme.typography.bodyLarge) }
+                                DashedRule()
                             }
                         }
                     }

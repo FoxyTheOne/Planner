@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,19 +77,53 @@ fun TaskEditorSheet(
     onSave: (task: Task, newListName: String?) -> Unit,
     onDelete: ((Task) -> Unit)? = null,
 ) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        TaskEditorSheetBody(
+            initial = initial,
+            lists = lists,
+            today = today,
+            onSave = onSave,
+            onDelete = onDelete,
+        )
+    }
+}
+
+/**
+ * Содержимое шторки без выезжающей рамки ModalBottomSheet.
+ * Вынесено отдельно, чтобы его можно было показать в превью Android Studio:
+ * сама шторка — всплывающее окно, а такие окна обычное превью не рисует.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TaskEditorSheetBody(
+    initial: Task,
+    lists: List<TaskList>,
+    today: LocalDate,
+    onSave: (task: Task, newListName: String?) -> Unit,
+    onDelete: ((Task) -> Unit)? = null,
+) {
     val isNew = initial.id == 0L
-    var title by remember { mutableStateOf(initial.title) }
-    var note by remember { mutableStateOf(initial.note) }
-    var listId by remember { mutableStateOf(initial.listId) }
+    // Состояние шторки: то, что человек вводит, пока не нажал «Сохранить».
+    // mutableStateOf — «коробка» со значением; когда в неё кладут новое, Compose перерисовывает тех, кто её читал.
+    // remember — сохранить коробку между перерисовками (иначе при каждой букве она создавалась бы
+    //   заново со значением initial.title, и текст в поле «откатывался» бы).
+    // rememberSaveable — то же, что remember, но значение переживает и поворот экрана
+    //   (Android пересоздаёт окно, и обычный remember всё бы забыл). Свои классы (Slot) он
+    //   сохранять не умеет — для них указываем stateSaver из Savers.kt.
+    // by — читать и писать `title` как обычную переменную, без `.value`.
+    var title by rememberSaveable { mutableStateOf(initial.title) }
+    var note by rememberSaveable { mutableStateOf(initial.note) }
+    var listId by rememberSaveable { mutableStateOf(initial.listId) }
     // null — выбран существующий список; строка (даже пустая) — пользователь создаёт новый
-    var newListName by remember { mutableStateOf<String?>(null) }
-    var slot by remember { mutableStateOf(initial.date?.let { Slot(it, initial.partOfDay, initial.time) }) }
-    var showSchedule by remember { mutableStateOf(false) }
-    // FocusRequester — «пульт» для поля ввода: позволяет из кода поставить в него курсор
+    var newListName by rememberSaveable { mutableStateOf<String?>(null) }
+    var slot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf(initial.date?.let { Slot(it, initial.partOfDay, initial.time) }) }
+    var showSchedule by rememberSaveable { mutableStateOf(false) }
+    // FocusRequester — «пульт» для поля ввода: позволяет из кода поставить в него курсор.
+    // Его сохранять не нужно (и нельзя): после поворота поле создаётся заново, и пульт — тоже
     val focus = remember { FocusRequester() }
     val newListFocus = remember { FocusRequester() }
     val creatingList = newListName != null
-    var listMenuOpen by remember { mutableStateOf(false) }
+    var listMenuOpen by rememberSaveable { mutableStateOf(false) }
 
     // Сохранить можно, когда есть название задачи и, если создаётся список, — его название
     val canSave = title.isNotBlank() && newListName?.isNotBlank() != false
@@ -108,126 +143,124 @@ fun TaskEditorSheet(
         )
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(
-            Modifier
-                .padding(horizontal = 20.dp)
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(bottom = 16.dp),
-        ) {
-            // --- Список: первым делом видно, куда попадёт задача.
-            // Выпадающее меню, а не ряд кнопок: так удобно и при 3 списках, и при 50 ---
-            val selectedList = lists.firstOrNull { it.id == listId } ?: lists.firstOrNull { it.isInbox }
-            Box {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { listMenuOpen = true }
-                        .padding(vertical = 6.dp),
-                ) {
-                    Icon(Icons.Outlined.Inbox, null, tint = PlannerTheme.paper.inkMuted)
-                    Text(
-                        stringResource(R.string.task_list) + ":",
-                        color = PlannerTheme.paper.inkMuted,
-                        modifier = Modifier.padding(start = 12.dp, end = 8.dp),
-                    )
-                    Text(
-                        text = if (creatingList) stringResource(R.string.list_new) else selectedList?.let { listName(it) }.orEmpty(),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Icon(Icons.Outlined.ArrowDropDown, stringResource(R.string.cd_choose_list), tint = PlannerTheme.paper.inkMuted)
-                }
-                // DropdownMenu появляется поверх экрана под строкой; heightIn ограничивает высоту — дальше прокрутка
-                DropdownMenu(
-                    expanded = listMenuOpen,
-                    onDismissRequest = { listMenuOpen = false },
-                    modifier = Modifier.heightIn(max = 360.dp),
-                ) {
-                    lists.forEach { list ->
-                        DropdownMenuItem(
-                            text = { Text(listName(list)) },
-                            leadingIcon = { ListColorDot(list) },
-                            onClick = { listId = list.id; newListName = null; listMenuOpen = false },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.list_new)) },
-                        leadingIcon = { Icon(Icons.Outlined.Add, null) },
-                        onClick = { newListName = newListName ?: ""; listMenuOpen = false },
-                    )
-                }
-            }
-            if (newListName != null) {
-                OutlinedTextField(
-                    value = newListName.orEmpty(),
-                    onValueChange = { newListName = it },
-                    label = { Text(stringResource(R.string.list_name_label)) },
-                    placeholder = { Text(stringResource(R.string.list_name_hint)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(newListFocus),
-                )
-            }
-            // Нажали «+ Новый список» — курсор сразу в поле названия списка,
-            // иначе текст по привычке уйдёт в название задачи
-            LaunchedEffect(creatingList) { if (creatingList) newListFocus.requestFocus() }
-
-            // --- Сама задача ---
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                placeholder = { Text(stringResource(R.string.task_title_hint)) },
-                textStyle = MaterialTheme.typography.titleMedium,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { save() }),
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp).focusRequester(focus),
-            )
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                placeholder = { Text(stringResource(R.string.task_note_hint)) },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                minLines = 2,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            )
-
-            // --- Когда: тап открывает шторку «Запланировать» ---
+    Column(
+        Modifier
+            .padding(horizontal = 20.dp)
+            .navigationBarsPadding()
+            .imePadding()
+            .padding(bottom = 16.dp),
+    ) {
+        // --- Список: первым делом видно, куда попадёт задача.
+        // Выпадающее меню, а не ряд кнопок: так удобно и при 3 списках, и при 50 ---
+        val selectedList = lists.firstOrNull { it.id == listId } ?: lists.firstOrNull { it.isInbox }
+        Box {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp)
-                    .clickable { showSchedule = true }
+                    .clickable { listMenuOpen = true }
                     .padding(vertical = 6.dp),
             ) {
-                Icon(Icons.Outlined.CalendarMonth, null, tint = PlannerTheme.paper.inkMuted)
+                Icon(Icons.Outlined.Inbox, null, tint = PlannerTheme.paper.inkMuted)
                 Text(
-                    text = slot?.let { slotText(it, today) } ?: stringResource(R.string.task_no_date),
-                    color = if (slot != null) PlannerTheme.paper.ink else PlannerTheme.paper.inkMuted,
-                    modifier = Modifier.padding(start = 12.dp).weight(1f),
+                    stringResource(R.string.task_list) + ":",
+                    color = PlannerTheme.paper.inkMuted,
+                    modifier = Modifier.padding(start = 12.dp, end = 8.dp),
                 )
-                if (slot != null) {
-                    IconButton(onClick = { slot = null }) { Icon(Icons.Outlined.Close, stringResource(R.string.cd_clear_date)) }
+                Text(
+                    text = if (creatingList) stringResource(R.string.list_new) else selectedList?.let { listName(it) }.orEmpty(),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(Icons.Outlined.ArrowDropDown, stringResource(R.string.cd_choose_list), tint = PlannerTheme.paper.inkMuted)
+            }
+            // DropdownMenu появляется поверх экрана под строкой; heightIn ограничивает высоту — дальше прокрутка
+            DropdownMenu(
+                expanded = listMenuOpen,
+                onDismissRequest = { listMenuOpen = false },
+                modifier = Modifier.heightIn(max = 360.dp),
+            ) {
+                lists.forEach { list ->
+                    DropdownMenuItem(
+                        text = { Text(listName(list)) },
+                        leadingIcon = { ListColorDot(list) },
+                        onClick = { listId = list.id; newListName = null; listMenuOpen = false },
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.list_new)) },
+                    leadingIcon = { Icon(Icons.Outlined.Add, null) },
+                    onClick = { newListName = newListName ?: ""; listMenuOpen = false },
+                )
+            }
+        }
+        if (newListName != null) {
+            OutlinedTextField(
+                value = newListName.orEmpty(),
+                onValueChange = { newListName = it },
+                label = { Text(stringResource(R.string.list_name_label)) },
+                placeholder = { Text(stringResource(R.string.list_name_hint)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(newListFocus),
+            )
+        }
+        // Нажали «+ Новый список» — курсор сразу в поле названия списка,
+        // иначе текст по привычке уйдёт в название задачи
+        LaunchedEffect(creatingList) { if (creatingList) newListFocus.requestFocus() }
+
+        // --- Сама задача ---
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            placeholder = { Text(stringResource(R.string.task_title_hint)) },
+            textStyle = MaterialTheme.typography.titleMedium,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { save() }),
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp).focusRequester(focus),
+        )
+        OutlinedTextField(
+            value = note,
+            onValueChange = { note = it },
+            placeholder = { Text(stringResource(R.string.task_note_hint)) },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            minLines = 2,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+
+        // --- Когда: тап открывает шторку «Запланировать» ---
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp)
+                .clickable { showSchedule = true }
+                .padding(vertical = 6.dp),
+        ) {
+            Icon(Icons.Outlined.CalendarMonth, null, tint = PlannerTheme.paper.inkMuted)
+            Text(
+                text = slot?.let { slotText(it, today) } ?: stringResource(R.string.task_no_date),
+                color = if (slot != null) PlannerTheme.paper.ink else PlannerTheme.paper.inkMuted,
+                modifier = Modifier.padding(start = 12.dp).weight(1f),
+            )
+            if (slot != null) {
+                IconButton(onClick = { slot = null }) { Icon(Icons.Outlined.Close, stringResource(R.string.cd_clear_date)) }
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+        ) {
+            if (!isNew && onDelete != null) {
+                TextButton(onClick = { onDelete(initial) }) {
+                    Icon(Icons.Outlined.Delete, null)
+                    Text(stringResource(R.string.action_delete), modifier = Modifier.padding(start = 6.dp))
                 }
             }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
-            ) {
-                if (!isNew && onDelete != null) {
-                    TextButton(onClick = { onDelete(initial) }) {
-                        Icon(Icons.Outlined.Delete, null)
-                        Text(stringResource(R.string.action_delete), modifier = Modifier.padding(start = 6.dp))
-                    }
-                }
-                Row(Modifier.weight(1f)) {}
-                Button(onClick = ::save, enabled = canSave) {
-                    Text(stringResource(if (isNew) R.string.action_add else R.string.action_save))
-                }
+            Row(Modifier.weight(1f)) {}
+            Button(onClick = ::save, enabled = canSave) {
+                Text(stringResource(if (isNew) R.string.action_add else R.string.action_save))
             }
         }
     }

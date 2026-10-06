@@ -22,7 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.planner.common.SlotSaver
+import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,77 +59,18 @@ fun DayScreen(
     // У экрана дня своя ViewModel: показываем неделю, в которую попадает этот день
     LaunchedEffect(date) { viewModel.showWeekOf(date) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val tasks = state.tasksByDay[date].orEmpty()
-    val untimed = tasks.filter { it.time == null }
-    val byHour = tasks.filter { it.time != null }.groupBy { it.time!!.hour }
-    var pickSlot by remember { mutableStateOf<Slot?>(null) }
-    var editing by remember { mutableStateOf<Task?>(null) }
-    val paper = PlannerTheme.paper
-    // Открываем шкалу ближе к текущему часу, а не с шести утра
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = if (date == state.today) (LocalTime.now().hour - HOURS.first - 1).coerceAtLeast(0) + 1 else 0,
-    )
+    var pickSlot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf<Slot?>(null) }
+    var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
 
-    Column(Modifier.fillMaxSize().padding(contentPadding)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, end = 16.dp)) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cd_back)) }
-            Column {
-                Text(DateTexts.weekday(date), style = MaterialTheme.typography.titleLarge)
-                Text(DateTexts.dayMonth(date), color = paper.inkMuted, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        LazyColumn(state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
-            item {
-                SectionLabel(stringResource(R.string.day_no_time))
-                if (untimed.isEmpty()) {
-                    Text(
-                        stringResource(R.string.week_add),
-                        color = paper.inkFaint,
-                        modifier = Modifier.fillMaxWidth().clickable { pickSlot = Slot(date) }.padding(vertical = 10.dp),
-                    )
-                }
-                untimed.forEach { task ->
-                    TaskRow(
-                        title = task.title,
-                        done = task.isDone,
-                        onToggle = { viewModel.toggle(task) },
-                        onClick = { editing = task },
-                        labelColor = labelColorOf(task, state.lists),
-                        toggleDescription = stringResource(R.string.cd_mark_done),
-                    )
-                }
-            }
-            items(HOURS.toList(), key = { it }) { hour ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 52.dp)
-                        .clickable { pickSlot = Slot(date, time = LocalTime.of(hour, 0)) },
-                ) {
-                    Text(
-                        "%02d".format(hour),
-                        color = paper.inkMuted,
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.width(36.dp).padding(top = 4.dp),
-                    )
-                    Column(Modifier.weight(1f)) {
-                        DashedRule()
-                        byHour[hour].orEmpty().forEach { task ->
-                            TaskRow(
-                                title = task.title,
-                                done = task.isDone,
-                                onToggle = { viewModel.toggle(task) },
-                                onClick = { editing = task },
-                                time = DateTexts.time(task.time!!),
-                                labelColor = labelColorOf(task, state.lists),
-                                toggleDescription = stringResource(R.string.cd_mark_done),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
+    DayContent(
+        date = date,
+        state = state,
+        contentPadding = contentPadding,
+        onBack = onBack,
+        onPickSlot = { pickSlot = it },
+        onToggle = viewModel::toggle,
+        onEdit = { editing = it },
+    )
 
     pickSlot?.let { slot ->
         PickTaskSheet(
@@ -149,5 +92,92 @@ fun DayScreen(
             onSave = { task, newList -> viewModel.save(task, newList); editing = null },
             onDelete = { viewModel.delete(it); editing = null },
         )
+    }
+}
+
+/**
+ * Рисующая часть почасовой шкалы дня: только разметка, без ViewModel и шторок.
+ * Её показывает превью в Android Studio (см. `WeekPreviews.kt`).
+ *
+ * @param onPickSlot нажали на пустое место — «без времени» или конкретный час.
+ */
+@Composable
+fun DayContent(
+    date: LocalDate,
+    state: WeekUiState,
+    contentPadding: PaddingValues,
+    onBack: () -> Unit,
+    onPickSlot: (Slot) -> Unit,
+    onToggle: (Task) -> Unit,
+    onEdit: (Task) -> Unit,
+) {
+    val tasks = state.tasksByDay[date].orEmpty()
+    val untimed = tasks.filter { it.time == null }
+    val byHour = tasks.filter { it.time != null }.groupBy { it.time!!.hour }
+    val paper = PlannerTheme.paper
+    // Открываем шкалу ближе к текущему часу, а не с шести утра
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = if (date == state.today) (LocalTime.now().hour - HOURS.first - 1).coerceAtLeast(0) + 1 else 0,
+    )
+
+    Column(Modifier.fillMaxSize().padding(contentPadding)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, end = 16.dp)) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cd_back)) }
+            Column {
+                Text(DateTexts.weekday(date), style = MaterialTheme.typography.titleLarge)
+                Text(DateTexts.dayMonth(date), color = paper.inkMuted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        LazyColumn(state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
+            item {
+                SectionLabel(stringResource(R.string.day_no_time))
+                if (untimed.isEmpty()) {
+                    Text(
+                        stringResource(R.string.week_add),
+                        color = paper.inkFaint,
+                        modifier = Modifier.fillMaxWidth().clickable { onPickSlot(Slot(date)) }.padding(vertical = 10.dp),
+                    )
+                }
+                untimed.forEach { task ->
+                    TaskRow(
+                        title = task.title,
+                        done = task.isDone,
+                        onToggle = { onToggle(task) },
+                        onClick = { onEdit(task) },
+                        labelColor = labelColorOf(task, state.lists),
+                        toggleDescription = stringResource(R.string.cd_mark_done),
+                    )
+                }
+            }
+            items(HOURS.toList(), key = { it }) { hour ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 52.dp)
+                        .clickable { onPickSlot(Slot(date, time = LocalTime.of(hour, 0))) },
+                ) {
+                    Text(
+                        "%02d".format(hour),
+                        color = paper.inkMuted,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.width(36.dp).padding(top = 4.dp),
+                    )
+                    Column(Modifier.weight(1f)) {
+                        DashedRule()
+                        byHour[hour].orEmpty().forEach { task ->
+                            TaskRow(
+                                title = task.title,
+                                done = task.isDone,
+                                onToggle = { onToggle(task) },
+                                onClick = { onEdit(task) },
+                                time = DateTexts.time(task.time!!),
+                                labelColor = labelColorOf(task, state.lists),
+                                toggleDescription = stringResource(R.string.cd_mark_done),
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
