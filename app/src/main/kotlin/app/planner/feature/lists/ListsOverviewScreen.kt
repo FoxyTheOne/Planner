@@ -3,8 +3,8 @@ package app.planner.feature.lists
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,8 +31,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import app.planner.common.TaskListSaver
-import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,10 +41,13 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
 import app.planner.common.TaskEditorSheet
+import app.planner.common.TaskListSaver
+import app.planner.common.TaskSaver
 import app.planner.common.listName
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.list.nextListColor
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 
@@ -99,9 +100,13 @@ fun ListsOverviewScreen(
     editingList?.let { list ->
         ListDialog(
             initial = list,
+            checkName = { viewModel.checkListName(it, list.id) },
             onDismiss = { editingList = null },
             // Новый список сразу открываем — чтобы можно было начать его заполнять
-            onSave = { viewModel.saveList(it) { id -> if (list.id == 0L) onOpenList(id) }; editingList = null },
+            onSave = {
+                viewModel.saveList(it) { id -> if (list.id == 0L) onOpenList(id) }; editingList =
+                null
+            },
             onDelete = { viewModel.deleteList(it); editingList = null },
         )
     }
@@ -123,10 +128,24 @@ fun ListsOverviewContent(
     onAddTask: () -> Unit,
 ) {
     val paper = PlannerTheme.paper
-    Box(Modifier.fillMaxSize().padding(contentPadding)) {
-        LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 96.dp)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
+        LazyColumn(
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 16.dp,
+                bottom = 96.dp
+            )
+        ) {
             item {
-                Text(stringResource(R.string.nav_lists), style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    stringResource(R.string.nav_lists),
+                    style = MaterialTheme.typography.headlineMedium
+                )
                 OutlinedTextField(
                     value = state.query,
                     onValueChange = onQueryChange,
@@ -140,7 +159,9 @@ fun ListsOverviewContent(
                     },
                     placeholder = { Text(stringResource(R.string.lists_search)) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp, bottom = 4.dp),
                 )
             }
 
@@ -162,21 +183,37 @@ fun ListsOverviewContent(
                             .clickable(onClick = onNewList)
                             .padding(vertical = 14.dp),
                     ) {
-                        Icon(Icons.Outlined.Add, null, tint = paper.inkMuted, modifier = Modifier.size(20.dp))
-                        Text(stringResource(R.string.list_new), color = paper.inkMuted, modifier = Modifier.padding(start = 12.dp))
+                        Icon(
+                            Icons.Outlined.Add,
+                            null,
+                            tint = paper.inkMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            stringResource(R.string.list_new),
+                            color = paper.inkMuted,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
                     }
                 }
             } else {
                 // --- Поиск: сначала подходящие списки, потом задачи с названием их списка ---
                 if (state.foundLists.isEmpty() && state.foundTasks.isEmpty()) {
                     item {
-                        Text(stringResource(R.string.pick_nothing_found), color = paper.inkMuted, modifier = Modifier.padding(top = 16.dp))
+                        Text(
+                            stringResource(R.string.pick_nothing_found),
+                            color = paper.inkMuted,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
                     }
                 }
                 if (state.foundLists.isNotEmpty()) {
                     item { SectionLabel(stringResource(R.string.nav_lists)) }
                     items(state.foundLists, key = { "l${it.list.id}" }) { row ->
-                        ListRowItem(row = row, onClick = { onOpenList(row.list.id) }, onLongClick = {})
+                        ListRowItem(
+                            row = row,
+                            onClick = { onOpenList(row.list.id) },
+                            onLongClick = {})
                     }
                 }
                 if (state.foundTasks.isNotEmpty()) {
@@ -200,7 +237,9 @@ fun ListsOverviewContent(
             text = { Text(stringResource(R.string.action_new_task)) },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp),
         )
     }
 }
@@ -223,10 +262,16 @@ private fun ListRowItem(row: ListRow, onClick: () -> Unit, onLongClick: () -> Un
                 listName(row.list),
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (row.list.isInbox) paper.inkMuted else paper.ink,
-                modifier = Modifier.padding(start = 12.dp).weight(1f),
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .weight(1f),
             )
             if (row.openCount > 0) {
-                Text(row.openCount.toString(), color = paper.inkMuted, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    row.openCount.toString(),
+                    color = paper.inkMuted,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
         DashedRule()
@@ -240,9 +285,16 @@ private fun FoundTaskItem(task: Task, listTitle: String, onClick: () -> Unit) {
     Column {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(vertical = 12.dp),
         ) {
-            Text(task.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(
+                task.title,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
             Text(listTitle, color = paper.inkMuted, style = MaterialTheme.typography.labelMedium)
         }
         DashedRule()

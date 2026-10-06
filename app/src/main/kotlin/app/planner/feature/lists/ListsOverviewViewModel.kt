@@ -4,11 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
+import app.planner.core.domain.list.IInboxNames
+import app.planner.core.domain.list.ListNameProblem
+import app.planner.core.domain.list.nameProblem
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
+import app.planner.core.domain.usecase.CreateListUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,8 +60,10 @@ class ListsLaunchMemory @Inject constructor() {
 class ListsOverviewViewModel @Inject constructor(
     tasks: ITaskRepository,
     private val listRepository: ITaskListRepository,
+    private val inboxNames: IInboxNames,
     private val settingsRepository: ISettingsRepository,
     private val commands: TaskCommands,
+    private val createList: CreateListUseCase,
     private val launchMemory: ListsLaunchMemory,
     todayClock: TodayClock,
 ) : ViewModel() {
@@ -80,10 +86,24 @@ class ListsOverviewViewModel @Inject constructor(
             rows = rows,
             allLists = lists,
             query = q,
-            foundLists = if (text.isEmpty()) emptyList() else rows.filter { it.list.name.contains(text, ignoreCase = true) },
-            foundTasks = if (text.isEmpty()) emptyList() else open.filter { it.title.contains(text, ignoreCase = true) }.take(50),
+            foundLists = if (text.isEmpty()) emptyList() else rows.filter {
+                it.list.name.contains(
+                    text,
+                    ignoreCase = true
+                )
+            },
+            foundTasks = if (text.isEmpty()) emptyList() else open.filter {
+                it.title.contains(
+                    text,
+                    ignoreCase = true
+                )
+            }.take(50),
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListsOverviewUiState(todayClock.today()))
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        ListsOverviewUiState(todayClock.today())
+    )
 
     fun setQuery(text: String) {
         query.value = text
@@ -100,13 +120,20 @@ class ListsOverviewViewModel @Inject constructor(
         return lastId.takeIf { id -> listRepository.observeLists().first().any { it.id == id } }
     }
 
+    // Новый список (id = 0) создаёт CreateListUseCase — он знает, куда его поставить;
+    // существующий (переименовали, сменили цвет) просто сохраняем
     fun saveList(list: TaskList, onSaved: (Long) -> Unit = {}) = viewModelScope.launch {
-        val lists = state.value.allLists
-        val id = listRepository.upsert(if (list.id == 0L) list.copy(position = lists.size) else list)
+        val id =
+            if (list.id == 0L) createList(list.name, list.color) else listRepository.upsert(list)
         onSaved(id)
     }
 
+    /** Можно ли дать списку такое название (для подсказки в окне списка). [exceptId] — сам переименовываемый список. */
+    fun checkListName(name: String, exceptId: Long): ListNameProblem? =
+        state.value.allLists.nameProblem(name, inboxNames.all, exceptId)
+
     fun deleteList(list: TaskList) = viewModelScope.launch { listRepository.delete(list) }
 
-    fun saveTask(task: Task, newListName: String?) = viewModelScope.launch { commands.save(task, newListName) }
+    fun saveTask(task: Task, newListName: String?) =
+        viewModelScope.launch { commands.save(task, newListName) }
 }

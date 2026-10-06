@@ -1,13 +1,10 @@
 package app.planner.common
 
 import app.planner.R
-import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
-import app.planner.core.domain.model.TaskList
-import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
-import kotlinx.coroutines.flow.first
+import app.planner.core.domain.usecase.CreateListUseCase
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -31,7 +28,7 @@ import javax.inject.Singleton
 @Singleton
 class TaskCommands @Inject constructor(
     private val tasks: ITaskRepository,
-    private val lists: ITaskListRepository,
+    private val createList: CreateListUseCase,
     private val messages: MessageBus,
     private val todayClock: TodayClock,
 ) {
@@ -48,13 +45,8 @@ class TaskCommands @Inject constructor(
      * Возвращает id списка, в котором оказалась задача.
      */
     suspend fun save(task: Task, newListName: String?): Long? {
-        val listId = if (newListName.isNullOrBlank()) {
-            task.listId
-        } else {
-            val existing = lists.observeLists().first()
-            val color = ListColor.entries[existing.count { !it.isInbox } % ListColor.entries.size]
-            lists.upsert(TaskList(name = newListName, color = color, position = existing.size))
-        }
+        // Правило «какой цвет и где встаёт новый список» — в CreateListUseCase (domain)
+        val listId = if (newListName.isNullOrBlank()) task.listId else createList(newListName)
         tasks.addOrUpdate(task.copy(listId = listId))
         return listId
     }

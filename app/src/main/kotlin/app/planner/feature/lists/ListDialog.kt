@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.planner.R
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.list.ListNameProblem
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.TaskList
 
@@ -39,11 +40,13 @@ import app.planner.core.domain.model.TaskList
  * Используется и в оглавлении, и внутри списка (карандаш в заголовке).
  *
  * @param initial список для редактирования; у нового списка id = 0.
+ * @param checkName проверка названия: null — можно, иначе причина, почему нельзя (её даёт ViewModel).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ListDialog(
     initial: TaskList,
+    checkName: (String) -> ListNameProblem?,
     onDismiss: () -> Unit,
     onSave: (TaskList) -> Unit,
     onDelete: (TaskList) -> Unit,
@@ -51,6 +54,14 @@ fun ListDialog(
     val isNew = initial.id == 0L
     var name by rememberSaveable { mutableStateOf(initial.name) }
     var color by rememberSaveable { mutableStateOf(initial.color) }
+    // Проверяем при каждой перерисовке, то есть после каждой введённой буквы
+    val problem = checkName(name)
+    // Какую подсказку показать под полем (null — никакую)
+    val problemText = when (problem) {
+        ListNameProblem.INBOX -> R.string.list_name_is_inbox
+        ListNameProblem.DUPLICATE -> R.string.list_name_taken
+        null -> null
+    }
     val paper = PlannerTheme.paper
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -64,6 +75,9 @@ fun ListDialog(
                     label = { Text(stringResource(R.string.list_name_label)) },
                     placeholder = { Text(stringResource(R.string.list_name_hint)) },
                     singleLine = true,
+                    // isError красит поле в цвет ошибки, supportingText — подпись под полем
+                    isError = problem != null,
+                    supportingText = problemText?.let { textId -> { Text(stringResource(textId)) } },
                 )
                 Text(
                     stringResource(R.string.list_color),
@@ -82,27 +96,41 @@ fun ListDialog(
                                 .clickable { color = c }
                                 .semantics { contentDescription = description },
                         ) {
-                            if (c == color) Icon(Icons.Outlined.Check, null, tint = paper.paper, modifier = Modifier.size(18.dp))
+                            if (c == color) Icon(
+                                Icons.Outlined.Check,
+                                null,
+                                tint = paper.paper,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
                 if (!isNew) {
-                    TextButton(onClick = { onDelete(initial) }, modifier = Modifier.padding(top = 12.dp)) {
-                        Text(stringResource(R.string.list_delete), color = MaterialTheme.colorScheme.error)
+                    TextButton(
+                        onClick = { onDelete(initial) },
+                        modifier = Modifier.padding(top = 12.dp)
+                    ) {
+                        Text(
+                            stringResource(R.string.list_delete),
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
-                    Text(stringResource(R.string.list_delete_hint), color = paper.inkMuted, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        stringResource(R.string.list_delete_hint),
+                        color = paper.inkMuted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(initial.copy(name = name.trim(), color = color)) }, enabled = name.isNotBlank()) {
+            TextButton(
+                onClick = { onSave(initial.copy(name = name.trim(), color = color)) },
+                enabled = name.isNotBlank() && problem == null
+            ) {
                 Text(stringResource(if (isNew) R.string.action_create else R.string.action_save))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
-
-/** Цвет следующего нового списка: по кругу палитры, чтобы соседние списки различались. */
-fun nextListColor(lists: List<TaskList>): ListColor =
-    ListColor.entries[lists.count { !it.isInbox } % ListColor.entries.size]

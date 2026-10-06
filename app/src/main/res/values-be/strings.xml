@@ -97,6 +97,8 @@
     <string name="list_edit">Спіс</string>
     <string name="list_name_label">Назва спіса</string>
     <string name="list_name_hint">Напрыклад, Дом або Кнігі</string>
+    <string name="list_name_taken">Такі спіс ужо ёсць</string>
+    <string name="list_name_is_inbox">«Без спіса» ужо ёсць — туды трапляюць задачы, якім не выбралі спіс</string>
     <string name="list_color">Колер</string>
     <string name="list_delete">Выдаліць спіс</string>
     <string name="list_delete_hint">Задачы з яго застануцца, але без спіса.</string>

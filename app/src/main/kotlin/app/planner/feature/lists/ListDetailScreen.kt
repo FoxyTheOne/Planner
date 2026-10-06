@@ -24,8 +24,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import app.planner.common.TaskListSaver
-import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +35,8 @@ import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
+import app.planner.common.TaskListSaver
+import app.planner.common.TaskSaver
 import app.planner.common.listName
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.TaskRow
@@ -103,6 +103,7 @@ fun ListDetailScreen(
     editingList?.let { l ->
         ListDialog(
             initial = l,
+            checkName = { viewModel.checkListName(it, l.id) },
             onDismiss = { editingList = null },
             onSave = { viewModel.saveList(it); editingList = null },
             onDelete = { viewModel.deleteList(it); editingList = null },
@@ -127,30 +128,59 @@ fun ListDetailContent(
 ) {
     val paper = PlannerTheme.paper
     val list = state.list
-    Box(Modifier.fillMaxSize().padding(contentPadding)) {
+    Box(Modifier
+        .fillMaxSize()
+        .padding(contentPadding)) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, end = 8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cd_back)) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, end = 8.dp)
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.ArrowBack,
+                        stringResource(R.string.cd_back)
+                    )
+                }
                 if (list != null) {
                     ListDot(if (list.isInbox) null else paper.label(list.color))
                     Text(
                         listName(list),
                         style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(start = 10.dp).weight(1f),
+                        modifier = Modifier
+                            .padding(start = 10.dp)
+                            .weight(1f),
                     )
                     // «Без списка» служебный — его нельзя переименовать или удалить
                     if (!list.isInbox) {
                         IconButton(onClick = { onEditList(list) }) {
-                            Icon(Icons.Outlined.Edit, stringResource(R.string.cd_edit_list), tint = paper.inkMuted)
+                            Icon(
+                                Icons.Outlined.Edit,
+                                stringResource(R.string.cd_edit_list),
+                                tint = paper.inkMuted
+                            )
                         }
                     }
                 }
             }
 
-            LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 96.dp)) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 12.dp,
+                    top = 4.dp,
+                    bottom = 96.dp
+                )
+            ) {
                 if (state.loaded && state.tasks.isEmpty()) {
                     item {
-                        Text(stringResource(R.string.list_empty), color = paper.inkMuted, modifier = Modifier.padding(top = 16.dp, end = 8.dp))
+                        Text(
+                            stringResource(R.string.list_empty),
+                            color = paper.inkMuted,
+                            modifier = Modifier.padding(top = 16.dp, end = 8.dp)
+                        )
                     }
                 }
                 items(state.tasks, key = { it.id }) { task ->
@@ -166,7 +196,11 @@ fun ListDetailContent(
                             toggleDescription = stringResource(R.string.cd_mark_done),
                             trailing = {
                                 IconButton(onClick = { onSchedule(task) }) {
-                                    Icon(Icons.Outlined.CalendarMonth, stringResource(R.string.schedule_title), tint = paper.inkMuted)
+                                    Icon(
+                                        Icons.Outlined.CalendarMonth,
+                                        stringResource(R.string.schedule_title),
+                                        tint = paper.inkMuted
+                                    )
                                 }
                             },
                         )
@@ -182,7 +216,9 @@ fun ListDetailContent(
             text = { Text(stringResource(R.string.action_new_task)) },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp),
         )
     }
 }

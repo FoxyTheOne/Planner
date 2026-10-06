@@ -1,8 +1,25 @@
+# --- Генерируется автоматически, восстанавливается сборкой ---
 .gradle/
 build/
+.kotlin/
+captures/
+# Подписанные APK/AAB, которые Android Studio кладёт в app/release (Build → Generate Signed Bundle)
+/app/release/
+# Дампы памяти из профайлера
+*.hprof
+
+# --- Личное для этого компьютера ---
+# Путь к Android SDK на этом компьютере
 local.properties
 .idea/
 *.iml
-.kotlin/
-captures/
 .DS_Store
+
+# --- Секреты: никогда не выкладывать ---
+# Ключ подписи релиза. Потеряете или выложите — обновить приложение в магазине будет нельзя / сможет кто угодно
+*.jks
+*.keystore
+# Пароли от ключа подписи (если будем хранить их в отдельном файле)
+keystore.properties
+# Любые другие секреты: ключи API и т.п.
+secrets.properties

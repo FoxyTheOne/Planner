@@ -5,6 +5,12 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// Языки приложения — ЕДИНСТВЕННОЕ место, где они перечислены. Отсюда их берут:
+// - localeFilters ниже (какие переводы попадут в APK);
+// - BuildConfig.LOCALES (код, которому нужны тексты на всех языках, например названия «Без списка»).
+// Новый язык: добавить сюда + создать папку values-xx со strings.xml.
+val appLocales = listOf("en", "ru", "be")
+
 android {
     namespace = "app.planner"
     compileSdk = 36
@@ -18,6 +24,9 @@ android {
         versionName = "0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Превращается в Kotlin: BuildConfig.LOCALES = arrayOf("en", "ru", "be")
+        buildConfigField("String[]", "LOCALES", appLocales.joinToString(prefix = "{", postfix = "}") { "\"$it\"" })
     }
 
     // Google Play и RuStore отличаются только магазинными мелочами (кнопка «Поддержать»)
@@ -53,7 +62,7 @@ android {
 
     androidResources {
         // Языки первого релиза: английский (по умолчанию), русский, белорусский (официальная орфография)
-        localeFilters += listOf("en", "ru", "be")
+        localeFilters += appLocales
         // Android 13+: язык можно выбрать отдельно для приложения (Настройки → Приложения → Язык).
         // Список языков для этого меню AGP собирает сам из папок values-*
         generateLocaleConfig = true

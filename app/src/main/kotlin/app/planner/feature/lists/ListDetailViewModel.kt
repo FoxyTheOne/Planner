@@ -5,6 +5,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
+import app.planner.core.domain.list.IInboxNames
+import app.planner.core.domain.list.ListNameProblem
+import app.planner.core.domain.list.nameProblem
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -44,6 +47,7 @@ class ListDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     tasks: ITaskRepository,
     private val listRepository: ITaskListRepository,
+    private val inboxNames: IInboxNames,
     private val settingsRepository: ISettingsRepository,
     private val commands: TaskCommands,
     todayClock: TodayClock,
@@ -76,6 +80,10 @@ class ListDetailViewModel @Inject constructor(
     fun saveList(list: TaskList) = viewModelScope.launch { listRepository.upsert(list) }
 
     /** Удалить этот список. Задачи остаются «Без списка»; последний открытый список забываем. */
+    /** Можно ли дать списку такое название (для подсказки в окне списка). [exceptId] — сам переименовываемый список. */
+    fun checkListName(name: String, exceptId: Long): ListNameProblem? =
+        state.value.allLists.nameProblem(name, inboxNames.all, exceptId)
+
     fun deleteList(list: TaskList) = viewModelScope.launch {
         listRepository.delete(list)
         settingsRepository.update { if (it.lastListId == list.id) it.copy(lastListId = null) else it }

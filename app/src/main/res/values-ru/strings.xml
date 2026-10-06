@@ -96,6 +96,8 @@
     <string name="list_edit">Список</string>
     <string name="list_name_label">Название списка</string>
     <string name="list_name_hint">Например, Дом или Книги</string>
+    <string name="list_name_taken">Такой список уже есть</string>
+    <string name="list_name_is_inbox">«Без списка» уже есть — туда попадают задачи, которым не выбрали список</string>
     <string name="list_color">Цвет</string>
     <string name="list_delete">Удалить список</string>
     <string name="list_delete_hint">Задачи из него останутся, но без списка.</string>
