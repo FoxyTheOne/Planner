@@ -1,5 +1,7 @@
 package app.planner.core.domain.recurrence
 
+import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Repeat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,7 +24,7 @@ class RecurrenceTest {
 
     @Test
     fun `daily occurs every day of the week`() {
-        val days = Recurrence.occurrences(rule(Repeat.Daily), monday, monday.plusDays(6))
+        val days = Recurrence.occurrences(rule(Repeat.Daily), monday, monday.plusDays(6)).map { it.date }
         assertEquals(7, days.size)
     }
 
@@ -30,7 +32,7 @@ class RecurrenceTest {
     fun `weekdays rule picks only chosen days`() {
         val r = rule(Repeat.OnWeekdays(setOf(MONDAY, WEDNESDAY, FRIDAY)))
 
-        val days = Recurrence.occurrences(r, monday, monday.plusDays(6))
+        val days = Recurrence.occurrences(r, monday, monday.plusDays(6)).map { it.date }
 
         // пн 5, ср 7, пт 9 октября
         assertEquals(listOf(monday, monday.plusDays(2), monday.plusDays(4)), days)
@@ -41,7 +43,7 @@ class RecurrenceTest {
         // «Через день» с понедельника: пн, ср, пт, вс, вт…
         val r = rule(Repeat.EveryNDays(2))
 
-        val days = Recurrence.occurrences(r, monday, monday.plusDays(8))
+        val days = Recurrence.occurrences(r, monday, monday.plusDays(8)).map { it.date }
 
         assertEquals(listOf(0L, 2, 4, 6, 8).map { monday.plusDays(it) }, days)
     }
@@ -52,7 +54,7 @@ class RecurrenceTest {
         val r = rule(Repeat.EveryNDays(3), start = monday.minusDays(10))
 
         // От minusDays(10) каждые 3 дня: …, minusDays(1), plusDays(2), plusDays(5)
-        val days = Recurrence.occurrences(r, monday, monday.plusDays(6))
+        val days = Recurrence.occurrences(r, monday, monday.plusDays(6)).map { it.date }
 
         assertEquals(listOf(monday.plusDays(2), monday.plusDays(5)), days)
     }
