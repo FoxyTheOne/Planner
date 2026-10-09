@@ -9,12 +9,14 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import app.planner.core.data.db.PlannerDatabase
+import app.planner.core.data.repository.RoomRecurrenceRepository
 import app.planner.core.data.repository.RoomTaskListRepository
 import app.planner.core.data.repository.RoomTaskRepository
 import app.planner.core.data.settings.DataStoreSettingsRepository
+import app.planner.core.domain.repository.IRecurrenceRepository
+import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
-import app.planner.core.domain.repository.ISettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -78,8 +80,13 @@ object StorageModule {
 abstract class RepositoryModule {
     @Binds
     abstract fun taskRepository(impl: RoomTaskRepository): ITaskRepository
+
     @Binds
     abstract fun taskListRepository(impl: RoomTaskListRepository): ITaskListRepository
+
+    @Binds
+    abstract fun recurrenceRepository(impl: RoomRecurrenceRepository): IRecurrenceRepository
+
     @Binds
     abstract fun settingsRepository(impl: DataStoreSettingsRepository): ISettingsRepository
 }

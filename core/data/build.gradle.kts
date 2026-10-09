@@ -12,6 +12,8 @@ android {
 
     defaultConfig {
         minSdk = 26
+        // Чем запускать тесты на эмуляторе (папка src/androidTest)
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
@@ -46,4 +48,9 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Тест миграций: создаёт базу старой версии и прогоняет её через миграцию на настоящем SQLite
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

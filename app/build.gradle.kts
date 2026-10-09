@@ -16,8 +16,14 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        // Временный applicationId: окончательный выберем вместе с названием до первой загрузки в магазин
-        applicationId = "app.planner"
+        // applicationId — «паспорт» приложения для Android и магазинов. После публикации его менять НЕЛЬЗЯ:
+        // с другим id это будет другое приложение, и обновления до людей не дойдут.
+        // Построен от сайта foxytheone.github.io (наоборот) — так он гарантированно ничей больше.
+        // «planner», а не название: название (Крок или другое) можно менять сколько угодно, id — нет.
+        //
+        // Не путать с namespace выше: namespace — пакет для кода (класс R, BuildConfig),
+        // пользователь его не видит, и он может отличаться от applicationId.
+        applicationId = "io.github.foxytheone.planner"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -26,7 +32,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Превращается в Kotlin: BuildConfig.LOCALES = arrayOf("en", "ru", "be")
-        buildConfigField("String[]", "LOCALES", appLocales.joinToString(prefix = "{", postfix = "}") { "\"$it\"" })
+        buildConfigField(
+            "String[]",
+            "LOCALES",
+            appLocales.joinToString(prefix = "{", postfix = "}") { "\"$it\"" })
     }
 
     // Google Play и RuStore отличаются только магазинными мелочами (кнопка «Поддержать»)
@@ -46,7 +55,10 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 

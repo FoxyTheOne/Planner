@@ -122,3 +122,30 @@ interface TaskListDao {
     @Query("DELETE FROM task_lists")
     suspend fun deleteAll()
 }
+
+/** DAO таблицы правил повторения. */
+@Dao
+interface RecurrenceRuleDao {
+    @Query("SELECT * FROM recurrence_rules ORDER BY id")
+    fun observeAll(): Flow<List<RecurrenceRuleEntity>>
+
+    @Query("SELECT * FROM recurrence_rules WHERE id = :id")
+    suspend fun get(id: Long): RecurrenceRuleEntity?
+
+    @Upsert
+    suspend fun upsert(rule: RecurrenceRuleEntity): Long
+
+    @Query("DELETE FROM recurrence_rules WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    // --- Для резервной копии ---
+
+    @Query("SELECT * FROM recurrence_rules")
+    suspend fun getAll(): List<RecurrenceRuleEntity>
+
+    @Insert
+    suspend fun insertAll(rules: List<RecurrenceRuleEntity>)
+
+    @Query("DELETE FROM recurrence_rules")
+    suspend fun deleteAll()
+}
