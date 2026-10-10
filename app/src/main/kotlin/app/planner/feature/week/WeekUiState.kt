@@ -1,5 +1,6 @@
 package app.planner.feature.week
 
+import app.planner.common.DayItem
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import java.time.LocalDate
@@ -9,7 +10,8 @@ data class WeekUiState(
     val today: LocalDate,
     val weekStart: LocalDate,
     val days: List<LocalDate> = emptyList(),
-    val tasksByDay: Map<LocalDate, List<Task>> = emptyMap(),
+    /** Строки каждого дня: задачи и ещё не отмеченные дни повторений, по времени. */
+    val itemsByDay: Map<LocalDate, List<DayItem>> = emptyMap(),
     val lists: List<TaskList> = emptyList(),
     /** Кандидаты для шторки «Из списков» и лотка планирования. */
     val unscheduled: List<Task> = emptyList(),

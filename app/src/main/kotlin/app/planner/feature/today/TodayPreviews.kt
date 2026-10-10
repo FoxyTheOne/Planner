@@ -1,5 +1,6 @@
 package app.planner.feature.today
 
+import app.planner.common.DayItem
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import app.planner.core.designsystem.preview.PlannerScreenPreviews
@@ -22,13 +23,13 @@ private fun TodayPreview() {
         TodayUiState(
             today = today,
             sections = mapOf(
-                DaySection.MORNING to listOf(callMom, doctor).map(TodayItem::TaskItem),
-                DaySection.DAY to listOf(documents, englishChapter).map(TodayItem::TaskItem),
+                DaySection.MORNING to listOf(callMom, doctor).map(DayItem::TaskItem),
+                DaySection.DAY to listOf(documents, englishChapter).map(DayItem::TaskItem),
                 // Вечер: повторения (бассейн и полив по циклу) — строки с ↻
                 DaySection.EVENING to listOf(poolRule, wateringRule)
                     .mapNotNull { Recurrence.occurrence(it, today) }
-                    .map(TodayItem::RepeatItem),
-                DaySection.ANYTIME to listOf(TodayItem.TaskItem(buyEpin)),
+                    .map(DayItem::RepeatItem),
+                DaySection.ANYTIME to listOf(DayItem.TaskItem(buyEpin)),
             ),
             doneCount = 1,
             totalCount = 6,

@@ -3,35 +3,35 @@ package app.planner.feature.week
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import app.planner.common.DateTexts
+import app.planner.common.dayItems
 import app.planner.core.designsystem.preview.PlannerScreenPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
+import app.planner.core.domain.recurrence.Recurrence
 import app.planner.preview.SampleData
-import java.time.LocalTime
 
 /*
  * Превью «Недели» и почасовой шкалы дня на выдуманных данных.
  * Откройте файл в Android Studio и включите вид «Split».
  */
 
-/** Неделя с задачами в разные дни; сегодняшний день подсвечен. */
+/** Неделя с задачами в разные дни и повторениями (бассейн, полив); сегодняшний день подсвечен. */
 private fun sampleWeek(): WeekUiState = with(SampleData) {
     val start = DateTexts.startOfWeek(today)
     val days = (0L..6L).map(start::plusDays)
+    val tasksByDay = mapOf(
+        days[0] to listOf(printPhotos.copy(date = days[0], status = TaskStatus.DONE)),
+        today to listOf(doctor, documents, englishChapter),
+    )
+    // Повторения считает тот же движок, что и в приложении
+    val occurrences = Recurrence.occurrencesBetween(listOf(poolRule, wateringRule), days.first(), days.last())
+        .groupBy { it.date }
     WeekUiState(
         today = today,
         weekStart = start,
         days = days,
-        tasksByDay = mapOf(
-            days[0] to listOf(printPhotos.copy(date = days[0], status = TaskStatus.DONE)),
-            days[2] to listOf(
-                watering.copy(date = days[2]),
-                Task(id = 30, title = "Бассейн", date = days[2], time = LocalTime.of(16, 30), listId = home.id),
-            ),
-            today to listOf(doctor, documents, englishChapter),
-            days[5] to listOf(Task(id = 31, title = "Полив · вода + эпин", date = days[5], listId = flowers.id)),
-        ),
+        itemsByDay = days.associateWith { dayItems(tasksByDay[it].orEmpty(), occurrences[it].orEmpty()) },
         lists = lists,
         unscheduled = listOf(readDune, buyBook),
         overdue = listOf(forgotten),
@@ -63,6 +63,7 @@ private fun DayPreview() {
             onBack = {},
             onPickSlot = {},
             onToggle = {},
+            onCompleteOccurrence = {},
             onEdit = {},
         )
     }
@@ -81,6 +82,7 @@ private fun WeekForPreview(planning: Boolean, selected: Task? = null) = WeekCont
     onOpenDay = {},
     onAdd = {},
     onToggle = {},
+    onCompleteOccurrence = {},
     onEdit = {},
     onDrop = { _, _ -> },
     onSelectFromTray = {},

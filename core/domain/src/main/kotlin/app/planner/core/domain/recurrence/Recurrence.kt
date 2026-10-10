@@ -5,6 +5,7 @@ import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
+import app.planner.core.domain.recurrence.Recurrence.occurrencesOn
 import app.planner.core.domain.recurrence.Recurrence.toTask
 import java.time.DayOfWeek
 import java.time.Instant
@@ -77,6 +78,19 @@ object Recurrence {
     ): List<Occurrence> =
         rules.mapNotNull { occurrence(it, date) }
             .filterNot { occ -> instances.any { it.ruleId == occ.rule.id && it.occurrenceDate == date } }
+
+    /**
+     * Всё, что выпадает с [from] по [to] по всем правилам, — для «Недели».
+     * [instances] — как в [occurrencesOn]: уже отмеченные дни здесь не повторяются.
+     */
+    fun occurrencesBetween(
+        rules: List<RecurrenceRule>,
+        from: LocalDate,
+        to: LocalDate,
+        instances: List<Task> = emptyList(),
+    ): List<Occurrence> =
+        rules.flatMap { occurrences(it, from, to) }
+            .filterNot { occ -> instances.any { it.ruleId == occ.rule.id && it.occurrenceDate == occ.date } }
 
     /**
      * Превратить день повторения в обычную задачу — когда с ним что-то сделали (например, отметили).

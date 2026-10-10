@@ -23,8 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import app.planner.common.SlotSaver
-import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,15 +32,17 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
 import app.planner.common.DateTexts
+import app.planner.common.DayItemRow
 import app.planner.common.PickTaskSheet
+import app.planner.common.SlotSaver
 import app.planner.common.TaskEditorSheet
+import app.planner.common.TaskSaver
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
-import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
-import app.planner.feature.today.labelColorOf
+import app.planner.core.domain.recurrence.Occurrence
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -69,6 +69,7 @@ fun DayScreen(
         onBack = onBack,
         onPickSlot = { pickSlot = it },
         onToggle = viewModel::toggle,
+        onCompleteOccurrence = viewModel::completeOccurrence,
         onEdit = { editing = it },
     )
 
@@ -109,44 +110,60 @@ fun DayContent(
     onBack: () -> Unit,
     onPickSlot: (Slot) -> Unit,
     onToggle: (Task) -> Unit,
+    onCompleteOccurrence: (Occurrence) -> Unit,
     onEdit: (Task) -> Unit,
 ) {
-    val tasks = state.tasksByDay[date].orEmpty()
-    val untimed = tasks.filter { it.time == null }
-    val byHour = tasks.filter { it.time != null }.groupBy { it.time!!.hour }
+    val items = state.itemsByDay[date].orEmpty()
+    val untimed = items.filter { it.time == null }
+    val byHour = items.filter { it.time != null }.groupBy { it.time!!.hour }
     val paper = PlannerTheme.paper
     // Открываем шкалу ближе к текущему часу, а не с шести утра
     val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = if (date == state.today) (LocalTime.now().hour - HOURS.first - 1).coerceAtLeast(0) + 1 else 0,
+        initialFirstVisibleItemIndex = if (date == state.today) (LocalTime.now().hour - HOURS.first - 1).coerceAtLeast(
+            0
+        ) + 1 else 0,
     )
 
-    Column(Modifier.fillMaxSize().padding(contentPadding)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, end = 16.dp)) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cd_back)) }
+    Column(Modifier
+        .fillMaxSize()
+        .padding(contentPadding)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp, end = 16.dp)
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.ArrowBack,
+                    stringResource(R.string.cd_back)
+                )
+            }
             Column {
                 Text(DateTexts.weekday(date), style = MaterialTheme.typography.titleLarge)
-                Text(DateTexts.dayMonth(date), color = paper.inkMuted, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    DateTexts.dayMonth(date),
+                    color = paper.inkMuted,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
-        LazyColumn(state = listState, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)) {
+        LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)
+        ) {
             item {
                 SectionLabel(stringResource(R.string.day_no_time))
                 if (untimed.isEmpty()) {
                     Text(
                         stringResource(R.string.week_add),
                         color = paper.inkFaint,
-                        modifier = Modifier.fillMaxWidth().clickable { onPickSlot(Slot(date)) }.padding(vertical = 10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPickSlot(Slot(date)) }
+                            .padding(vertical = 10.dp),
                     )
                 }
-                untimed.forEach { task ->
-                    TaskRow(
-                        title = task.title,
-                        done = task.isDone,
-                        onToggle = { onToggle(task) },
-                        onClick = { onEdit(task) },
-                        labelColor = labelColorOf(task, state.lists),
-                        toggleDescription = stringResource(R.string.cd_mark_done),
-                    )
+                untimed.forEach { item ->
+                    DayItemRow(item, state.lists, onToggle, onCompleteOccurrence, onEdit)
                 }
             }
             items(HOURS.toList(), key = { it }) { hour ->
@@ -160,20 +177,14 @@ fun DayContent(
                         "%02d".format(hour),
                         color = paper.inkMuted,
                         style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.width(36.dp).padding(top = 4.dp),
+                        modifier = Modifier
+                            .width(36.dp)
+                            .padding(top = 4.dp),
                     )
                     Column(Modifier.weight(1f)) {
                         DashedRule()
-                        byHour[hour].orEmpty().forEach { task ->
-                            TaskRow(
-                                title = task.title,
-                                done = task.isDone,
-                                onToggle = { onToggle(task) },
-                                onClick = { onEdit(task) },
-                                time = DateTexts.time(task.time!!),
-                                labelColor = labelColorOf(task, state.lists),
-                                toggleDescription = stringResource(R.string.cd_mark_done),
-                            )
+                        byHour[hour].orEmpty().forEach { item ->
+                            DayItemRow(item, state.lists, onToggle, onCompleteOccurrence, onEdit)
                         }
                     }
                 }

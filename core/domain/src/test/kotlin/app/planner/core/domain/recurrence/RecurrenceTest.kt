@@ -98,6 +98,17 @@ class RecurrenceTest {
     }
 
     @Test
+    fun `week view skips only the completed day`() {
+        val pool = rule(Repeat.OnWeekdays(setOf(MONDAY, WEDNESDAY, FRIDAY))).copy(id = 5)
+        val doneOnWednesday = Recurrence.toTask(Recurrence.occurrence(pool, monday.plusDays(2))!!, TaskStatus.DONE)
+
+        val week = Recurrence.occurrencesBetween(listOf(pool), monday, monday.plusDays(6), listOf(doneOnWednesday))
+
+        // Среда уже отмечена — там будет задача; понедельник и пятница остаются строками по правилу
+        assertEquals(listOf(monday, monday.plusDays(4)), week.map { it.date })
+    }
+
+    @Test
     fun `cycle details go to the task note`() {
         val watering = rule(Repeat.Cycle(listOf(mapOf(MONDAY to "фикус")), anchorMonday = monday))
 

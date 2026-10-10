@@ -61,14 +61,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
 import app.planner.common.DateTexts
+import app.planner.common.DayItem
+import app.planner.common.DayItemRow
 import app.planner.common.PickTaskSheet
 import app.planner.common.TaskEditorSheet
-import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.designsystem.theme.SerifFamily
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
-import app.planner.feature.today.labelColorOf
+import app.planner.core.domain.recurrence.Occurrence
 import java.time.LocalDate
 
 /**
@@ -106,6 +107,7 @@ fun WeekScreen(
         onOpenDay = onOpenDay,
         onAdd = { day -> pickSlot = Slot(day) },
         onToggle = viewModel::toggle,
+        onCompleteOccurrence = viewModel::completeOccurrence,
         onEdit = { editing = it },
         onDrop = { taskId, day ->
             viewModel.dropOnDay(taskId, day)
@@ -155,6 +157,7 @@ fun WeekContent(
     onOpenDay: (LocalDate) -> Unit,
     onAdd: (LocalDate) -> Unit,
     onToggle: (Task) -> Unit,
+    onCompleteOccurrence: (Occurrence) -> Unit,
     onEdit: (Task) -> Unit,
     onDrop: (taskId: Long, day: LocalDate) -> Unit,
     onSelectFromTray: (Task) -> Unit,
@@ -177,12 +180,13 @@ fun WeekContent(
                 DayBlock(
                     day = day,
                     isToday = day == state.today,
-                    tasks = state.tasksByDay[day].orEmpty(),
+                    items = state.itemsByDay[day].orEmpty(),
                     state = state,
                     planning = planning,
                     onOpenDay = { onOpenDay(day) },
                     onAdd = { onAdd(day) },
                     onToggle = onToggle,
+                    onCompleteOccurrence = onCompleteOccurrence,
                     onEdit = onEdit,
                     onDrop = { taskId -> onDrop(taskId, day) },
                     // Выбрали задачу в лотке — тап по дню ставит её туда
@@ -252,12 +256,13 @@ private fun WeekHeader(
 private fun DayBlock(
     day: LocalDate,
     isToday: Boolean,
-    tasks: List<Task>,
+    items: List<DayItem>,
     state: WeekUiState,
     planning: Boolean,
     onOpenDay: () -> Unit,
     onAdd: () -> Unit,
     onToggle: (Task) -> Unit,
+    onCompleteOccurrence: (Occurrence) -> Unit,
     onEdit: (Task) -> Unit,
     onDrop: (Long) -> Unit,
     onTapInPlanning: (() -> Unit)?,
@@ -317,19 +322,11 @@ private fun DayBlock(
                 }
             }
         }
-        if (tasks.isEmpty() && planning) {
+        if (items.isEmpty() && planning) {
             Text(stringResource(R.string.week_free), color = paper.inkFaint, modifier = Modifier.padding(bottom = 8.dp))
         }
-        tasks.forEach { task ->
-            TaskRow(
-                title = task.title,
-                done = task.isDone,
-                onToggle = { onToggle(task) },
-                onClick = { onEdit(task) },
-                time = task.time?.let(DateTexts::time),
-                labelColor = labelColorOf(task, state.lists),
-                toggleDescription = stringResource(R.string.cd_mark_done),
-            )
+        items.forEach { item ->
+            DayItemRow(item, state.lists, onToggle, onCompleteOccurrence, onEdit)
         }
     }
 }

@@ -1,5 +1,7 @@
 package app.planner.feature.today
 
+import app.planner.common.DayItem
+import app.planner.common.dayItems
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.common.TaskCommands
@@ -120,11 +122,10 @@ class TodayViewModel @Inject constructor(
     ): TodayUiState {
         val (todayTasks, tomorrowTasks) = twoDays.partition { it.date == today }
         // Задачи и повторения — в одну кучу, дальше они сортируются и раскладываются по частям дня вместе
-        val items: List<TodayItem> = todayTasks.map { TodayItem.TaskItem(it) } +
-                occurrences.map { TodayItem.RepeatItem(it) }
+        val items = dayItems(todayTasks, occurrences)
         val sections = items
             // Сделанное опускается вниз своего раздела, но не пропадает — приятно видеть
-            .sortedWith(compareBy<TodayItem> { it.isDone }.thenBy(nullsLast()) { it.time })
+            .sortedWith(compareBy<DayItem> { it.isDone }.thenBy(nullsLast()) { it.time })
             .groupBy { sectionOf(it, settings) }
         return TodayUiState(
             today = today,
@@ -141,10 +142,10 @@ class TodayViewModel @Inject constructor(
     }
 
     /** В какую часть дня попадает строка: по точному времени, а если его нет — по выбранной части дня. */
-    private fun sectionOf(item: TodayItem, settings: PlannerSettings): DaySection {
+    private fun sectionOf(item: DayItem, settings: PlannerSettings): DaySection {
         val partOfDay = when (item) {
-            is TodayItem.TaskItem -> item.task.partOfDay
-            is TodayItem.RepeatItem -> item.occurrence.rule.partOfDay
+            is DayItem.TaskItem -> item.task.partOfDay
+            is DayItem.RepeatItem -> item.occurrence.rule.partOfDay
         }
         val part = item.time?.let(settings::partOfDayFor) ?: partOfDay
         return when (part) {

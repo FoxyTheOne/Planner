@@ -41,9 +41,12 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
 import app.planner.common.DateTexts
+import app.planner.common.DayItem
+import app.planner.common.DayItemRow
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
+import app.planner.common.labelColorOf
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.component.TaskRow
@@ -174,7 +177,7 @@ fun TodayContent(
                     items(sectionItems, key = { it.key }) { item ->
                         // when по sealed interface: задача — строка с чекбоксом и свайпами, повторение — строка с ↻
                         when (item) {
-                            is TodayItem.TaskItem -> {
+                            is DayItem.TaskItem -> {
                                 val task = item.task
                                 SwipeableTaskRow(
                                     task = task,
@@ -187,20 +190,15 @@ fun TodayContent(
                                 )
                             }
 
-                            is TodayItem.RepeatItem -> {
-                                // День повторения, ещё не отмеченный: строится по правилу, в базе его нет.
-                                // Отметили — он станет задачей и придёт сюда уже как TaskItem
-                                val rule = item.occurrence.rule
+                            is DayItem.RepeatItem -> {
+                                // День повторения, ещё не отмеченный. Отметили — он станет задачей и придёт сюда как TaskItem
                                 Column(Modifier.animateItem()) {
-                                    TaskRow(
-                                        title = rule.title,
-                                        done = false,
-                                        onToggle = { onCompleteOccurrence(item.occurrence) },
-                                        subtitle = item.occurrence.details,
-                                        repeating = true,
-                                        time = rule.time?.let(DateTexts::time),
-                                        labelColor = labelColorOf(rule.listId, state.lists),
-                                        toggleDescription = stringResource(R.string.cd_mark_done),
+                                    DayItemRow(
+                                        item = item,
+                                        lists = state.lists,
+                                        onToggle = onToggle,
+                                        onCompleteOccurrence = onCompleteOccurrence,
+                                        onEdit = onEdit,
                                     )
                                     DashedRule()
                                 }
@@ -346,22 +344,13 @@ fun SwipeableTaskRow(
                 // У отмеченного дня повторения — значок ↻ и дела этого дня (они лежат в заметке)
                 subtitle = if (task.isOccurrence) task.note else null,
                 repeating = task.isOccurrence,
-                labelColor = labelColorOf(task, lists),
+                labelColor = labelColorOf(task.listId, lists),
                 toggleDescription = stringResource(R.string.cd_mark_done),
             )
             DashedRule()
         }
     }
 }
-
-/** Цвет точки-метки задачи — цвет её списка. У «Входящих» точки нет. */
-@Composable
-fun labelColorOf(task: Task, lists: List<TaskList>) = labelColorOf(task.listId, lists)
-
-/** Цвет точки-метки по id списка (у задач и у правил повторения). */
-@Composable
-fun labelColorOf(listId: Long?, lists: List<TaskList>) =
-    lists.firstOrNull { it.id == listId && !it.isInbox }?.let { PlannerTheme.paper.label(it.color) }
 
 /** «→ Завтра: 3 задачи» и отдельно события со временем — чтобы вечером не пропустить утренний приём. */
 @Composable

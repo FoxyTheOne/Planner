@@ -32,7 +32,6 @@ object SampleData {
     val doctor = Task(id = 2, title = "Врач, каб. 214", date = today, time = LocalTime.of(10, 30))
     val documents = Task(id = 3, title = "Разобрать документы", date = today, partOfDay = PartOfDay.DAY, listId = home.id)
     val englishChapter = Task(id = 4, title = "Английский: гл. 4", date = today, partOfDay = PartOfDay.DAY, listId = english.id)
-    val watering = Task(id = 5, title = "Полив · вода + фитиль", date = today, partOfDay = PartOfDay.EVENING, listId = flowers.id)
     val buyEpin = Task(id = 6, title = "Купить эпин", date = today, listId = flowers.id)
     val dentist = Task(id = 7, title = "Стоматолог", date = today.plusDays(1), time = LocalTime.of(9, 0))
 
