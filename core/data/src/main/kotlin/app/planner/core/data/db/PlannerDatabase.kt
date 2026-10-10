@@ -27,17 +27,19 @@ import androidx.room.TypeConverters
  *
  * История версий:
  * - 1 — задачи и списки;
- * - 2 — правила повторения (таблица recurrence_rules).
+ * - 2 — правила повторения (таблица recurrence_rules);
+ * - 3 — у задач колонки ruleId и occurrenceDate: отмеченный день повторения хранится задачей.
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
  */
 @Database(
     entities = [TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
+        AutoMigration(from = 2, to = 3),
     ],
 )
 @TypeConverters(Converters::class)

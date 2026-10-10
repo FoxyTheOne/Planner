@@ -45,13 +45,13 @@ import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
 import app.planner.core.designsystem.component.DashedRule
-import app.planner.core.designsystem.component.RepeatRow
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
+import app.planner.core.domain.recurrence.Occurrence
 import kotlinx.coroutines.launch
 
 /**
@@ -83,6 +83,7 @@ fun TodayScreen(
         onOpenSettings = onOpenSettings,
         onOpenOverdue = { showOverdue = true },
         onToggle = viewModel::toggle,
+        onCompleteOccurrence = viewModel::completeOccurrence,
         onEdit = { editing = it },
         onSwipeTomorrow = viewModel::moveToTomorrow,
         onSwipeSchedule = { scheduling = it },
@@ -135,14 +136,17 @@ fun TodayContent(
     onOpenSettings: () -> Unit,
     onOpenOverdue: () -> Unit,
     onToggle: (Task) -> Unit,
+    onCompleteOccurrence: (Occurrence) -> Unit,
     onEdit: (Task) -> Unit,
     onSwipeTomorrow: (Task) -> Unit,
     onSwipeSchedule: (Task) -> Unit,
     onAdd: () -> Unit,
 ) {
-    Box(Modifier
-        .fillMaxSize()
-        .padding(contentPadding)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
         LazyColumn(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp),
             modifier = Modifier.fillMaxSize(),
@@ -184,13 +188,19 @@ fun TodayContent(
                             }
 
                             is TodayItem.RepeatItem -> {
+                                // День повторения, ещё не отмеченный: строится по правилу, в базе его нет.
+                                // Отметили — он станет задачей и придёт сюда уже как TaskItem
                                 val rule = item.occurrence.rule
                                 Column(Modifier.animateItem()) {
-                                    RepeatRow(
+                                    TaskRow(
                                         title = rule.title,
-                                        details = item.occurrence.details,
+                                        done = false,
+                                        onToggle = { onCompleteOccurrence(item.occurrence) },
+                                        subtitle = item.occurrence.details,
+                                        repeating = true,
                                         time = rule.time?.let(DateTexts::time),
                                         labelColor = labelColorOf(rule.listId, state.lists),
+                                        toggleDescription = stringResource(R.string.cd_mark_done),
                                     )
                                     DashedRule()
                                 }
@@ -217,9 +227,11 @@ fun TodayContent(
 @Composable
 private fun TodayHeader(state: TodayUiState, onOpenSettings: () -> Unit) {
     Row(verticalAlignment = Alignment.Top) {
-        Column(Modifier
-            .weight(1f)
-            .padding(top = 8.dp)) {
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(top = 8.dp)
+        ) {
             Text(DateTexts.weekday(state.today), style = MaterialTheme.typography.headlineMedium)
             val progress = if (state.totalCount > 0) {
                 " · " + stringResource(R.string.today_progress, state.doneCount, state.totalCount)
@@ -331,6 +343,9 @@ fun SwipeableTaskRow(
                 onToggle = onToggle,
                 onClick = onClick,
                 time = task.time?.let(DateTexts::time),
+                // У отмеченного дня повторения — значок ↻ и дела этого дня (они лежат в заметке)
+                subtitle = if (task.isOccurrence) task.note else null,
+                repeating = task.isOccurrence,
                 labelColor = labelColorOf(task, lists),
                 toggleDescription = stringResource(R.string.cd_mark_done),
             )

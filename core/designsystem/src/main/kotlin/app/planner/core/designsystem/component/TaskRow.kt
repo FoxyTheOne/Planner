@@ -47,7 +47,10 @@ import app.planner.core.designsystem.theme.SectionLabelStyle
 
 /**
  * Строка задачи в стиле блокнота: квадратный чекбокс, текст, справа — время и точка-метка списка.
+ * Ею же рисуются и дни повторений («Полив», «Бассейн») — с [repeating] и, у цикла, [subtitle].
  *
+ * @param subtitle вторая строка мелким шрифтом: у цикла — дела этого дня («фикус, монстера»).
+ * @param repeating показать справа значок ↻ — это день повторения, а не обычная задача.
  * @param trailingBadge плашка даты у запланированной задачи в списке («Пт 25»).
  * @param dimmed приглушить текст (запланированная задача в списке).
  * @param toggleDescription текст для TalkBack (озвучка экрана для незрячих).
@@ -60,6 +63,8 @@ fun TaskRow(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
     time: String? = null,
+    subtitle: String? = null,
+    repeating: Boolean = false,
     labelColor: Color? = null,
     trailingBadge: String? = null,
     dimmed: Boolean = false,
@@ -85,15 +90,23 @@ fun TaskRow(
         if (time != null) {
             Text(time, style = MaterialTheme.typography.bodyLarge, color = paper.timeAccent)
         }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            color = textColor,
-            textDecoration = if (done) TextDecoration.LineThrough else null,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        // Column с weight(1f) занимает всё свободное место — значки справа прижимаются к краю
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = textColor,
+                textDecoration = if (done) TextDecoration.LineThrough else null,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!subtitle.isNullOrEmpty()) {
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = paper.inkMuted)
+            }
+        }
+        if (repeating) {
+            Icon(Icons.Rounded.Repeat, null, tint = paper.inkMuted, modifier = Modifier.size(16.dp))
+        }
         if (trailingBadge != null) {
             Text(
                 text = trailingBadge,
@@ -112,62 +125,6 @@ fun TaskRow(
             )
         }
         trailing?.invoke()
-    }
-}
-
-/**
- * Строка повторяющегося дела («Полив», «Бассейн»): вместо чекбокса значок ↻,
- * под названием — что именно сделать в этот день (у цикла: «фикус, монстера»).
- *
- * Отметить повторение сделанным пока нельзя — это следующий шаг, тогда здесь появится чекбокс.
- *
- * @param details дела этого дня; у простых повторений null — тогда строка в одну линию.
- */
-@Composable
-fun RepeatRow(
-    title: String,
-    modifier: Modifier = Modifier,
-    details: String? = null,
-    time: String? = null,
-    labelColor: Color? = null,
-    onClick: (() -> Unit)? = null,
-) {
-    val paper = PlannerTheme.paper
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        // Та же ширина 40dp, что у чекбокса в TaskRow, — чтобы названия в списке стояли ровно
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                Icons.Rounded.Repeat, null, tint = paper.inkMuted,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        if (time != null) {
-            Text(time, style = MaterialTheme.typography.bodyLarge, color = paper.timeAccent)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyLarge,
-                color = paper.ink,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (details != null) {
-                Text(details, style = MaterialTheme.typography.bodyMedium, color = paper.inkMuted)
-            }
-        }
-        if (labelColor != null) {
-            Box(Modifier
-                .size(7.dp)
-                .background(labelColor, CircleShape))
-        }
     }
 }
 

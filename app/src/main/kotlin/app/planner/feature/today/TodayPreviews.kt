@@ -56,6 +56,7 @@ private fun TodayContentForPreview(state: TodayUiState) = TodayContent(
     onOpenSettings = {},
     onOpenOverdue = {},
     onToggle = {},
+    onCompleteOccurrence = {},
     onEdit = {},
     onSwipeTomorrow = {},
     onSwipeSchedule = {},

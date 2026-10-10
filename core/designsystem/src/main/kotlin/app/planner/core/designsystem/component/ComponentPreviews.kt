@@ -55,15 +55,18 @@ private fun TaskRowPreview() = PreviewSurface {
     )
 }
 
-/** Повторения: простое (бассейн по средам) и цикл полива с делами этой недели. */
+/** Дни повторений: бассейн (ещё не отмечен) и полив по циклу с делами этой недели (уже отмечен). */
 @PlannerPreviews
 @Composable
 private fun RepeatRowPreview() = PreviewSurface {
-    RepeatRow(title = "Бассейн", time = "18:30")
+    TaskRow(title = "Бассейн", done = false, onToggle = {}, time = "18:30", repeating = true)
     DashedRule()
-    RepeatRow(
+    TaskRow(
         title = "Полив",
-        details = "фикус, монстера",
+        done = true,
+        onToggle = {},
+        subtitle = "фикус, монстера",
+        repeating = true,
         labelColor = PlannerTheme.paper.label(ListColor.SAGE),
     )
 }

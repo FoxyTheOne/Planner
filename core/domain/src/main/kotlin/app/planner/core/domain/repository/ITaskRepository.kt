@@ -19,7 +19,13 @@ interface ITaskRepository {
     /** Задачи с датой в промежутке [from]..[to] включительно — для «Сегодня» и «Недели». */
     fun observeTasksBetween(from: LocalDate, to: LocalDate): Flow<List<Task>>
 
-    /** Хвосты: открытые задачи с датой раньше [today]. */
+    /**
+     * Задачи, в которые превратились дни повторений с [from] по [to] (по дню правила,
+     * а не по дате в плане). По ним движок понимает, какие дни уже отмечены.
+     */
+    fun observeOccurrenceTasks(from: LocalDate, to: LocalDate): Flow<List<Task>>
+
+    /** Хвосты: открытые задачи с датой раньше [today]. Дни повторений хвостами не бывают. */
     fun observeOverdue(today: LocalDate): Flow<List<Task>>
 
     /** Задачи списка, включая запланированные (они показываются серыми с датой) и ещё не сделанные. */

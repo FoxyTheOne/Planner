@@ -48,6 +48,7 @@ class BackupRoundTripTest {
                         id = 1, title = "Купить лампу", note = "в IKEA", date = LocalDate.of(2026, 10, 9),
                         time = null, partOfDay = null, listId = 1, status = TaskStatus.OPEN,
                         isSample = false, createdAt = Instant.ofEpochMilli(1_000), doneAt = null,
+                        ruleId = null, occurrenceDate = null,
                     ),
                 ),
             )
@@ -60,6 +61,17 @@ class BackupRoundTripTest {
                 listId = 1,
             )
             source.recurrenceRuleDao().insertAll(listOf(rule.toEntity()))
+            // И отмеченный день этого правила — задача со ссылкой на правило
+            source.taskDao().insertAll(
+                listOf(
+                    TaskEntity(
+                        id = 2, title = "Полив", note = "фикус", date = LocalDate.of(2026, 10, 7),
+                        time = null, partOfDay = null, listId = 1, status = TaskStatus.DONE,
+                        isSample = false, createdAt = Instant.ofEpochMilli(2_000), doneAt = Instant.ofEpochMilli(3_000),
+                        ruleId = 1, occurrenceDate = LocalDate.of(2026, 10, 7),
+                    ),
+                ),
+            )
 
             // 2. Экспорт в «файл» (массив байтов в памяти) и восстановление во вторую базу
             val file = ByteArrayOutputStream()

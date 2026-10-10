@@ -34,8 +34,15 @@ import java.time.LocalTime
             // Удалили список — задачи не пропадают, а остаются без списка
             onDelete = ForeignKey.SET_NULL,
         ),
+        ForeignKey(
+            entity = RecurrenceRuleEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["ruleId"],
+            // Удалили правило — отмеченные дни остаются в истории как обычные задачи
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
-    indices = [Index("date"), Index("listId"), Index("status")],
+    indices = [Index("date"), Index("listId"), Index("status"), Index("ruleId", "occurrenceDate")],
 )
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -49,6 +56,9 @@ data class TaskEntity(
     val isSample: Boolean,
     val createdAt: Instant,
     val doneAt: Instant?,
+    /** День повторения: id правила и день правила, к которому относится задача (см. Task). */
+    val ruleId: Long?,
+    val occurrenceDate: LocalDate?,
 )
 
 /** Строка таблицы `task_lists` — список «Когда-нибудь» в базе Room. */
@@ -66,11 +76,13 @@ data class TaskListEntity(
 fun TaskEntity.toDomain() = Task(
     id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
     listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
+    ruleId = ruleId, occurrenceDate = occurrenceDate,
 )
 
 fun Task.toEntity() = TaskEntity(
     id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
     listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
+    ruleId = ruleId, occurrenceDate = occurrenceDate,
 )
 
 fun TaskListEntity.toDomain() =

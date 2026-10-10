@@ -41,7 +41,7 @@ sealed interface TodayItem {
         override val key get() = "rule_${occurrence.rule.id}"
         override val time get() = occurrence.rule.time
 
-        // Отмечать повторения научимся на следующем шаге
+        // Строка по правилу всегда «не сделано»: отмеченный день становится задачей (TaskItem)
         override val isDone get() = false
     }
 }

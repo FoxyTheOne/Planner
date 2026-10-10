@@ -3,7 +3,11 @@ package app.planner.core.domain.recurrence
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
+import app.planner.core.domain.model.Task
+import app.planner.core.domain.model.TaskStatus
+import app.planner.core.domain.recurrence.Recurrence.toTask
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
@@ -59,9 +63,42 @@ object Recurrence {
         }
     }
 
-    /** Что выпадает на [date] сразу по всем правилам — для экрана одного дня («Сегодня»). */
-    fun occurrencesOn(rules: List<RecurrenceRule>, date: LocalDate): List<Occurrence> =
+    /**
+     * Что выпадает на [date] сразу по всем правилам — для экрана одного дня («Сегодня»).
+     *
+     * @param instances задачи, в которые уже превратились дни повторений (см. [toTask]).
+     *   Если для правила на этот день такая задача есть, «виртуальную» строку не показываем —
+     *   вместо неё на экране будет сама задача (отмеченная, а позже — и перенесённая).
+     */
+    fun occurrencesOn(
+        rules: List<RecurrenceRule>,
+        date: LocalDate,
+        instances: List<Task> = emptyList(),
+    ): List<Occurrence> =
         rules.mapNotNull { occurrence(it, date) }
+            .filterNot { occ -> instances.any { it.ruleId == occ.rule.id && it.occurrenceDate == date } }
+
+    /**
+     * Превратить день повторения в обычную задачу — когда с ним что-то сделали (например, отметили).
+     *
+     * Задача помнит правило ([Task.ruleId]) и день, к которому относится ([Task.occurrenceDate]).
+     * Название — как у правила; дела этого дня у цикла («фикус, монстера») идут в заметку.
+     */
+    fun toTask(occurrence: Occurrence, status: TaskStatus): Task {
+        val rule = occurrence.rule
+        return Task(
+            title = rule.title,
+            note = occurrence.details.orEmpty(),
+            date = occurrence.date,
+            time = rule.time,
+            partOfDay = rule.partOfDay,
+            listId = rule.listId,
+            status = status,
+            doneAt = if (status == TaskStatus.DONE) Instant.now() else null,
+            ruleId = rule.id,
+            occurrenceDate = occurrence.date,
+        )
+    }
 
     /** Выпадает ли правило на [date]. */
     fun occursOn(rule: RecurrenceRule, date: LocalDate): Boolean = occurrence(rule, date) != null

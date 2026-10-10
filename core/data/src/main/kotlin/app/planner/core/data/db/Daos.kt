@@ -33,12 +33,17 @@ interface TaskDao {
     )
     fun observeBetween(from: LocalDate, to: LocalDate): Flow<List<TaskEntity>>
 
-    // Хвосты: открытые задачи с датой в прошлом. События с точным временем сюда не попадают
-    @Query("SELECT * FROM tasks WHERE status = 'OPEN' AND date < :today AND time IS NULL ORDER BY date DESC")
+    // Хвосты: открытые задачи с датой в прошлом. События с точным временем и дни повторений
+    // (ruleId не пустой) сюда не попадают — повторение не копится, а просто приходит снова
+    @Query("SELECT * FROM tasks WHERE status = 'OPEN' AND date < :today AND time IS NULL AND ruleId IS NULL ORDER BY date DESC")
     fun observeOverdue(today: LocalDate): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE status = 'OPEN' AND date < :today AND time IS NULL")
+    @Query("SELECT * FROM tasks WHERE status = 'OPEN' AND date < :today AND time IS NULL AND ruleId IS NULL")
     suspend fun getOverdue(today: LocalDate): List<TaskEntity>
+
+    // Дни повторений, с которыми что-то сделали, — по дню правила (occurrenceDate), а не по дате в плане
+    @Query("SELECT * FROM tasks WHERE ruleId IS NOT NULL AND occurrenceDate BETWEEN :from AND :to")
+    fun observeOccurrenceTasks(from: LocalDate, to: LocalDate): Flow<List<TaskEntity>>
 
     // Задачи одного списка: сначала то, что ещё ждёт своего часа, запланированные — внизу, по дате
     @Query("SELECT * FROM tasks WHERE listId = :listId AND status = 'OPEN' ORDER BY date IS NOT NULL, date, createdAt")

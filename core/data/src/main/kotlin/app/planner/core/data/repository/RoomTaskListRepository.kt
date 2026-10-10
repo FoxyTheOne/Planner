@@ -22,12 +22,13 @@ class RoomTaskListRepository @Inject constructor(
     private val db: PlannerDatabase,
 ) : ITaskListRepository {
 
-    private val dao = db.taskListDao()
+    private val taskListDao = db.taskListDao()
 
-    override fun observeLists(): Flow<List<TaskList>> = dao.observeAll().map { it.map { e -> e.toDomain() } }
+    override fun observeLists(): Flow<List<TaskList>> =
+        taskListDao.observeAll().map { it.map { e -> e.toDomain() } }
 
     override suspend fun upsert(list: TaskList): Long {
-        val rowId = dao.upsert(list.toEntity())
+        val rowId = taskListDao.upsert(list.toEntity())
         return if (list.id == 0L) rowId else list.id
     }
 
@@ -37,7 +38,7 @@ class RoomTaskListRepository @Inject constructor(
         db.withTransaction {
             // Задачи удалённого списка не пропадают, а переезжают во «Входящие»
             db.taskDao().moveToList(list.id, inboxId())
-            dao.delete(list.toEntity())
+            taskListDao.delete(list.toEntity())
         }
     }
 
@@ -57,6 +58,6 @@ class RoomTaskListRepository @Inject constructor(
      * могли бы не найти список и создать два. Транзакция выполняет их по очереди.
      */
     override suspend fun inboxId(): Long = db.withTransaction {
-        dao.inboxId() ?: dao.upsert(TaskList(name = "", isInbox = true).toEntity())
+        taskListDao.inboxId() ?: taskListDao.upsert(TaskList(name = "", isInbox = true).toEntity())
     }
 }

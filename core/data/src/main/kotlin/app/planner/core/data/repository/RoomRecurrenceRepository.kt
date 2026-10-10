@@ -19,18 +19,18 @@ class RoomRecurrenceRepository @Inject constructor(
     db: PlannerDatabase,
 ) : IRecurrenceRepository {
 
-    private val dao = db.recurrenceRuleDao()
+    private val recurrenceRuleDao = db.recurrenceRuleDao()
 
     override fun observeRules(): Flow<List<RecurrenceRule>> =
-        dao.observeAll().map { rows -> rows.map { it.toDomain() } }
+        recurrenceRuleDao.observeAll().map { rows -> rows.map { it.toDomain() } }
 
-    override suspend fun getRule(id: Long): RecurrenceRule? = dao.get(id)?.toDomain()
+    override suspend fun getRule(id: Long): RecurrenceRule? = recurrenceRuleDao.get(id)?.toDomain()
 
     override suspend fun save(rule: RecurrenceRule): Long {
         // Как в RoomTaskRepository: у нового правила берём id, выданный базой
-        val rowId = dao.upsert(rule.toEntity())
+        val rowId = recurrenceRuleDao.upsert(rule.toEntity())
         return if (rule.id == 0L) rowId else rule.id
     }
 
-    override suspend fun delete(rule: RecurrenceRule) = dao.delete(rule.id)
+    override suspend fun delete(rule: RecurrenceRule) = recurrenceRuleDao.delete(rule.id)
 }

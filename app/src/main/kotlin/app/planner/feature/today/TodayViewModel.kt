@@ -6,11 +6,11 @@ import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.PlannerSettings
-import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.overdue.Overdue
+import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ISettingsRepository
@@ -57,7 +57,8 @@ class TodayViewModel @Inject constructor(
      *     }
      *     .stateIn(…)                  StateFlow<TodayUiState>  последнее состояние, читается сразу
      *
-     * 1. combine следит за ПЯТЬЮ потоками (задачи, хвосты, настройки, списки, правила).
+     * 1. combine следит за ПЯТЬЮ потоками (задачи, хвосты, настройки, списки, повторения).
+     *    Пятый — сам маленький combine: правила + уже отмеченные дни → что ещё осталось отметить.
      *    Изменился любой — берёт последние значения всех пяти и вызывает лямбду.
      *    Последняя строка лямбды — её результат: TodayUiState из buildState.
      *    combine выпускает его в свой выходной поток как новое значение.
@@ -79,15 +80,35 @@ class TodayViewModel @Inject constructor(
      */
     val state: StateFlow<TodayUiState> = todayClock.todayFlow.flatMapLatest { today ->
         combine(
-            tasks.observeTasksBetween(today, today.plusDays(1)), // задачи именно этого дня (и завтрашнего)
+            tasks.observeTasksBetween(
+                today,
+                today.plusDays(1)
+            ), // задачи именно этого дня (и завтрашнего)
             tasks.observeOverdue(today),
             settingsRepository.settings,
             listRepository.observeLists(),
-            recurrenceRepository.observeRules(),
-        ) { twoDays, overdue, settings, lists, rules ->
-            buildState(today, twoDays, overdue, settings, lists, rules) // ← результат уходит в поток combine
+            // Дни повторений на сегодня, ещё не отмеченные: правила + уже отмеченные дни (тоже combine)
+            combine(
+                recurrenceRepository.observeRules(),
+                tasks.observeOccurrenceTasks(today, today)
+            ) { rules, done ->
+                Recurrence.occurrencesOn(rules, today, instances = done)
+            },
+        ) { twoDays, overdue, settings, lists, occurrences ->
+            buildState(
+                today,
+                twoDays,
+                overdue,
+                settings,
+                lists,
+                occurrences
+            ) // ← результат уходит в поток combine
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayUiState(todayClock.today()))
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        TodayUiState(todayClock.today())
+    )
 
     private fun buildState(
         today: LocalDate,
@@ -95,12 +116,12 @@ class TodayViewModel @Inject constructor(
         overdue: List<Task>,
         settings: PlannerSettings,
         lists: List<TaskList>,
-        rules: List<RecurrenceRule>,
+        occurrences: List<Occurrence>,
     ): TodayUiState {
         val (todayTasks, tomorrowTasks) = twoDays.partition { it.date == today }
         // Задачи и повторения — в одну кучу, дальше они сортируются и раскладываются по частям дня вместе
         val items: List<TodayItem> = todayTasks.map { TodayItem.TaskItem(it) } +
-            Recurrence.occurrencesOn(rules, today).map { TodayItem.RepeatItem(it) }
+                occurrences.map { TodayItem.RepeatItem(it) }
         val sections = items
             // Сделанное опускается вниз своего раздела, но не пропадает — приятно видеть
             .sortedWith(compareBy<TodayItem> { it.isDone }.thenBy(nullsLast()) { it.time })
@@ -108,9 +129,9 @@ class TodayViewModel @Inject constructor(
         return TodayUiState(
             today = today,
             sections = sections,
-            // Счётчик «1 из 5» пока только по задачам: повторения добавим, когда их можно будет отмечать
+            // «1 из 5»: отмеченные повторения уже стали задачами, неотмеченные — ещё строки по правилу
             doneCount = todayTasks.count { it.isDone },
-            totalCount = todayTasks.size,
+            totalCount = todayTasks.size + occurrences.size,
             tomorrowCount = tomorrowTasks.size,
             tomorrowTimed = tomorrowTasks.filter { it.time != null && !it.isDone },
             overdue = Overdue.grouped(overdue, today),
@@ -138,13 +159,17 @@ class TodayViewModel @Inject constructor(
     // поэтому экран не «замирает», пока идёт запись в базу. ---
 
     fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
+    fun completeOccurrence(occurrence: Occurrence) =
+        viewModelScope.launch { commands.completeOccurrence(occurrence) }
+
     fun moveToTomorrow(task: Task) = viewModelScope.launch { commands.moveToTomorrow(task) }
     fun schedule(task: Task, slot: Slot) = viewModelScope.launch { commands.schedule(task, slot) }
     fun returnToList(task: Task) = viewModelScope.launch { commands.returnToList(task) }
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
 
     /** Сохранить из редактора; [newListName] — если там же придумали новый список. */
-    fun save(task: Task, newListName: String?) = viewModelScope.launch { commands.save(task, newListName) }
+    fun save(task: Task, newListName: String?) =
+        viewModelScope.launch { commands.save(task, newListName) }
 
     fun allOverdueToToday() = viewModelScope.launch {
         val today = state.value.today

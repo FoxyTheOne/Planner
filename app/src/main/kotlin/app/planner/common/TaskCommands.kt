@@ -3,6 +3,9 @@ package app.planner.common
 import app.planner.R
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.model.TaskStatus
+import app.planner.core.domain.recurrence.Occurrence
+import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.core.domain.usecase.CreateListUseCase
 import javax.inject.Inject
@@ -33,7 +36,21 @@ class TaskCommands @Inject constructor(
     private val todayClock: TodayClock,
 ) {
     suspend fun toggleDone(task: Task) {
-        tasks.setDone(task.id, !task.isDone)
+        if (task.isOccurrence && task.isDone) {
+            // Сняли отметку с дня повторения — удаляем задачу, и на экране снова «виртуальная» строка
+            // по правилу. Так, если правило потом поменяют (новое название, время), день подхватит изменения
+            tasks.delete(task)
+        } else {
+            tasks.setDone(task.id, !task.isDone)
+        }
+    }
+
+    /**
+     * Отметить день повторения сделанным: он превращается в задачу (см. Recurrence.toTask),
+     * и «виртуальная» строка по правилу на этот день больше не показывается.
+     */
+    suspend fun completeOccurrence(occurrence: Occurrence) {
+        tasks.addOrUpdate(Recurrence.toTask(occurrence, TaskStatus.DONE))
     }
 
     /** Создать новую задачу (id = 0) без нового списка — например, из шторки недели. */
@@ -59,17 +76,29 @@ class TaskCommands @Inject constructor(
     suspend fun moveToTomorrow(task: Task) {
         val tomorrow = todayClock.today().plusDays(1)
         tasks.schedule(task.id, Slot(tomorrow, task.partOfDay, task.time))
-        messages.post(UiMessage(UiText.Res(R.string.msg_moved_tomorrow), undo = { tasks.addOrUpdate(task) }))
+        messages.post(
+            UiMessage(
+                UiText.Res(R.string.msg_moved_tomorrow),
+                undo = { tasks.addOrUpdate(task) })
+        )
     }
 
     suspend fun returnToList(task: Task) {
         tasks.unschedule(task.id)
-        messages.post(UiMessage(UiText.Res(R.string.msg_returned_to_list), undo = { tasks.addOrUpdate(task) }))
+        messages.post(
+            UiMessage(
+                UiText.Res(R.string.msg_returned_to_list),
+                undo = { tasks.addOrUpdate(task) })
+        )
     }
 
     suspend fun delete(task: Task) {
         tasks.delete(task)
-        messages.post(UiMessage(UiText.Res(R.string.msg_deleted), undo = { tasks.addOrUpdate(task) }))
+        messages.post(
+            UiMessage(
+                UiText.Res(R.string.msg_deleted),
+                undo = { tasks.addOrUpdate(task) })
+        )
     }
 
     /** «Запланировано: завтра» или «Запланировано: Пт 25, 10:30». */

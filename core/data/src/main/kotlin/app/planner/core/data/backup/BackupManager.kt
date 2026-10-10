@@ -31,6 +31,8 @@ import javax.inject.Singleton
  * - 1 — списки и задачи;
  * - 2 — добавлены правила повторения (`rules`). В файлах версии 1 этого поля нет —
  *   при чтении оно берётся по умолчанию (пустой список), поэтому старые копии читаются как раньше.
+ * - 3 — у задач поля `ruleId` и `occurrenceDate` (отмеченные дни повторений). В старых файлах
+ *   их нет — по умолчанию null, то есть обычная задача.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -40,7 +42,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
     }
 
     private val json = backupJson
@@ -77,8 +79,9 @@ class BackupManager @Inject constructor(
         db.taskListDao().deleteAll()
         // Сначала списки: задачи и правила ссылаются на них (внешний ключ listId)
         db.taskListDao().insertAll(snapshot.lists.map { it.toEntity() })
-        db.taskDao().insertAll(snapshot.tasks.map { it.toEntity() })
+        // Правила раньше задач: отмеченные дни повторений ссылаются на правило (ruleId)
         db.recurrenceRuleDao().insertAll(snapshot.rules.map { it.toDomain().toEntity() })
+        db.taskDao().insertAll(snapshot.tasks.map { it.toEntity() })
     }
 }
 
@@ -128,6 +131,8 @@ data class TaskDto(
     val isSample: Boolean = false,
     val createdAt: String,
     val doneAt: String? = null,
+    val ruleId: Long? = null,
+    val occurrenceDate: String? = null,
 )
 
 private fun TaskListEntity.toDto() = TaskListDto(id, name, color.name, position, isInbox)
@@ -152,6 +157,8 @@ private fun TaskEntity.toDto() = TaskDto(
     isSample = isSample,
     createdAt = createdAt.toString(),
     doneAt = doneAt?.toString(),
+    ruleId = ruleId,
+    occurrenceDate = occurrenceDate?.toString(),
 )
 
 private fun TaskDto.toEntity() = TaskEntity(
@@ -166,6 +173,8 @@ private fun TaskDto.toEntity() = TaskEntity(
     isSample = isSample,
     createdAt = Instant.parse(createdAt),
     doneAt = doneAt?.let(Instant::parse),
+    ruleId = ruleId,
+    occurrenceDate = occurrenceDate?.let(LocalDate::parse),
 )
 
 /**

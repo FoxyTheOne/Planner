@@ -2,6 +2,7 @@ package app.planner.core.domain.recurrence
 
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
+import app.planner.core.domain.model.TaskStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -78,6 +79,31 @@ class RecurrenceTest {
         val onMonday = Recurrence.occurrencesOn(listOf(daily, mondays, fridays), monday)
 
         assertEquals(listOf(1L, 2L), onMonday.map { it.rule.id }) // пятничного в понедельник нет
+    }
+
+    @Test
+    fun `completed day becomes a task and hides the virtual row`() {
+        val pool = rule(Repeat.Daily).copy(id = 5, title = "Бассейн")
+        val occurrence = Recurrence.occurrence(pool, monday)!!
+
+        val task = Recurrence.toTask(occurrence, TaskStatus.DONE)
+
+        assertEquals("Бассейн", task.title)
+        assertEquals(5L, task.ruleId)
+        assertEquals(monday, task.occurrenceDate)
+        assertTrue(task.isDone)
+        // В понедельник строки по правилу больше нет — вместо неё задача; во вторник правило снова выпадает
+        assertTrue(Recurrence.occurrencesOn(listOf(pool), monday, instances = listOf(task)).isEmpty())
+        assertEquals(1, Recurrence.occurrencesOn(listOf(pool), monday.plusDays(1), instances = listOf(task)).size)
+    }
+
+    @Test
+    fun `cycle details go to the task note`() {
+        val watering = rule(Repeat.Cycle(listOf(mapOf(MONDAY to "фикус")), anchorMonday = monday))
+
+        val task = Recurrence.toTask(Recurrence.occurrence(watering, monday)!!, TaskStatus.DONE)
+
+        assertEquals("фикус", task.note)
     }
 
     @Test(expected = IllegalArgumentException::class)

@@ -22,7 +22,7 @@ import java.time.LocalDate
  *
  * Сценарий — как у человека, который обновил приложение:
  * 1. создаём базу ВЕРСИИ 1 по старой схеме (файл schemas/…/1.json) и кладём туда задачу и списки;
- * 2. прогоняем миграцию до версии 2; helper заодно сверяет получившиеся таблицы со схемой 2.json;
+ * 2. прогоняем все миграции до последней версии; helper заодно сверяет таблицы со схемой последней версии;
  * 3. открываем базу уже нынешним кодом и проверяем, что старые данные на месте, а новая таблица работает.
  *
  * Запуск: зелёный треугольник рядом с классом в Android Studio
@@ -41,7 +41,7 @@ class MigrationTest {
     )
 
     @Test
-    fun migrate1To2_keepsTasksAndLists() = runBlocking {
+    fun migrate1ToLatest_keepsTasksAndLists() = runBlocking {
         // 1. База версии 1. Пишем «сырым» SQL: классы нынешнего кода описывают уже версию 2.
         //    Даты — числа дней от 1970 года, как их хранит Converters
         helper.createDatabase(dbName, 1).apply {
@@ -54,8 +54,9 @@ class MigrationTest {
             close()
         }
 
-        // 2. Миграция 1 → 2 (AutoMigration из PlannerDatabase) + проверка схемы
-        helper.runMigrationsAndValidate(dbName, 2, true).close()
+        // 2. Миграции 1 → 2 → 3 (AutoMigration из PlannerDatabase) + проверка схемы.
+        // Новая версия базы — меняем здесь число на неё, и тест проверит всю цепочку
+        helper.runMigrationsAndValidate(dbName, 3, true).close()
 
         // 3. Открываем обычным кодом приложения
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -67,6 +68,7 @@ class MigrationTest {
             assertEquals(LocalDate.of(2026, 10, 7), task.date)
             assertEquals(2L, task.listId)
             assertEquals(TaskStatus.OPEN, task.status)
+            assertEquals(null, task.ruleId) // версия 3: у старых задач новые колонки пустые — обычная задача
 
             assertEquals(listOf("", "Дом"), db.taskListDao().getAll().sortedBy { it.id }.map { it.name })
 

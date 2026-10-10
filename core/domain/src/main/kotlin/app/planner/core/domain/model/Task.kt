@@ -1,5 +1,6 @@
 package app.planner.core.domain.model
 
+import app.planner.core.domain.recurrence.Recurrence
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -34,6 +35,14 @@ data class Task(
     val listId: Long? = null,
     val status: TaskStatus = TaskStatus.OPEN,
     /** Пример из онбординга — такие задачи помечены и легко удаляются. */
+    /**
+     * Если задача — сделанный (или перенесённый) день повторения: id правила.
+     * Повторения хранятся правилом; конкретный день попадает в таблицу задач, только когда
+     * с ним что-то сделали — отметили или (позже) перенесли. См. [Recurrence.toTask].
+     */
+    val ruleId: Long? = null,
+    /** К какому дню правила относится эта задача (даже если её перенесли на другой день). */
+    val occurrenceDate: LocalDate? = null,
     val isSample: Boolean = false,
     val createdAt: Instant = Instant.now(),
     val doneAt: Instant? = null,
@@ -45,6 +54,9 @@ data class Task(
 
     /** Событие с точным временем не копится в «Незавершённом» — после дня оно уходит в историю. */
     val isTimedEvent: Boolean get() = time != null
+
+    /** Это день повторения, а не обычная задача. */
+    val isOccurrence: Boolean get() = ruleId != null
 }
 
 /** Состояние задачи. SKIPPED понадобится для повторений: «полив в эту среду пропущен». */
