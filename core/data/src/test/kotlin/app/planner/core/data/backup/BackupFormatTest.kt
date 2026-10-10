@@ -1,0 +1,76 @@
+package app.planner.core.data.backup
+
+import app.planner.core.domain.model.Pause
+import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Repeat
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.DayOfWeek.MONDAY
+import java.time.DayOfWeek.SATURDAY
+import java.time.DayOfWeek.WEDNESDAY
+import java.time.LocalDate
+import java.time.LocalTime
+
+/**
+ * Формат файла бэкапа: старые копии читаются, правила повторения сохраняются без потерь.
+ * Обычный JVM-тест: файл не пишется на диск, JSON проверяется прямо в памяти.
+ */
+class BackupFormatTest {
+
+    @Test
+    fun `backup of format 1 is still readable`() {
+        // Так выглядел файл, сделанный приложением до правил повторения: поля "rules" нет
+        val v1 = """
+            {"formatVersion":1,"exportedAt":"2026-10-01T10:00:00Z",
+             "lists":[{"id":1,"name":"","color":"SAGE","position":0,"isInbox":true}],
+             "tasks":[{"id":5,"title":"Купить лампу","date":"2026-10-07","listId":1,
+                       "createdAt":"2026-10-01T09:00:00Z"}]}
+        """.trimIndent()
+
+        val snapshot = backupJson.decodeFromString(BackupSnapshot.serializer(), v1)
+
+        assertEquals("Купить лампу", snapshot.tasks.single().title)
+        assertTrue(snapshot.rules.isEmpty()) // правил нет — и это не ошибка
+    }
+
+    @Test
+    fun `rules survive export and import`() {
+        val oct5 = LocalDate.of(2026, 10, 5)
+        val rules = listOf(
+            RecurrenceRule(id = 1, title = "Зарядка", repeat = Repeat.Daily, startDate = oct5),
+            RecurrenceRule(
+                id = 2, title = "Бассейн", repeat = Repeat.OnWeekdays(setOf(MONDAY, WEDNESDAY)),
+                startDate = oct5, endDate = oct5.plusMonths(3), time = LocalTime.of(18, 30), listId = 4,
+            ),
+            RecurrenceRule(id = 3, title = "Таблетки", repeat = Repeat.EveryNDays(2), startDate = oct5),
+            RecurrenceRule(
+                id = 4,
+                title = "Полив",
+                repeat = Repeat.Cycle(
+                    weeks = listOf(mapOf(WEDNESDAY to "фикус"), mapOf(WEDNESDAY to "фикус", SATURDAY to "подкормка")),
+                    anchorMonday = oct5,
+                    anchorWeekNumber = 2,
+                ),
+                startDate = oct5,
+                pauses = listOf(Pause(oct5.plusDays(7), oct5.plusDays(13)), Pause(oct5.plusDays(30))),
+            ),
+        )
+
+        // Правило → запись в файле → JSON-текст → обратно
+        val snapshot = BackupSnapshot(2, "2026-10-09T10:00:00Z", emptyList(), emptyList(), rules.map { it.toDto() })
+        val text = backupJson.encodeToString(BackupSnapshot.serializer(), snapshot)
+        val restored = backupJson.decodeFromString(BackupSnapshot.serializer(), text).rules.map { it.toDomain() }
+
+        assertEquals(rules, restored)
+    }
+
+    @Test
+    fun `weekdays are written as names in the file`() {
+        val rule = RecurrenceRule(
+            title = "Бассейн", repeat = Repeat.OnWeekdays(setOf(WEDNESDAY, MONDAY)), startDate = LocalDate.of(2026, 10, 5),
+        )
+        // В файле — понятные названия по порядку недели, а не число-маска, как в базе
+        assertEquals(listOf("MONDAY", "WEDNESDAY"), rule.toDto().repeat.days)
+    }
+}
