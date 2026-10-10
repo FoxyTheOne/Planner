@@ -93,6 +93,45 @@ object Recurrence {
             .filterNot { occ -> instances.any { it.ruleId == occ.rule.id && it.occurrenceDate == occ.date } }
 
     /**
+     * Собрать правило из того, что человек ввёл в редакторе задачи, когда выбрал «Повторять».
+     *
+     * Редактор один и тот же для задач и повторений, поэтому он отдаёт задачу-«черновик»:
+     * название, список, дату и время. Здесь из него получается правило:
+     * - дата черновика — с какого дня правило начинается (не выбрали — с [today]);
+     * - время или часть дня — каждого повторения;
+     * - [existing] — если правило уже было (его редактируют): сохраняем его id и паузы.
+     */
+    fun ruleFromDraft(
+        draft: Task,
+        repeat: Repeat,
+        today: LocalDate,
+        existing: RecurrenceRule? = null,
+    ): RecurrenceRule = RecurrenceRule(
+        id = existing?.id ?: 0,
+        title = draft.title,
+        repeat = repeat,
+        startDate = draft.date ?: today,
+        endDate = existing?.endDate,
+        pauses = existing?.pauses.orEmpty(),
+        time = draft.time,
+        partOfDay = draft.partOfDay,
+        listId = draft.listId,
+    )
+
+    /**
+     * Обратное: правило → черновик для редактора задачи, чтобы его можно было поправить.
+     * В черновике id = 0 (это не задача из базы), а ruleId — какое правило редактируем.
+     */
+    fun draftFromRule(rule: RecurrenceRule): Task = Task(
+        title = rule.title,
+        date = rule.startDate,
+        time = rule.time,
+        partOfDay = rule.partOfDay,
+        listId = rule.listId,
+        ruleId = rule.id,
+    )
+
+    /**
      * Превратить день повторения в обычную задачу — когда с ним что-то сделали (например, отметили).
      *
      * Задача помнит правило ([Task.ruleId]) и день, к которому относится ([Task.occurrenceDate]).
@@ -163,9 +202,12 @@ object Recurrence {
      * @param weekNumber номер недели, как его видит человек: 1, 2, 3…
      */
     fun setCurrentWeek(cycle: Repeat.Cycle, today: LocalDate, weekNumber: Int): Repeat.Cycle =
-        // copy — новый объект с изменёнными полями (data class неизменяемый).
+    // copy — новый объект с изменёнными полями (data class неизменяемый).
         // Проверку номера недели сделает init в Cycle
-        cycle.copy(anchorWeekStart = startOfWeek(today, cycle.weekStart), anchorWeekNumber = weekNumber)
+        cycle.copy(
+            anchorWeekStart = startOfWeek(today, cycle.weekStart),
+            anchorWeekNumber = weekNumber
+        )
 
     /**
      * «Продолжить» — снять паузу, которая идёт сейчас (в том числе паузу без даты).
@@ -241,7 +283,8 @@ object Recurrence {
             // Начало недели ПОСЛЕ последней целой недели. Если пауза кончается в последний день
             // недели — это начало следующей; иначе её последняя неделя неполная и не считается
             val endWeek =
-                minOf(pause.until?.let { startOfWeek(it.plusDays(1), weekStart) } ?: toWeekStartExclusive,
+                minOf(pause.until?.let { startOfWeek(it.plusDays(1), weekStart) }
+                    ?: toWeekStartExclusive,
                     toWeekStartExclusive)
             if (endWeek > firstWeek) ChronoUnit.WEEKS.between(firstWeek, endWeek) else 0L
         }

@@ -1,11 +1,13 @@
 package app.planner.common
 
 import app.planner.R
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.core.domain.usecase.CreateListUseCase
 import javax.inject.Inject
@@ -31,6 +33,7 @@ import javax.inject.Singleton
 @Singleton
 class TaskCommands @Inject constructor(
     private val tasks: ITaskRepository,
+    private val rules: IRecurrenceRepository,
     private val createList: CreateListUseCase,
     private val messages: MessageBus,
     private val todayClock: TodayClock,
@@ -57,14 +60,37 @@ class TaskCommands @Inject constructor(
     suspend fun create(task: Task): Long = tasks.addOrUpdate(task)
 
     /**
-     * Сохранить задачу из редактора. Если в редакторе придумали новый список ([newListName]),
-     * сначала создаём список (следующим цветом палитры), потом кладём задачу в него.
-     * Возвращает id списка, в котором оказалась задача.
+     * Сохранить из редактора. Если в редакторе придумали новый список ([newListName]),
+     * сначала создаём список (следующим цветом палитры), потом кладём в него задачу или повторение.
+     * Возвращает id списка.
+     *
+     * Редактор один для задач и повторений, поэтому вариантов три:
+     * - выбрано повторение ([repeat]) — сохраняем ПРАВИЛО (новое или правку старого), а не задачу;
+     * - открыли повторение, а выбрали «Не повторять» — правило удаляем, остаётся одна обычная задача;
+     * - обычная задача — как раньше.
+     *
+     * «Черновик правила» — задача с id = 0 и ruleId (см. Recurrence.draftFromRule): в базе такой
+     * задачи нет, это правило, открытое в редакторе. Отмеченный день повторения — другое: у него
+     * есть и id, и ruleId, и правится он как обычная задача.
      */
-    suspend fun save(task: Task, newListName: String?): Long? {
+    suspend fun save(task: Task, newListName: String?, repeat: Repeat? = null): Long? {
         // Правило «какой цвет и где встаёт новый список» — в CreateListUseCase (domain)
         val listId = if (newListName.isNullOrBlank()) task.listId else createList(newListName)
-        tasks.addOrUpdate(task.copy(listId = listId))
+        val saved = task.copy(listId = listId)
+        val ruleDraftId = task.ruleId.takeIf { task.id == 0L }
+        when {
+            repeat != null -> {
+                val existing = ruleDraftId?.let { rules.getRule(it) }
+                rules.save(Recurrence.ruleFromDraft(saved, repeat, todayClock.today(), existing))
+                // Обычная задача из базы стала повторяющейся — сама по себе она больше не нужна
+                if (task.id != 0L && !task.isOccurrence) tasks.delete(task)
+            }
+            ruleDraftId != null -> {
+                rules.getRule(ruleDraftId)?.let { rules.delete(it) }
+                tasks.addOrUpdate(saved.copy(ruleId = null, date = saved.date ?: todayClock.today()))
+            }
+            else -> tasks.addOrUpdate(saved)
+        }
         return listId
     }
 
@@ -93,12 +119,30 @@ class TaskCommands @Inject constructor(
     }
 
     suspend fun delete(task: Task) {
+        // В редакторе было открыто повторение (черновик правила) — удаляем правило
+        // val ruleId — локальная копия: для свойства из другого модуля (domain) Kotlin не делает smart cast
+        val ruleId = task.ruleId
+        if (task.id == 0L && ruleId != null) {
+            deleteRule(ruleId)
+            return
+        }
         tasks.delete(task)
         messages.post(
             UiMessage(
                 UiText.Res(R.string.msg_deleted),
                 undo = { tasks.addOrUpdate(task) })
         )
+    }
+
+    /**
+     * Удалить правило повторения. Уже отмеченные дни остаются в истории обычными задачами
+     * (внешний ключ SET_NULL). «Отменить» возвращает правило; связь отмеченных дней с ним
+     * при этом не восстанавливается — это редкий случай, и данные не теряются.
+     */
+    private suspend fun deleteRule(ruleId: Long) {
+        val rule = rules.getRule(ruleId) ?: return
+        rules.delete(rule)
+        messages.post(UiMessage(UiText.Res(R.string.msg_repeat_deleted), undo = { rules.save(rule) }))
     }
 
     /** «Запланировано: завтра» или «Запланировано: Пт 25, 10:30». */

@@ -161,4 +161,25 @@
     <string name="cd_edit_list">Edit list</string>
     <string name="cd_choose_list">Choose a list</string>
     <string name="cd_clear_search">Clear search</string>
+    <!-- Повторения -->
+    <string name="repeat_title">Repeat</string>
+    <string name="repeat_none">Don\'t repeat</string>
+    <string name="repeat_daily">Every day</string>
+    <string name="repeat_weekdays">On days of the week</string>
+    <string name="repeat_weekdays_summary">On %1$s</string>
+    <string name="repeat_every_n">Every N days</string>
+    <plurals name="repeat_every_n_summary">
+        <item quantity="one">Every %d day</item>
+        <item quantity="other">Every %d days</item>
+    </plurals>
+    <string name="repeat_cycle">Weekly cycle</string>
+    <plurals name="repeat_cycle_summary">
+        <item quantity="one">Cycle of %d week</item>
+        <item quantity="other">Cycle of %d weeks</item>
+    </plurals>
+    <string name="repeat_cycle_later">The cycle table editor is coming soon</string>
+    <string name="repeat_starting">Starting %1$s</string>
+    <string name="msg_repeat_deleted">Repeat deleted</string>
+    <string name="cd_less">Less</string>
+    <string name="cd_more">More</string>
 </resources>

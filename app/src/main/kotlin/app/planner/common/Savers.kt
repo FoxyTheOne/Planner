@@ -3,10 +3,12 @@ package app.planner.common
 import androidx.compose.runtime.saveable.Saver
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.PartOfDay
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.model.TaskStatus
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -40,7 +42,7 @@ val TaskSaver: Saver<Task?, Any> = Saver(
         task?.let {
             arrayListOf(
                 it.id, it.title, it.note, it.date, it.time, it.partOfDay,
-                it.listId, it.status, it.isSample, it.createdAt, it.doneAt,
+                it.listId, it.status, it.isSample, it.createdAt, it.doneAt, it.ruleId, it.occurrenceDate,
             )
         }
     },
@@ -58,6 +60,8 @@ val TaskSaver: Saver<Task?, Any> = Saver(
             isSample = v[8] as Boolean,
             createdAt = v[9] as Instant,
             doneAt = v[10] as Instant?,
+            ruleId = v[11] as Long?,
+            occurrenceDate = v[12] as LocalDate?,
         )
     },
 )
@@ -83,5 +87,40 @@ val TaskListSaver: Saver<TaskList?, Any> = Saver(
             position = v[3] as Int,
             isInbox = v[4] as Boolean,
         )
+    },
+)
+
+/**
+ * Как часто повторяется (для редактора задачи). Первый элемент — буква варианта,
+ * дальше — его данные. Дни недели и даты Bundle умеет хранить сам (это Serializable),
+ * а словари недель цикла кладём как HashMap — тоже Serializable.
+ */
+val RepeatSaver: Saver<Repeat?, Any> = Saver(
+    save = { repeat ->
+        when (repeat) {
+            null -> null
+            Repeat.Daily -> arrayListOf<Any?>("D")
+            is Repeat.OnWeekdays -> arrayListOf<Any?>("W", ArrayList(repeat.days))
+            is Repeat.EveryNDays -> arrayListOf<Any?>("N", repeat.n)
+            is Repeat.Cycle -> arrayListOf<Any?>(
+                "C", ArrayList(repeat.weeks.map { HashMap(it) }),
+                repeat.anchorWeekStart, repeat.anchorWeekNumber, repeat.weekStart,
+            )
+        }
+    },
+    restore = { saved ->
+        val v = saved as List<*>
+        @Suppress("UNCHECKED_CAST") // в save мы сами положили туда именно эти типы
+        when (v[0]) {
+            "D" -> Repeat.Daily
+            "W" -> Repeat.OnWeekdays((v[1] as List<DayOfWeek>).toSet())
+            "N" -> Repeat.EveryNDays(v[1] as Int)
+            else -> Repeat.Cycle(
+                weeks = v[1] as List<Map<DayOfWeek, String>>,
+                anchorWeekStart = v[2] as LocalDate,
+                anchorWeekNumber = v[3] as Int,
+                weekStart = v[4] as DayOfWeek,
+            )
+        }
     },
 )

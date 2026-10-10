@@ -8,6 +8,7 @@ import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.PlannerSettings
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -169,8 +170,8 @@ class TodayViewModel @Inject constructor(
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
 
     /** Сохранить из редактора; [newListName] — если там же придумали новый список. */
-    fun save(task: Task, newListName: String?) =
-        viewModelScope.launch { commands.save(task, newListName) }
+    fun save(task: Task, newListName: String?, repeat: Repeat? = null) =
+        viewModelScope.launch { commands.save(task, newListName, repeat) }
 
     fun allOverdueToToday() = viewModelScope.launch {
         val today = state.value.today

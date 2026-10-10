@@ -94,7 +94,7 @@ fun ListsOverviewScreen(
             lists = state.allLists,
             today = state.today,
             onDismiss = { newTask = null },
-            onSave = { t, newList -> viewModel.saveTask(t, newList); newTask = null },
+            onSave = { t, newList, repeat -> viewModel.saveTask(t, newList, repeat); newTask = null },
         )
     }
     editingList?.let { list ->

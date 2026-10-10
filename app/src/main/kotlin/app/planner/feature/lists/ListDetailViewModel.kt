@@ -8,6 +8,7 @@ import app.planner.common.TodayClock
 import app.planner.core.domain.list.IInboxNames
 import app.planner.core.domain.list.ListNameProblem
 import app.planner.core.domain.list.nameProblem
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -66,7 +67,7 @@ class ListDetailViewModel @Inject constructor(
     fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
     fun schedule(task: Task, slot: Slot) = viewModelScope.launch { commands.schedule(task, slot) }
-    fun saveTask(task: Task, newListName: String?) = viewModelScope.launch { commands.save(task, newListName) }
+    fun saveTask(task: Task, newListName: String?, repeat: Repeat? = null) = viewModelScope.launch { commands.save(task, newListName, repeat) }
     fun saveList(list: TaskList) = viewModelScope.launch { listRepository.upsert(list) }
 
     /** Удалить этот список. Задачи остаются «Без списка»; последний открытый список забываем. */

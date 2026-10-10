@@ -153,4 +153,29 @@
     <string name="cd_edit_list">Изменить список</string>
     <string name="cd_choose_list">Выбрать список</string>
     <string name="cd_clear_search">Очистить поиск</string>
+    <!-- Повторения -->
+    <string name="repeat_title">Повторять</string>
+    <string name="repeat_none">Не повторять</string>
+    <string name="repeat_daily">Каждый день</string>
+    <string name="repeat_weekdays">По дням недели</string>
+    <string name="repeat_weekdays_summary">По дням: %1$s</string>
+    <string name="repeat_every_n">Раз в N дней</string>
+    <plurals name="repeat_every_n_summary">
+        <item quantity="one">Раз в %d день</item>
+        <item quantity="few">Раз в %d дня</item>
+        <item quantity="many">Раз в %d дней</item>
+        <item quantity="other">Раз в %d дня</item>
+    </plurals>
+    <string name="repeat_cycle">Цикл по неделям</string>
+    <plurals name="repeat_cycle_summary">
+        <item quantity="one">Цикл: %d неделя</item>
+        <item quantity="few">Цикл: %d недели</item>
+        <item quantity="many">Цикл: %d недель</item>
+        <item quantity="other">Цикл: %d недели</item>
+    </plurals>
+    <string name="repeat_cycle_later">Редактор таблицы цикла появится чуть позже</string>
+    <string name="repeat_starting">С %1$s</string>
+    <string name="msg_repeat_deleted">Повторение удалено</string>
+    <string name="cd_less">Меньше</string>
+    <string name="cd_more">Больше</string>
 </resources>

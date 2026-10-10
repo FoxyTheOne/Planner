@@ -6,6 +6,7 @@ import androidx.compose.ui.res.stringResource
 import app.planner.R
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.recurrence.Occurrence
@@ -56,6 +57,8 @@ fun dayItems(tasks: List<Task>, occurrences: List<Occurrence>): List<DayItem> =
  * Строка дня для «Недели» и «Дня»: задача или день повторения — оба через [TaskRow].
  * У дня повторения справа значок ↻, у цикла под названием — дела этого дня.
  * («Сегодня» рисует задачи сам — со свайпами, а дни повторений — этой же функцией.)
+ *
+ * @param onEditRule тап по неотмеченному дню повторения — открыть само правило в редакторе.
  */
 @Composable
 fun DayItemRow(
@@ -64,6 +67,7 @@ fun DayItemRow(
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
     onEdit: (Task) -> Unit,
+    onEditRule: (RecurrenceRule) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val description = stringResource(R.string.cd_mark_done)
@@ -90,6 +94,7 @@ fun DayItemRow(
                 title = rule.title,
                 done = false,
                 onToggle = { onCompleteOccurrence(item.occurrence) },
+                onClick = { onEditRule(rule) },
                 modifier = modifier,
                 time = rule.time?.let(DateTexts::time),
                 subtitle = item.occurrence.details,

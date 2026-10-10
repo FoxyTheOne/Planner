@@ -7,6 +7,7 @@ import app.planner.common.TodayClock
 import app.planner.core.domain.list.IInboxNames
 import app.planner.core.domain.list.ListNameProblem
 import app.planner.core.domain.list.nameProblem
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.repository.ISettingsRepository
@@ -117,6 +118,6 @@ class ListsOverviewViewModel @Inject constructor(
 
     fun deleteList(list: TaskList) = viewModelScope.launch { listRepository.delete(list) }
 
-    fun saveTask(task: Task, newListName: String?) =
-        viewModelScope.launch { commands.save(task, newListName) }
+    fun saveTask(task: Task, newListName: String?, repeat: Repeat? = null) =
+        viewModelScope.launch { commands.save(task, newListName, repeat) }
 }

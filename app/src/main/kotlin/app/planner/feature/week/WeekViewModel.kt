@@ -6,6 +6,7 @@ import app.planner.common.DateTexts
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.common.dayItems
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
@@ -102,8 +103,8 @@ class WeekViewModel @Inject constructor(
     fun schedule(task: Task, slot: Slot) = viewModelScope.launch { commands.schedule(task, slot) }
 
     /** Сохранить из редактора; [newListName] — если там же придумали новый список. */
-    fun save(task: Task, newListName: String?) =
-        viewModelScope.launch { commands.save(task, newListName) }
+    fun save(task: Task, newListName: String?, repeat: Repeat? = null) =
+        viewModelScope.launch { commands.save(task, newListName, repeat) }
 
     fun createIn(slot: Slot, title: String) = viewModelScope.launch {
         commands.create(

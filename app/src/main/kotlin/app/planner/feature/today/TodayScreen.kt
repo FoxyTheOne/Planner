@@ -39,6 +39,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.model.Repeat
+import app.planner.core.domain.model.RecurrenceRule
+import app.planner.common.RepeatSaver
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.DayItem
@@ -77,6 +81,8 @@ fun TodayScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
+    // Если в редакторе открыто повторение — как часто оно повторяется (иначе null)
+    var editingRepeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf<Repeat?>(null) }
     var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     var showOverdue by rememberSaveable { mutableStateOf(false) }
 
@@ -87,6 +93,8 @@ fun TodayScreen(
         onOpenOverdue = { showOverdue = true },
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
+        // Тап по повторению — открыть его правило в том же редакторе, что и задачи
+        onEditRule = { rule -> editing = Recurrence.draftFromRule(rule); editingRepeat = rule.repeat },
         onEdit = { editing = it },
         onSwipeTomorrow = viewModel::moveToTomorrow,
         onSwipeSchedule = { scheduling = it },
@@ -98,9 +106,10 @@ fun TodayScreen(
             initial = task,
             lists = state.lists,
             today = state.today,
-            onDismiss = { editing = null },
-            onSave = { task, newList -> viewModel.save(task, newList); editing = null },
-            onDelete = { viewModel.delete(it); editing = null },
+            onDismiss = { editing = null; editingRepeat = null },
+            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null; editingRepeat = null },
+            onDelete = { viewModel.delete(it); editing = null; editingRepeat = null },
+            initialRepeat = editingRepeat,
         )
     }
     scheduling?.let { task ->
@@ -140,6 +149,7 @@ fun TodayContent(
     onOpenOverdue: () -> Unit,
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
+    onEditRule: (RecurrenceRule) -> Unit,
     onEdit: (Task) -> Unit,
     onSwipeTomorrow: (Task) -> Unit,
     onSwipeSchedule: (Task) -> Unit,
@@ -198,6 +208,7 @@ fun TodayContent(
                                         lists = state.lists,
                                         onToggle = onToggle,
                                         onCompleteOccurrence = onCompleteOccurrence,
+                                        onEditRule = onEditRule,
                                         onEdit = onEdit,
                                     )
                                     DashedRule()

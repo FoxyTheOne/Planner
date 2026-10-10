@@ -64,6 +64,7 @@ private fun DayPreview() {
             onPickSlot = {},
             onToggle = {},
             onCompleteOccurrence = {},
+            onEditRule = {},
             onEdit = {},
         )
     }
@@ -83,6 +84,7 @@ private fun WeekForPreview(planning: Boolean, selected: Task? = null) = WeekCont
     onAdd = {},
     onToggle = {},
     onCompleteOccurrence = {},
+    onEditRule = {},
     onEdit = {},
     onDrop = { _, _ -> },
     onSelectFromTray = {},

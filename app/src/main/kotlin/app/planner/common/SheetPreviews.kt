@@ -12,6 +12,7 @@ import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.overdue.OverdueGroup
+import app.planner.core.domain.recurrence.Recurrence
 import app.planner.feature.today.OverdueSheetBody
 import app.planner.preview.SampleData
 
@@ -47,7 +48,7 @@ private fun TaskEditorNewPreview() = SheetSurface {
         initial = Task(title = "", listId = SampleData.books.id),
         lists = SampleData.lists,
         today = SampleData.today,
-        onSave = { _, _ -> },
+        onSave = { _, _, _ -> },
         onDelete = null,
     )
 }
@@ -60,9 +61,30 @@ private fun TaskEditorExistingPreview() = SheetSurface {
         initial = SampleData.documents.copy(note = "Паспорт, страховка, квитанции"),
         lists = SampleData.lists,
         today = SampleData.today,
-        onSave = { _, _ -> },
+        onSave = { _, _, _ -> },
         onDelete = {},
     )
+}
+
+/** Повторение, открытое для правки: бассейн по вторникам и четвергам. Внизу строка «↻ По дням: вт, чт». */
+@PlannerPreviews
+@Composable
+private fun TaskEditorRepeatPreview() = SheetSurface {
+    TaskEditorSheetBody(
+        initial = Recurrence.draftFromRule(SampleData.poolRule),
+        lists = SampleData.lists,
+        today = SampleData.today,
+        onSave = { _, _, _ -> },
+        onDelete = {},
+        initialRepeat = SampleData.poolRule.repeat,
+    )
+}
+
+/** Шторка «Повторять» с выбранными днями недели. */
+@PlannerPreviews
+@Composable
+private fun RepeatSheetPreview() = SheetSurface {
+    RepeatSheetBody(initial = SampleData.poolRule.repeat, onDone = {})
 }
 
 /** Шторка из недели: свободный слот в пятницу, вкладка «Из списков». */

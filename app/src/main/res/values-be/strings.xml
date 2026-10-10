@@ -154,4 +154,29 @@
     <string name="cd_edit_list">Змяніць спіс</string>
     <string name="cd_choose_list">Выбраць спіс</string>
     <string name="cd_clear_search">Ачысціць пошук</string>
+    <!-- Паўтарэнні -->
+    <string name="repeat_title">Паўтараць</string>
+    <string name="repeat_none">Не паўтараць</string>
+    <string name="repeat_daily">Кожны дзень</string>
+    <string name="repeat_weekdays">Па днях тыдня</string>
+    <string name="repeat_weekdays_summary">Па днях: %1$s</string>
+    <string name="repeat_every_n">Раз у N дзён</string>
+    <plurals name="repeat_every_n_summary">
+        <item quantity="one">Раз у %d дзень</item>
+        <item quantity="few">Раз у %d дні</item>
+        <item quantity="many">Раз у %d дзён</item>
+        <item quantity="other">Раз у %d дня</item>
+    </plurals>
+    <string name="repeat_cycle">Цыкл па тыднях</string>
+    <plurals name="repeat_cycle_summary">
+        <item quantity="one">Цыкл: %d тыдзень</item>
+        <item quantity="few">Цыкл: %d тыдні</item>
+        <item quantity="many">Цыкл: %d тыдняў</item>
+        <item quantity="other">Цыкл: %d тыдня</item>
+    </plurals>
+    <string name="repeat_cycle_later">Рэдактар табліцы цыкла з\'явіцца крыху пазней</string>
+    <string name="repeat_starting">З %1$s</string>
+    <string name="msg_repeat_deleted">Паўтарэнне выдалена</string>
+    <string name="cd_less">Менш</string>
+    <string name="cd_more">Больш</string>
 </resources>

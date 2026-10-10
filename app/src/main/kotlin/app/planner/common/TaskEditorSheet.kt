@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -51,6 +52,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.planner.R
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -65,7 +67,13 @@ import java.time.LocalDate
  * Ниже — название, заметка и дата. Новая задача может сразу получить дату
  * (добавили из «Сегодня» или из слота недели) или остаться в списке без даты.
  *
- * @param onSave получает задачу и название нового списка, если его решили создать (иначе null).
+ * Строка «↻» внизу — повторение. Выбрали «по средам» — при сохранении получится не задача,
+ * а правило повторения (см. TaskCommands.save). Тот же редактор открывается и для правки
+ * уже существующего повторения: тогда в [initial] черновик из правила (у него id = 0, а ruleId —
+ * id правила), а в [initialRepeat] — как часто оно повторяется.
+ *
+ * @param onSave получает задачу (черновик), название нового списка, если его решили создать
+ *   (иначе null), и повторение (null — «не повторять»).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,16 +82,21 @@ fun TaskEditorSheet(
     lists: List<TaskList>,
     today: LocalDate,
     onDismiss: () -> Unit,
-    onSave: (task: Task, newListName: String?) -> Unit,
+    onSave: (task: Task, newListName: String?, repeat: Repeat?) -> Unit,
     onDelete: ((Task) -> Unit)? = null,
+    initialRepeat: Repeat? = null,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
         TaskEditorSheetBody(
             initial = initial,
             lists = lists,
             today = today,
             onSave = onSave,
             onDelete = onDelete,
+            initialRepeat = initialRepeat,
         )
     }
 }
@@ -99,10 +112,12 @@ fun TaskEditorSheetBody(
     initial: Task,
     lists: List<TaskList>,
     today: LocalDate,
-    onSave: (task: Task, newListName: String?) -> Unit,
+    onSave: (task: Task, newListName: String?, repeat: Repeat?) -> Unit,
     onDelete: ((Task) -> Unit)? = null,
+    initialRepeat: Repeat? = null,
 ) {
-    val isNew = initial.id == 0L
+    // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
+    val isNew = initial.id == 0L && initial.ruleId == null
     // Состояние шторки: то, что человек вводит, пока не нажал «Сохранить».
     // mutableStateOf — «коробка» со значением; когда в неё кладут новое, Compose перерисовывает тех, кто её читал.
     // remember — сохранить коробку между перерисовками (иначе при каждой букве она создавалась бы
@@ -116,8 +131,18 @@ fun TaskEditorSheetBody(
     var listId by rememberSaveable { mutableStateOf(initial.listId) }
     // null — выбран существующий список; строка (даже пустая) — пользователь создаёт новый
     var newListName by rememberSaveable { mutableStateOf<String?>(null) }
-    var slot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf(initial.date?.let { Slot(it, initial.partOfDay, initial.time) }) }
+    var slot by rememberSaveable(stateSaver = SlotSaver) {
+        mutableStateOf(initial.date?.let {
+            Slot(
+                it,
+                initial.partOfDay,
+                initial.time
+            )
+        })
+    }
     var showSchedule by rememberSaveable { mutableStateOf(false) }
+    var repeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf(initialRepeat) }
+    var showRepeat by rememberSaveable { mutableStateOf(false) }
     // FocusRequester — «пульт» для поля ввода: позволяет из кода поставить в него курсор.
     // Его сохранять не нужно (и нельзя): после поворота поле создаётся заново, и пульт — тоже
     val focus = remember { FocusRequester() }
@@ -140,6 +165,7 @@ fun TaskEditorSheetBody(
                 time = slot?.time,
             ),
             newListName?.trim(),
+            repeat,
         )
     }
 
@@ -168,11 +194,19 @@ fun TaskEditorSheetBody(
                     modifier = Modifier.padding(start = 12.dp, end = 8.dp),
                 )
                 Text(
-                    text = if (creatingList) stringResource(R.string.list_new) else selectedList?.let { listName(it) }.orEmpty(),
+                    text = if (creatingList) stringResource(R.string.list_new) else selectedList?.let {
+                        listName(
+                            it
+                        )
+                    }.orEmpty(),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
-                Icon(Icons.Outlined.ArrowDropDown, stringResource(R.string.cd_choose_list), tint = PlannerTheme.paper.inkMuted)
+                Icon(
+                    Icons.Outlined.ArrowDropDown,
+                    stringResource(R.string.cd_choose_list),
+                    tint = PlannerTheme.paper.inkMuted
+                )
             }
             // DropdownMenu появляется поверх экрана под строкой; heightIn ограничивает высоту — дальше прокрутка
             DropdownMenu(
@@ -202,7 +236,10 @@ fun TaskEditorSheetBody(
                 placeholder = { Text(stringResource(R.string.list_name_hint)) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).focusRequester(newListFocus),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .focusRequester(newListFocus),
             )
         }
         // Нажали «+ Новый список» — курсор сразу в поле названия списка,
@@ -215,9 +252,15 @@ fun TaskEditorSheetBody(
             onValueChange = { title = it },
             placeholder = { Text(stringResource(R.string.task_title_hint)) },
             textStyle = MaterialTheme.typography.titleMedium,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Done
+            ),
             keyboardActions = KeyboardActions(onDone = { save() }),
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp).focusRequester(focus),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+                .focusRequester(focus),
         )
         OutlinedTextField(
             value = note,
@@ -225,7 +268,9 @@ fun TaskEditorSheetBody(
             placeholder = { Text(stringResource(R.string.task_note_hint)) },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             minLines = 2,
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
         )
 
         // --- Когда: тап открывает шторку «Запланировать» ---
@@ -238,24 +283,68 @@ fun TaskEditorSheetBody(
                 .padding(vertical = 6.dp),
         ) {
             Icon(Icons.Outlined.CalendarMonth, null, tint = PlannerTheme.paper.inkMuted)
+            // У повторения дата — это день, с которого оно начинается: «С сегодня · вечер»
+            val current = slot
+            val dateText = when {
+                current != null && repeat != null ->
+                    stringResource(
+                        R.string.repeat_starting,
+                        slotText(current, today).replaceFirstChar { it.lowercase() })
+
+                current != null -> slotText(current, today)
+                repeat != null -> stringResource(
+                    R.string.repeat_starting,
+                    stringResource(R.string.day_today_lower)
+                )
+
+                else -> stringResource(R.string.task_no_date)
+            }
             Text(
-                text = slot?.let { slotText(it, today) } ?: stringResource(R.string.task_no_date),
-                color = if (slot != null) PlannerTheme.paper.ink else PlannerTheme.paper.inkMuted,
-                modifier = Modifier.padding(start = 12.dp).weight(1f),
+                text = dateText,
+                color = if (slot != null || repeat != null) PlannerTheme.paper.ink else PlannerTheme.paper.inkMuted,
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .weight(1f),
             )
             if (slot != null) {
-                IconButton(onClick = { slot = null }) { Icon(Icons.Outlined.Close, stringResource(R.string.cd_clear_date)) }
+                IconButton(onClick = { slot = null }) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        stringResource(R.string.cd_clear_date)
+                    )
+                }
             }
+        }
+
+        // --- Повторять: тап открывает шторку «Повторять» ---
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showRepeat = true }
+                .padding(vertical = 12.dp),
+        ) {
+            Icon(Icons.Outlined.Repeat, null, tint = PlannerTheme.paper.inkMuted)
+            Text(
+                text = repeatSummary(repeat),
+                color = if (repeat != null) PlannerTheme.paper.ink else PlannerTheme.paper.inkMuted,
+                modifier = Modifier.padding(start = 12.dp),
+            )
         }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 20.dp),
         ) {
             if (!isNew && onDelete != null) {
                 TextButton(onClick = { onDelete(initial) }) {
                     Icon(Icons.Outlined.Delete, null)
-                    Text(stringResource(R.string.action_delete), modifier = Modifier.padding(start = 6.dp))
+                    Text(
+                        stringResource(R.string.action_delete),
+                        modifier = Modifier.padding(start = 6.dp)
+                    )
                 }
             }
             Row(Modifier.weight(1f)) {}
@@ -273,6 +362,13 @@ fun TaskEditorSheetBody(
             initial = slot,
             onDismiss = { showSchedule = false },
             onConfirm = { slot = it; showSchedule = false },
+        )
+    }
+    if (showRepeat) {
+        RepeatSheet(
+            initial = repeat,
+            onDismiss = { showRepeat = false },
+            onDone = { repeat = it; showRepeat = false },
         )
     }
 }
@@ -293,7 +389,8 @@ private fun ListColorDot(list: TaskList) {
 
 /** Название списка для экрана: у «Без списка» — из ресурсов, чтобы менялось вместе с языком телефона. */
 @Composable
-fun listName(list: TaskList): String = if (list.isInbox) stringResource(R.string.list_inbox) else list.name
+fun listName(list: TaskList): String =
+    if (list.isInbox) stringResource(R.string.list_inbox) else list.name
 
 /** «Завтра · утро», «Пт 25, 25 сентября · 10:30» — дата задачи словами. */
 @Composable
@@ -303,6 +400,7 @@ fun slotText(slot: Slot, today: LocalDate): String {
         today.plusDays(1) -> stringResource(R.string.day_tomorrow)
         else -> "${DateTexts.shortDay(slot.date)}, ${DateTexts.dayMonth(slot.date)}"
     }
-    val detail = slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
+    val detail =
+        slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
     return listOfNotNull(day, detail).joinToString(" · ")
 }

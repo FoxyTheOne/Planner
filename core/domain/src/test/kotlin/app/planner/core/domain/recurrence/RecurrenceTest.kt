@@ -1,7 +1,9 @@
 package app.planner.core.domain.recurrence
 
+import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
+import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,6 +13,7 @@ import java.time.DayOfWeek.FRIDAY
 import java.time.DayOfWeek.MONDAY
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * Тесты движка повторений. Даты настоящие: 5 октября 2026 — понедельник.
@@ -106,6 +109,44 @@ class RecurrenceTest {
 
         // Среда уже отмечена — там будет задача; понедельник и пятница остаются строками по правилу
         assertEquals(listOf(monday, monday.plusDays(4)), week.map { it.date })
+    }
+
+    @Test
+    fun `rule is built from the editor draft and back`() {
+        val draft = Task(title = "Бассейн", date = monday.plusDays(2), partOfDay = null,
+            time = LocalTime.of(18, 30), listId = 4)
+
+        val rule = Recurrence.ruleFromDraft(draft, Repeat.OnWeekdays(setOf(WEDNESDAY)), today = monday)
+
+        assertEquals(monday.plusDays(2), rule.startDate) // дата черновика — начало правила
+        assertEquals(LocalTime.of(18, 30), rule.time)
+        assertEquals(4L, rule.listId)
+
+        // Правило сохранили (id = 9) и открыли снова — в редакторе то же самое
+        val back = Recurrence.draftFromRule(rule.copy(id = 9))
+        assertEquals(9L, back.ruleId)
+        assertEquals(0L, back.id) // это черновик, а не задача из базы
+        assertEquals(draft.title, back.title)
+        assertEquals(draft.date, back.date)
+    }
+
+    @Test
+    fun `editing a rule keeps its id and pauses`() {
+        val existing = rule(Repeat.Daily).copy(id = 3, pauses = listOf(Pause(monday.plusDays(10))))
+        val draft = Recurrence.draftFromRule(existing).copy(title = "Зарядка утром")
+
+        val updated = Recurrence.ruleFromDraft(draft, Repeat.EveryNDays(2), today = monday, existing = existing)
+
+        assertEquals(3L, updated.id)
+        assertEquals(existing.pauses, updated.pauses)
+        assertEquals("Зарядка утром", updated.title)
+        assertEquals(Repeat.EveryNDays(2), updated.repeat)
+    }
+
+    @Test
+    fun `draft without date starts the rule today`() {
+        val rule = Recurrence.ruleFromDraft(Task(title = "Таблетки"), Repeat.Daily, today = monday)
+        assertEquals(monday, rule.startDate)
     }
 
     @Test

@@ -88,7 +88,7 @@ fun ListDetailScreen(
             lists = state.allLists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { t, newList -> viewModel.saveTask(t, newList); editing = null },
+            onSave = { t, newList, repeat -> viewModel.saveTask(t, newList, repeat); editing = null },
             onDelete = { viewModel.delete(it); editing = null },
         )
     }

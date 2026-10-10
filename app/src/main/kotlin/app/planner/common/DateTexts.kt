@@ -40,6 +40,9 @@ object DateTexts {
 
     fun time(time: LocalTime): String = DateTimeFormatter.ofPattern("HH:mm", locale).format(time)
 
+    /** С какого дня начинается неделя по языку телефона: в России и Беларуси — пн, в США — вс. */
+    fun firstDayOfWeek(): DayOfWeek = WeekFields.of(locale).firstDayOfWeek
+
     fun startOfWeek(date: LocalDate): LocalDate =
         date.with(TemporalAdjusters.previousOrSame(WeekFields.of(locale).firstDayOfWeek))
 
