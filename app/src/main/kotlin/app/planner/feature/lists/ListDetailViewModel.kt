@@ -21,17 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import javax.inject.Inject
-
-/** Состояние экрана одного списка. [list] = null — список удалили, экран закроется. */
-data class ListDetailUiState(
-    val today: LocalDate,
-    val list: TaskList? = null,
-    val tasks: List<Task> = emptyList(),
-    val allLists: List<TaskList> = emptyList(),
-    val loaded: Boolean = false,
-)
 
 /**
  * ViewModel экрана одного списка: его задачи и действия с ними.

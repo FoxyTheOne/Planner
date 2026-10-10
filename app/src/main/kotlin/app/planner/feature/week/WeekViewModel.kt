@@ -7,7 +7,6 @@ import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
-import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,19 +22,6 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
-/** Всё, что нужно экрану «Неделя» (и экрану одного дня), одним объектом. */
-data class WeekUiState(
-    val today: LocalDate,
-    val weekStart: LocalDate,
-    val days: List<LocalDate> = emptyList(),
-    val tasksByDay: Map<LocalDate, List<Task>> = emptyMap(),
-    val lists: List<TaskList> = emptyList(),
-    /** Кандидаты для шторки «Из списков» и лотка планирования. */
-    val unscheduled: List<Task> = emptyList(),
-    val overdue: List<Task> = emptyList(),
-)
-
-@OptIn(ExperimentalCoroutinesApi::class)
 /**
  * ViewModel экрана «Неделя» и почасовой шкалы дня.
  *
@@ -43,6 +29,7 @@ data class WeekUiState(
  * кандидатов «из списков» и хвосты для лотка планирования. Листание недель — это просто
  * смена weekStart: flatMapLatest отменяет старую подписку на базу и создаёт новую.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class WeekViewModel @Inject constructor(
     private val tasks: ITaskRepository,

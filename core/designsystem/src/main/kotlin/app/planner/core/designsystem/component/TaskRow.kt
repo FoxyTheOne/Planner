@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -103,11 +105,69 @@ fun TaskRow(
             )
         }
         if (labelColor != null) {
+            Box(
+                Modifier
+                    .size(7.dp)
+                    .background(labelColor, CircleShape)
+            )
+        }
+        trailing?.invoke()
+    }
+}
+
+/**
+ * Строка повторяющегося дела («Полив», «Бассейн»): вместо чекбокса значок ↻,
+ * под названием — что именно сделать в этот день (у цикла: «фикус, монстера»).
+ *
+ * Отметить повторение сделанным пока нельзя — это следующий шаг, тогда здесь появится чекбокс.
+ *
+ * @param details дела этого дня; у простых повторений null — тогда строка в одну линию.
+ */
+@Composable
+fun RepeatRow(
+    title: String,
+    modifier: Modifier = Modifier,
+    details: String? = null,
+    time: String? = null,
+    labelColor: Color? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    val paper = PlannerTheme.paper
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        // Та же ширина 40dp, что у чекбокса в TaskRow, — чтобы названия в списке стояли ровно
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Rounded.Repeat, null, tint = paper.inkMuted,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        if (time != null) {
+            Text(time, style = MaterialTheme.typography.bodyLarge, color = paper.timeAccent)
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = paper.ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (details != null) {
+                Text(details, style = MaterialTheme.typography.bodyMedium, color = paper.inkMuted)
+            }
+        }
+        if (labelColor != null) {
             Box(Modifier
                 .size(7.dp)
                 .background(labelColor, CircleShape))
         }
-        trailing?.invoke()
     }
 }
 
@@ -167,9 +227,11 @@ fun SectionLabel(
 @Composable
 fun DashedRule(modifier: Modifier = Modifier) {
     val color = PlannerTheme.paper.rule
-    Canvas(modifier
-        .fillMaxWidth()
-        .height(1.dp)) {
+    Canvas(
+        modifier
+            .fillMaxWidth()
+            .height(1.dp)
+    ) {
         drawLine(
             color = color,
             start = Offset(0f, 0f),

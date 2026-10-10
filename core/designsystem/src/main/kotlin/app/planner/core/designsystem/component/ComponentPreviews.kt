@@ -25,7 +25,9 @@ import app.planner.core.domain.model.ListColor
 @Composable
 private fun PreviewSurface(content: @Composable () -> Unit) {
     PlannerTheme {
-        Column(Modifier.background(PlannerTheme.paper.paper).padding(16.dp)) { content() }
+        Column(Modifier
+            .background(PlannerTheme.paper.paper)
+            .padding(16.dp)) { content() }
     }
 }
 
@@ -50,6 +52,19 @@ private fun TaskRowPreview() = PreviewSurface {
         done = false,
         onToggle = {},
         labelColor = PlannerTheme.paper.label(ListColor.DUSTY_BLUE),
+    )
+}
+
+/** Повторения: простое (бассейн по средам) и цикл полива с делами этой недели. */
+@PlannerPreviews
+@Composable
+private fun RepeatRowPreview() = PreviewSurface {
+    RepeatRow(title = "Бассейн", time = "18:30")
+    DashedRule()
+    RepeatRow(
+        title = "Полив",
+        details = "фикус, монстера",
+        labelColor = PlannerTheme.paper.label(ListColor.SAGE),
     )
 }
 

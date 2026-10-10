@@ -29,9 +29,8 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import app.planner.common.TaskSaver
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +43,9 @@ import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
+import app.planner.common.TaskSaver
 import app.planner.core.designsystem.component.DashedRule
+import app.planner.core.designsystem.component.RepeatRow
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
@@ -139,7 +140,9 @@ fun TodayContent(
     onSwipeSchedule: (Task) -> Unit,
     onAdd: () -> Unit,
 ) {
-    Box(Modifier.fillMaxSize().padding(contentPadding)) {
+    Box(Modifier
+        .fillMaxSize()
+        .padding(contentPadding)) {
         LazyColumn(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 96.dp),
             modifier = Modifier.fillMaxSize(),
@@ -161,19 +164,38 @@ fun TodayContent(
             }
 
             DaySection.entries.forEach { section ->
-                val sectionTasks = state.sections[section].orEmpty()
-                if (sectionTasks.isNotEmpty()) {
+                val sectionItems = state.sections[section].orEmpty()
+                if (sectionItems.isNotEmpty()) {
                     item(key = "s_$section") { SectionLabel(stringResource(section.labelRes())) }
-                    items(sectionTasks, key = { it.id }) { task ->
-                        SwipeableTaskRow(
-                            task = task,
-                            lists = state.lists,
-                            onToggle = { onToggle(task) },
-                            onClick = { onEdit(task) },
-                            onSwipeTomorrow = { onSwipeTomorrow(task) },
-                            onSwipeSchedule = { onSwipeSchedule(task) },
-                            modifier = Modifier.animateItem(),
-                        )
+                    items(sectionItems, key = { it.key }) { item ->
+                        // when по sealed interface: задача — строка с чекбоксом и свайпами, повторение — строка с ↻
+                        when (item) {
+                            is TodayItem.TaskItem -> {
+                                val task = item.task
+                                SwipeableTaskRow(
+                                    task = task,
+                                    lists = state.lists,
+                                    onToggle = { onToggle(task) },
+                                    onClick = { onEdit(task) },
+                                    onSwipeTomorrow = { onSwipeTomorrow(task) },
+                                    onSwipeSchedule = { onSwipeSchedule(task) },
+                                    modifier = Modifier.animateItem(),
+                                )
+                            }
+
+                            is TodayItem.RepeatItem -> {
+                                val rule = item.occurrence.rule
+                                Column(Modifier.animateItem()) {
+                                    RepeatRow(
+                                        title = rule.title,
+                                        details = item.occurrence.details,
+                                        time = rule.time?.let(DateTexts::time),
+                                        labelColor = labelColorOf(rule.listId, state.lists),
+                                    )
+                                    DashedRule()
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -184,7 +206,9 @@ fun TodayContent(
         FloatingActionButton(
             onClick = onAdd,
             containerColor = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(20.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp),
         ) { Icon(Icons.Outlined.Add, stringResource(R.string.cd_add_task)) }
     }
 }
@@ -193,7 +217,9 @@ fun TodayContent(
 @Composable
 private fun TodayHeader(state: TodayUiState, onOpenSettings: () -> Unit) {
     Row(verticalAlignment = Alignment.Top) {
-        Column(Modifier.weight(1f).padding(top = 8.dp)) {
+        Column(Modifier
+            .weight(1f)
+            .padding(top = 8.dp)) {
             Text(DateTexts.weekday(state.today), style = MaterialTheme.typography.headlineMedium)
             val progress = if (state.totalCount > 0) {
                 " · " + stringResource(R.string.today_progress, state.doneCount, state.totalCount)
@@ -204,7 +230,12 @@ private fun TodayHeader(state: TodayUiState, onOpenSettings: () -> Unit) {
                 color = PlannerTheme.paper.inkMuted,
             )
         }
-        IconButton(onClick = onOpenSettings) { Icon(Icons.Outlined.Settings, stringResource(R.string.cd_settings)) }
+        IconButton(onClick = onOpenSettings) {
+            Icon(
+                Icons.Outlined.Settings,
+                stringResource(R.string.cd_settings)
+            )
+        }
     }
 }
 
@@ -226,7 +257,11 @@ private fun OverdueBanner(count: Int, onClick: () -> Unit) {
             color = paper.warningInk,
             modifier = Modifier.weight(1f),
         )
-        Text(stringResource(R.string.overdue_sort), color = paper.warningInk, style = MaterialTheme.typography.labelLarge)
+        Text(
+            stringResource(R.string.overdue_sort),
+            color = paper.warningInk,
+            style = MaterialTheme.typography.labelLarge
+        )
     }
 }
 
@@ -271,7 +306,10 @@ fun SwipeableTaskRow(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = if (toTomorrow) Arrangement.End else Arrangement.Start,
-                modifier = Modifier.fillMaxSize().background(paper.highlight).padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(paper.highlight)
+                    .padding(horizontal = 16.dp),
             ) {
                 Icon(
                     if (toTomorrow) Icons.AutoMirrored.Outlined.ArrowForward else Icons.Outlined.CalendarMonth,
@@ -303,8 +341,12 @@ fun SwipeableTaskRow(
 
 /** Цвет точки-метки задачи — цвет её списка. У «Входящих» точки нет. */
 @Composable
-fun labelColorOf(task: Task, lists: List<TaskList>) =
-    lists.firstOrNull { it.id == task.listId && !it.isInbox }?.let { PlannerTheme.paper.label(it.color) }
+fun labelColorOf(task: Task, lists: List<TaskList>) = labelColorOf(task.listId, lists)
+
+/** Цвет точки-метки по id списка (у задач и у правил повторения). */
+@Composable
+fun labelColorOf(listId: Long?, lists: List<TaskList>) =
+    lists.firstOrNull { it.id == listId && !it.isInbox }?.let { PlannerTheme.paper.label(it.color) }
 
 /** «→ Завтра: 3 задачи» и отдельно события со временем — чтобы вечером не пропустить утренний приём. */
 @Composable
@@ -315,7 +357,11 @@ private fun TomorrowPreview(state: TodayUiState) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = paper.inkMuted)
             Text(
-                pluralStringResource(R.plurals.tomorrow_preview, state.tomorrowCount, state.tomorrowCount),
+                pluralStringResource(
+                    R.plurals.tomorrow_preview,
+                    state.tomorrowCount,
+                    state.tomorrowCount
+                ),
                 color = paper.inkMuted,
                 modifier = Modifier.padding(start = 8.dp),
             )

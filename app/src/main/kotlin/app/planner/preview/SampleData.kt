@@ -2,9 +2,12 @@ package app.planner.preview
 
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.PartOfDay
+import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.model.TaskStatus
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -38,4 +41,29 @@ object SampleData {
     val buyBook = Task(id = 12, title = "Купить «Сто лет одиночества»", listId = books.id)
     val returnBook = Task(id = 13, title = "Вернуть книгу Оле", listId = books.id, date = today.plusDays(2))
     val forgotten = Task(id = 14, title = "Позвонить в ЖЭК", date = today.minusDays(1))
+
+    /** Цикл полива на 2 недели; 24 сентября 2026 — четверг второй недели. */
+    val wateringRule = RecurrenceRule(
+        id = 1,
+        title = "Полив",
+        repeat = Repeat.Cycle(
+            weeks = listOf(
+                mapOf(DayOfWeek.MONDAY to "все цветы"),
+                mapOf(DayOfWeek.THURSDAY to "фикус, монстера + подкормка"),
+            ),
+            anchorMonday = today.minusWeeks(1).with(DayOfWeek.MONDAY),
+        ),
+        startDate = today.minusWeeks(1),
+        partOfDay = PartOfDay.EVENING,
+        listId = flowers.id,
+    )
+
+    /** Бассейн по вторникам и четвергам в 18:30. */
+    val poolRule = RecurrenceRule(
+        id = 2,
+        title = "Бассейн",
+        repeat = Repeat.OnWeekdays(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY)),
+        startDate = today.minusMonths(1),
+        time = LocalTime.of(18, 30),
+    )
 }

@@ -59,6 +59,10 @@ object Recurrence {
         }
     }
 
+    /** Что выпадает на [date] сразу по всем правилам — для экрана одного дня («Сегодня»). */
+    fun occurrencesOn(rules: List<RecurrenceRule>, date: LocalDate): List<Occurrence> =
+        rules.mapNotNull { occurrence(it, date) }
+
     /** Выпадает ли правило на [date]. */
     fun occursOn(rule: RecurrenceRule, date: LocalDate): Boolean = occurrence(rule, date) != null
 

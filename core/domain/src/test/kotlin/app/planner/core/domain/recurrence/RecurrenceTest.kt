@@ -69,6 +69,17 @@ class RecurrenceTest {
         assertFalse(Recurrence.occursOn(r, monday.plusDays(5))) // после конца
     }
 
+    @Test
+    fun `occurrencesOn picks only rules that fall on the day`() {
+        val daily = rule(Repeat.Daily).copy(id = 1)
+        val mondays = rule(Repeat.OnWeekdays(setOf(MONDAY))).copy(id = 2)
+        val fridays = rule(Repeat.OnWeekdays(setOf(FRIDAY))).copy(id = 3)
+
+        val onMonday = Recurrence.occurrencesOn(listOf(daily, mondays, fridays), monday)
+
+        assertEquals(listOf(1L, 2L), onMonday.map { it.rule.id }) // пятничного в понедельник нет
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `weekdays rule without days is not allowed`() {
         // require в init не даст создать «по дням недели» без единого дня
