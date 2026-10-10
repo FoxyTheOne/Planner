@@ -13,6 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.DayOfWeek
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 
@@ -54,9 +55,9 @@ class MigrationTest {
             close()
         }
 
-        // 2. Миграции 1 → 2 → 3 (AutoMigration из PlannerDatabase) + проверка схемы.
+        // 2. Миграции 1 → 2 → 3 → 4 (AutoMigration из PlannerDatabase) + проверка схемы.
         // Новая версия базы — меняем здесь число на неё, и тест проверит всю цепочку
-        helper.runMigrationsAndValidate(dbName, 3, true).close()
+        helper.runMigrationsAndValidate(dbName, 4, true).close()
 
         // 3. Открываем обычным кодом приложения
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -82,6 +83,37 @@ class MigrationTest {
             )
             val id = db.recurrenceRuleDao().upsert(rule.toEntity())
             assertEquals(rule.copy(id = id), db.recurrenceRuleDao().get(id)!!.toDomain())
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * Миграция 3 → 4 с переименованием колонки: дата опорной недели цикла должна переехать
+     * из cycleAnchorMonday в cycleAnchorWeekStart, а не потеряться. У старого цикла начало недели —
+     * понедельник (новая колонка пустая).
+     */
+    @Test
+    fun migrate3To4_keepsCycleAnchor() = runBlocking {
+        val oct5 = LocalDate.of(2026, 10, 5).toEpochDay()
+        helper.createDatabase(dbName, 3).apply {
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, cycleWeeks, cycleAnchorMonday, " +
+                    "cycleAnchorWeekNumber, pauses) VALUES (1, 'Полив', $oct5, 'CYCLE', " +
+                    "'[{\"WEDNESDAY\":\"фикус\"},{}]', $oct5, 2, '[]')",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 4, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            val cycle = db.recurrenceRuleDao().get(1)!!.toDomain().repeat as Repeat.Cycle
+            assertEquals(LocalDate.of(2026, 10, 5), cycle.anchorWeekStart) // дата не потерялась
+            assertEquals(2, cycle.anchorWeekNumber)
+            assertEquals(DayOfWeek.MONDAY, cycle.weekStart) // старый цикл — с понедельника, как и был
         } finally {
             db.close()
         }

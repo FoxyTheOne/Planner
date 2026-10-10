@@ -2,8 +2,10 @@ package app.planner.core.data.db
 
 import androidx.room.AutoMigration
 import androidx.room.Database
+import androidx.room.RenameColumn
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.AutoMigrationSpec
 
 /**
  * База данных приложения (SQLite через библиотеку Room). Файл на телефоне — `planner.db`.
@@ -22,24 +24,30 @@ import androidx.room.TypeConverters
  *
  * - `AutoMigration` — Room сам сравнивает схемы двух версий (файлы 1.json и 2.json)
  *   и пишет нужный SQL. Подходит для простых изменений: новая таблица, новая колонка.
- * - Для сложных (переименовали колонку, разделили таблицу) пишется ручная `Migration`
- *   со своим SQL — или AutoMigration с подсказкой (spec). Дойдём до этого, когда понадобится.
+ * - Сама Room не может понять, что колонку ПЕРЕИМЕНОВАЛИ: по двум схемам это выглядит как
+ *   «одну колонку удалили, другую добавили» — и данные старой колонки пропали бы.
+ *   Поэтому к AutoMigration прикладывают подсказку (spec) — например, @RenameColumn, см. [Migration3To4].
+ * - Для совсем сложных изменений (разделить таблицу, пересчитать значения) пишется ручная
+ *   `Migration` со своим SQL. Дойдём до этого, когда понадобится.
  *
  * История версий:
  * - 1 — задачи и списки;
  * - 2 — правила повторения (таблица recurrence_rules);
- * - 3 — у задач колонки ruleId и occurrenceDate: отмеченный день повторения хранится задачей.
+ * - 3 — у задач колонки ruleId и occurrenceDate: отмеченный день повторения хранится задачей;
+ * - 4 — у цикла своё начало недели: cycleAnchorMonday переименована в cycleAnchorWeekStart,
+ *   добавлена cycleWeekStart (у старых циклов пустая — значит, с понедельника, как и было).
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
  */
 @Database(
     entities = [TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class],
-    version = 3,
+    version = 4,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 3, to = 4, spec = PlannerDatabase.Migration3To4::class),
     ],
 )
 @TypeConverters(Converters::class)
@@ -47,4 +55,15 @@ abstract class PlannerDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun taskListDao(): TaskListDao
     abstract fun recurrenceRuleDao(): RecurrenceRuleDao
+
+    /**
+     * Подсказка для миграции 3 → 4: колонку не удалили и создали заново, а переименовали —
+     * значит, её значения нужно перенести. Остальное (новую колонку cycleWeekStart) Room сделает сам.
+     */
+    @RenameColumn(
+        tableName = "recurrence_rules",
+        fromColumnName = "cycleAnchorMonday",
+        toColumnName = "cycleAnchorWeekStart",
+    )
+    class Migration3To4 : AutoMigrationSpec
 }

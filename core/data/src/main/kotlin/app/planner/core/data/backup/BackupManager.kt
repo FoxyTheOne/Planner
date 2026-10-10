@@ -33,6 +33,8 @@ import javax.inject.Singleton
  *   при чтении оно берётся по умолчанию (пустой список), поэтому старые копии читаются как раньше.
  * - 3 — у задач поля `ruleId` и `occurrenceDate` (отмеченные дни повторений). В старых файлах
  *   их нет — по умолчанию null, то есть обычная задача.
+ * - 4 — у цикла `weekStart` (с какого дня начинается его неделя) и `anchorWeekStart` вместо
+ *   `anchorMonday`. В старых файлах weekStart нет — значит MONDAY, а дата берётся из anchorMonday.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -42,7 +44,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 3
+        const val FORMAT_VERSION = 4
     }
 
     private val json = backupJson
@@ -204,8 +206,11 @@ data class RepeatDto(
     val days: List<String>? = null,
     val n: Int? = null,
     val weeks: List<Map<String, String>>? = null,
-    val anchorMonday: String? = null,
+    val anchorWeekStart: String? = null,
     val anchorWeekNumber: Int? = null,
+    val weekStart: String? = null,
+    /** Так поле называлось в формате 2–3. Пишем всегда null, читаем — только из старых файлов. */
+    val anchorMonday: String? = null,
 )
 
 @Serializable
@@ -228,8 +233,9 @@ internal fun RecurrenceRule.toDto() = RuleDto(
         is Repeat.Cycle -> RepeatDto(
             "CYCLE",
             weeks = r.weeks.map { week -> week.mapKeys { it.key.name } },
-            anchorMonday = r.anchorMonday.toString(),
+            anchorWeekStart = r.anchorWeekStart.toString(),
             anchorWeekNumber = r.anchorWeekNumber,
+            weekStart = r.weekStart.name,
         )
     },
     pauses = pauses.map { PauseDto(it.from.toString(), it.until?.toString()) },
@@ -245,8 +251,10 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
         "CYCLE" -> Repeat.Cycle(
             weeks = repeat.weeks.orEmpty()
                 .map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },
-            anchorMonday = LocalDate.parse(repeat.anchorMonday),
+            // ?: — «если слева null, взять справа»: в старых файлах дата лежит в anchorMonday
+            anchorWeekStart = LocalDate.parse(repeat.anchorWeekStart ?: repeat.anchorMonday),
             anchorWeekNumber = repeat.anchorWeekNumber ?: 1,
+            weekStart = repeat.weekStart?.let(DayOfWeek::valueOf) ?: DayOfWeek.MONDAY,
         )
         // Файл из более новой версии приложения не дойдёт сюда: read() отклоняет formatVersion новее нашего
         else -> error("Unknown repeat type: ${repeat.type}")

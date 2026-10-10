@@ -9,6 +9,7 @@ import org.junit.Test
 import java.time.DayOfWeek.FRIDAY
 import java.time.DayOfWeek.MONDAY
 import java.time.DayOfWeek.SATURDAY
+import java.time.DayOfWeek.SUNDAY
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 import java.time.LocalTime
@@ -55,8 +56,19 @@ class RecurrenceEntitiesTest {
                     mapOf(WEDNESDAY to "фикус", SATURDAY to "подкормка"),
                     emptyMap(), // неделя без дел — тоже бывает
                 ),
-                anchorMonday = oct5,
+                anchorWeekStart = oct5,
                 anchorWeekNumber = 2,
+            ),
+        ),
+    )
+
+    @Test
+    fun `sunday-start cycle survives the round trip`() = assertRoundTrip(
+        base(
+            Repeat.Cycle(
+                weeks = listOf(mapOf(SUNDAY to "подкормка")),
+                anchorWeekStart = oct5.minusDays(1), // воскресенье 4 октября
+                weekStart = SUNDAY,
             ),
         ),
     )

@@ -29,7 +29,7 @@ class PauseTest {
             mapOf(WEDNESDAY to "неделя 3"),
             mapOf(WEDNESDAY to "неделя 4"),
         ),
-        anchorMonday = date(5),
+        anchorWeekStart = date(5),
     )
 
     private fun rule(repeat: Repeat = watering, vararg pauses: Pause) =

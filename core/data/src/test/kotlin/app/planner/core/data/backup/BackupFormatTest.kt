@@ -6,8 +6,10 @@ import app.planner.core.domain.model.Repeat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.DayOfWeek.MONDAY
 import java.time.DayOfWeek.SATURDAY
+import java.time.DayOfWeek.SUNDAY
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 import java.time.LocalTime
@@ -49,11 +51,18 @@ class BackupFormatTest {
                 title = "Полив",
                 repeat = Repeat.Cycle(
                     weeks = listOf(mapOf(WEDNESDAY to "фикус"), mapOf(WEDNESDAY to "фикус", SATURDAY to "подкормка")),
-                    anchorMonday = oct5,
+                    anchorWeekStart = oct5,
                     anchorWeekNumber = 2,
                 ),
                 startDate = oct5,
                 pauses = listOf(Pause(oct5.plusDays(7), oct5.plusDays(13)), Pause(oct5.plusDays(30))),
+            ),
+            // Цикл, у которого неделя начинается с воскресенья
+            RecurrenceRule(
+                id = 5,
+                title = "Подкормка",
+                repeat = Repeat.Cycle(listOf(mapOf(SUNDAY to "эпин")), oct5.minusDays(1), weekStart = SUNDAY),
+                startDate = oct5,
             ),
         )
 
@@ -63,6 +72,23 @@ class BackupFormatTest {
         val restored = backupJson.decodeFromString(BackupSnapshot.serializer(), text).rules.map { it.toDomain() }
 
         assertEquals(rules, restored)
+    }
+
+    @Test
+    fun `cycle from format 3 is read as starting on monday`() {
+        // В формате 3 у цикла было anchorMonday и не было weekStart
+        val v3 = """
+            {"formatVersion":3,"exportedAt":"2026-10-09T10:00:00Z","lists":[],"tasks":[],
+             "rules":[{"id":1,"title":"Полив","startDate":"2026-10-05",
+                       "repeat":{"type":"CYCLE","weeks":[{"WEDNESDAY":"фикус"}],
+                                 "anchorMonday":"2026-10-05","anchorWeekNumber":1}}]}
+        """.trimIndent()
+
+        val rule = backupJson.decodeFromString(BackupSnapshot.serializer(), v3).rules.single().toDomain()
+
+        val cycle = rule.repeat as Repeat.Cycle
+        assertEquals(LocalDate.of(2026, 10, 5), cycle.anchorWeekStart)
+        assertEquals(DayOfWeek.MONDAY, cycle.weekStart)
     }
 
     @Test

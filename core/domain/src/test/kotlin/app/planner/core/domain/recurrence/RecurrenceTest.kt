@@ -110,7 +110,7 @@ class RecurrenceTest {
 
     @Test
     fun `cycle details go to the task note`() {
-        val watering = rule(Repeat.Cycle(listOf(mapOf(MONDAY to "фикус")), anchorMonday = monday))
+        val watering = rule(Repeat.Cycle(listOf(mapOf(MONDAY to "фикус")), anchorWeekStart = monday))
 
         val task = Recurrence.toTask(Recurrence.occurrence(watering, monday)!!, TaskStatus.DONE)
 

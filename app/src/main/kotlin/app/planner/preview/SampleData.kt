@@ -50,7 +50,7 @@ object SampleData {
                 mapOf(DayOfWeek.MONDAY to "все цветы"),
                 mapOf(DayOfWeek.THURSDAY to "фикус, монстера + подкормка"),
             ),
-            anchorMonday = today.minusWeeks(1).with(DayOfWeek.MONDAY),
+            anchorWeekStart = today.minusWeeks(1).with(DayOfWeek.MONDAY),
         ),
         startDate = today.minusWeeks(1),
         partOfDay = PartOfDay.EVENING,

@@ -129,7 +129,8 @@ object Recurrence {
     /**
      * Какая неделя цикла идёт в [date]: 0 — первая, 1 — вторая…
      *
-     * 1. Сколько недель прошло от опорной недели до недели [date].
+     * 1. Сколько недель прошло от опорной недели до недели [date]. Недели считаются так,
+     *    как их считает сам цикл: с [Repeat.Cycle.weekStart] (понедельника или воскресенья).
      * 2. Вычитаем недели, целиком ушедшие в паузу: «как с музыкой», они в цикле не считаются.
      *    Неделя, в которой пауза только началась или закончилась, считается — она уже начата.
      * 3. Прибавляем к номеру опорной недели и берём остаток от деления на длину цикла.
@@ -142,13 +143,14 @@ object Recurrence {
         date: LocalDate,
         pauses: List<Pause> = emptyList()
     ): Int {
-        val monday = mondayOf(date)
-        val weeksPassed = ChronoUnit.WEEKS.between(cycle.anchorMonday, monday)
+        val weekStart = startOfWeek(date, cycle.weekStart)
+        val anchor = cycle.anchorWeekStart
+        val weeksPassed = ChronoUnit.WEEKS.between(anchor, weekStart)
         // Паузы между опорной неделей и датой: вперёд по времени — вычитаем, назад — прибавляем
         val activeWeeks = if (weeksPassed >= 0) {
-            weeksPassed - fullyPausedWeeks(pauses, cycle.anchorMonday, monday)
+            weeksPassed - fullyPausedWeeks(pauses, anchor, weekStart, cycle.weekStart)
         } else {
-            weeksPassed + fullyPausedWeeks(pauses, monday, cycle.anchorMonday)
+            weeksPassed + fullyPausedWeeks(pauses, weekStart, anchor, cycle.weekStart)
         }
         return Math.floorMod(cycle.anchorWeekNumber - 1 + activeWeeks, cycle.weeks.size.toLong())
             .toInt()
@@ -156,14 +158,14 @@ object Recurrence {
 
     /**
      * «Сейчас идёт неделя N»: если цикл сбился, человек говорит, какая неделя на самом деле.
-     * Просто записываем «эта неделя — N-я»; дела по неделям остаются как были.
+     * Просто записываем «эта неделя — N-я»; дела по неделям и начало недели цикла остаются как были.
      *
      * @param weekNumber номер недели, как его видит человек: 1, 2, 3…
      */
     fun setCurrentWeek(cycle: Repeat.Cycle, today: LocalDate, weekNumber: Int): Repeat.Cycle =
-    // copy — новый объект с изменёнными полями (data class неизменяемый).
+        // copy — новый объект с изменёнными полями (data class неизменяемый).
         // Проверку номера недели сделает init в Cycle
-        cycle.copy(anchorMonday = mondayOf(today), anchorWeekNumber = weekNumber)
+        cycle.copy(anchorWeekStart = startOfWeek(today, cycle.weekStart), anchorWeekNumber = weekNumber)
 
     /**
      * «Продолжить» — снять паузу, которая идёт сейчас (в том числе паузу без даты).
@@ -180,9 +182,12 @@ object Recurrence {
         return rule.copy(pauses = pauses)
     }
 
-    /** Понедельник той недели, в которую попадает [date] (сам [date], если это понедельник). */
-    fun mondayOf(date: LocalDate): LocalDate =
-        date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    /**
+     * Первый день недели, в которую попадает [date], если неделя начинается с [weekStart].
+     * Например, для субботы 10 октября 2026: с понедельника → пн 5 октября, с воскресенья → вс 4 октября.
+     */
+    fun startOfWeek(date: LocalDate, weekStart: DayOfWeek): LocalDate =
+        date.with(TemporalAdjusters.previousOrSame(weekStart))
 
     // ---------- Подсчёт пауз ----------
 
@@ -220,23 +225,24 @@ object Recurrence {
         }
 
     /**
-     * Сколько недель (пн–вс) между понедельниками [fromMonday] и [toMondayExclusive]
-     * целиком пришлось на паузы.
+     * Сколько целых недель между [fromWeekStart] и [toWeekStartExclusive] пришлось на паузы.
+     * Неделя — 7 дней начиная с [weekStart] (понедельника или воскресенья — как у цикла).
      */
     private fun fullyPausedWeeks(
         pauses: List<Pause>,
-        fromMonday: LocalDate,
-        toMondayExclusive: LocalDate
+        fromWeekStart: LocalDate,
+        toWeekStartExclusive: LocalDate,
+        weekStart: DayOfWeek,
     ): Long =
         merged(pauses).sumOf { pause ->
-            // Первая целая неделя паузы: её понедельник — сам from или ближайший следующий
-            val firstMonday =
-                maxOf(pause.from.with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)), fromMonday)
-            // Понедельник ПОСЛЕ последней целой недели. Если пауза кончается в воскресенье —
-            // это следующий понедельник; иначе её последняя неделя неполная и не считается
-            val endMonday =
-                minOf(pause.until?.let { mondayOf(it.plusDays(1)) } ?: toMondayExclusive,
-                    toMondayExclusive)
-            if (endMonday > firstMonday) ChronoUnit.WEEKS.between(firstMonday, endMonday) else 0L
+            // Первая целая неделя паузы: её первый день — сам from или ближайшее следующее начало недели
+            val firstWeek =
+                maxOf(pause.from.with(TemporalAdjusters.nextOrSame(weekStart)), fromWeekStart)
+            // Начало недели ПОСЛЕ последней целой недели. Если пауза кончается в последний день
+            // недели — это начало следующей; иначе её последняя неделя неполная и не считается
+            val endWeek =
+                minOf(pause.until?.let { startOfWeek(it.plusDays(1), weekStart) } ?: toWeekStartExclusive,
+                    toWeekStartExclusive)
+            if (endWeek > firstWeek) ChronoUnit.WEEKS.between(firstWeek, endWeek) else 0L
         }
 }

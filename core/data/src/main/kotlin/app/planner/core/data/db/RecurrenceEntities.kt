@@ -56,8 +56,14 @@ data class RecurrenceRuleEntity(
     val everyNDays: Int?,
     /** JSON: `[{"WEDNESDAY":"фикус"}, {"WEDNESDAY":"фикус","SATURDAY":"подкормка"}]`. */
     val cycleWeeks: String?,
-    val cycleAnchorMonday: LocalDate?,
+    /** Первый день опорной недели цикла. До версии базы 4 колонка называлась cycleAnchorMonday. */
+    val cycleAnchorWeekStart: LocalDate?,
     val cycleAnchorWeekNumber: Int?,
+    /**
+     * С какого дня начинается неделя цикла: MONDAY или SUNDAY.
+     * null — цикл создан до версии базы 4, тогда недели у него всегда считались с понедельника.
+     */
+    val cycleWeekStart: String?,
     /** JSON: `[{"from":20738,"until":20744}]` — пауза 12–18 октября 2026, даты числом дней от 1970 года. */
     val pauses: String,
 )
@@ -80,7 +86,7 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
         id = id, title = title, startDate = startDate, endDate = endDate,
         time = time, partOfDay = partOfDay, listId = listId,
         repeatType = "", weekdays = null, everyNDays = null,
-        cycleWeeks = null, cycleAnchorMonday = null, cycleAnchorWeekNumber = null,
+        cycleWeeks = null, cycleAnchorWeekStart = null, cycleAnchorWeekNumber = null, cycleWeekStart = null,
         pauses = json.encodeToString(pauses.map {
             // toEpochDay() превращает дату в число дней, прошедших с 1 января 1970 года. 12 октября 2026 → 20738, 18 октября → 20744. Числом удобнее, чем строкой "2026-10-12": короче, и так же даты хранятся во всей нашей базе (см. Converters)
             PauseJson(
@@ -101,8 +107,9 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
             repeatType = TYPE_CYCLE,
             // Ключи словаря — названия дней (MONDAY…), чтобы JSON было легко прочитать глазами
             cycleWeeks = json.encodeToString(r.weeks.map { week -> week.mapKeys { it.key.name } }),
-            cycleAnchorMonday = r.anchorMonday,
+            cycleAnchorWeekStart = r.anchorWeekStart,
             cycleAnchorWeekNumber = r.anchorWeekNumber,
+            cycleWeekStart = r.weekStart.name,
         )
     }
 }
@@ -116,8 +123,9 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
         TYPE_CYCLE -> Repeat.Cycle(
             weeks = json.decodeFromString<List<Map<String, String>>>(cycleWeeks!!)
                 .map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },
-            anchorMonday = cycleAnchorMonday!!,
+            anchorWeekStart = cycleAnchorWeekStart!!,
             anchorWeekNumber = cycleAnchorWeekNumber!!,
+            weekStart = cycleWeekStart?.let(DayOfWeek::valueOf) ?: DayOfWeek.MONDAY,
         )
 
         else -> error("Неизвестный тип повторения: $repeatType")

@@ -1,11 +1,13 @@
 package app.planner.core.domain.recurrence
 
+import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.DayOfWeek.SATURDAY
+import java.time.DayOfWeek.SUNDAY
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 
@@ -25,7 +27,7 @@ class CycleTest {
             mapOf(WEDNESDAY to "фикус, монстера"),
             mapOf(WEDNESDAY to "фикус", SATURDAY to "пересадка, если пора"),
         ),
-        anchorMonday = oct5,
+        anchorWeekStart = oct5,
     )
 
     private fun rule() = RecurrenceRule(title = "Полив", repeat = watering, startDate = oct5)
@@ -77,8 +79,62 @@ class CycleTest {
         assertEquals(watering.weeks, fixed.weeks) // сами дела не тронуты
     }
 
+    // ---------- Неделя цикла с воскресенья ----------
+
+    /** Два одинаковых цикла на 2 недели: один считает недели с понедельника, другой — с воскресенья. */
+    private val twoWeeks = listOf(
+        mapOf(SUNDAY to "неделя 1", WEDNESDAY to "неделя 1"),
+        mapOf(SUNDAY to "неделя 2", WEDNESDAY to "неделя 2"),
+    )
+    private val fromMonday = Repeat.Cycle(twoWeeks, anchorWeekStart = oct5) // пн 5 октября
+    private val fromSunday = Repeat.Cycle(twoWeeks, anchorWeekStart = oct5.minusDays(1), weekStart = SUNDAY) // вс 4
+
+    private fun on(cycle: Repeat.Cycle, date: LocalDate, vararg pauses: Pause) = Recurrence.occurrence(
+        RecurrenceRule(title = "Т", repeat = cycle, startDate = oct5.minusDays(1), pauses = pauses.toList()),
+        date,
+    )?.details
+
+    @Test
+    fun `sunday belongs to a different cycle week depending on week start`() {
+        val sun11 = LocalDate.of(2026, 10, 11)
+        // С понедельника: вс 11 — последний день недели пн 5…вс 11, то есть неделя 1
+        assertEquals("неделя 1", on(fromMonday, sun11))
+        // С воскресенья: вс 11 — первый день недели вс 11…сб 17, то есть уже неделя 2
+        assertEquals("неделя 2", on(fromSunday, sun11))
+    }
+
+    @Test
+    fun `weekdays other than sunday are the same for both week starts`() {
+        val wed7 = LocalDate.of(2026, 10, 7)
+        assertEquals(on(fromMonday, wed7), on(fromSunday, wed7)) // обе — неделя 1
+        assertEquals(on(fromMonday, wed7.plusWeeks(1)), on(fromSunday, wed7.plusWeeks(1))) // обе — неделя 2
+    }
+
+    @Test
+    fun `whole paused week is counted by the cycle own week`() {
+        // Пауза вс 11 … сб 17 — это целая неделя для цикла с воскресенья, но не для цикла с понедельника
+        val pause = Pause(LocalDate.of(2026, 10, 11), LocalDate.of(2026, 10, 17))
+        val wed21 = LocalDate.of(2026, 10, 21)
+
+        // С воскресенья неделя целиком на паузе и не считается: после неё снова неделя 2
+        assertEquals("неделя 2", on(fromSunday, wed21, pause))
+        // С понедельника целой недели на паузе нет — счёт идёт как обычно: 21-го неделя 1 (по кругу)
+        assertEquals("неделя 1", on(fromMonday, wed21, pause))
+    }
+
+    @Test
+    fun `set current week keeps the cycle week start`() {
+        val sat17 = LocalDate.of(2026, 10, 17)
+
+        val fixed = Recurrence.setCurrentWeek(fromSunday, today = sat17, weekNumber = 1)
+
+        assertEquals(SUNDAY, fixed.weekStart)
+        assertEquals(LocalDate.of(2026, 10, 11), fixed.anchorWeekStart) // воскресенье этой недели
+    }
+
     @Test(expected = IllegalArgumentException::class)
-    fun `cycle must start on monday`() {
-        Repeat.Cycle(weeks = watering.weeks, anchorMonday = oct5.plusDays(1))
+    fun `anchor week must start on the cycle week start`() {
+        // Цикл с понедельника, а опорная неделя — со вторника: так быть не может
+        Repeat.Cycle(weeks = watering.weeks, anchorWeekStart = oct5.plusDays(1))
     }
 }
