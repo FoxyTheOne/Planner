@@ -1,6 +1,7 @@
 package app.planner.feature.today
 
 import app.planner.common.DayItem
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.overdue.OverdueGroup
@@ -29,6 +30,8 @@ data class TodayUiState(
     val overdue: Map<OverdueGroup, List<Task>> = emptyMap(),
     val showOverdueBanner: Boolean = false,
     val lists: List<TaskList> = emptyList(),
+    /** Повторения, которые сегодня на паузе: их не видно в разделах, но открыть, чтобы продолжить, нужно. */
+    val paused: List<RecurrenceRule> = emptyList(),
 ) {
     val overdueCount: Int get() = overdue.values.sumOf { it.size }
     val isEmpty: Boolean get() = sections.values.all { it.isEmpty() }

@@ -189,4 +189,18 @@
     <string name="cycle_day_hint">Nothing</string>
     <string name="cycle_copy_prev">Same as week %1$d</string>
     <string name="cycle_empty">Write down at least one task in the table</string>
+    <string name="pause_title">Pause</string>
+    <string name="pause_action">Pause</string>
+    <string name="pause_hint">Paused days don\'t count: a cycle picks up where it stopped</string>
+    <string name="pause_week">For a week</string>
+    <string name="pause_two_weeks">For 2 weeks</string>
+    <string name="pause_month">For a month</string>
+    <string name="pause_until_date">Until a date…</string>
+    <string name="pause_open_ended">Until I resume</string>
+    <string name="paused_until">Paused until %1$s</string>
+    <string name="paused">Paused</string>
+    <string name="resume">Resume</string>
+    <string name="section_paused">paused</string>
+    <string name="msg_paused">Repeat paused</string>
+    <string name="msg_resumed">Repeat resumed</string>
 </resources>

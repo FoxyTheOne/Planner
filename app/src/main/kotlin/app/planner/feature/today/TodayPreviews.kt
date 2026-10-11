@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import app.planner.core.designsystem.preview.PlannerScreenPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Pause
 import app.planner.core.domain.overdue.OverdueGroup
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.preview.SampleData
@@ -38,6 +39,8 @@ private fun TodayPreview() {
             overdue = mapOf(OverdueGroup.YESTERDAY to listOf(forgotten)),
             showOverdueBanner = true,
             lists = lists,
+            // Внизу — повторение на паузе (отпуск на неделю)
+            paused = listOf(poolRule.copy(pauses = listOf(Pause(today.minusDays(1), today.plusDays(5))))),
         )
     }
     PlannerTheme { TodayContentForPreview(state) }

@@ -43,10 +43,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import app.planner.core.domain.recurrence.Recurrence
-import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.RecurrenceRule
-import app.planner.common.RepeatSaver
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.common.SlotSaver
 import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
@@ -95,9 +94,8 @@ fun WeekScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var planning by rememberSaveable { mutableStateOf(false) }
     var pickSlot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf<Slot?>(null) }
-    var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
-    // Если в редакторе открыто повторение — как часто оно повторяется (иначе null)
-    var editingRepeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf<Repeat?>(null) }
+    // Что открыто в редакторе: задача или правило повторения (с его повторением и паузой); null — закрыт
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
     // Для тех, кому неудобно перетаскивать: тап по задаче в лотке, потом тап по дню
     var selectedFromTray by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
 
@@ -115,8 +113,8 @@ fun WeekScreen(
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
         // Тап по повторению — открыть его правило в том же редакторе, что и задачи
-        onEditRule = { rule -> editing = Recurrence.draftFromRule(rule); editingRepeat = rule.repeat },
-        onEdit = { editing = it },
+        onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
+        onEdit = { editing = EditorTarget(it) },
         onDrop = { taskId, day ->
             viewModel.dropOnDay(taskId, day)
             selectedFromTray = null
@@ -135,15 +133,20 @@ fun WeekScreen(
             onCreate = { viewModel.createIn(slot, it); pickSlot = null },
         )
     }
-    editing?.let { task ->
+    editing?.let { target ->
+        // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
+        val ruleId = target.task.ruleId.takeIf { target.task.id == 0L }
         TaskEditorSheet(
-            initial = task,
+            initial = target.task,
             lists = state.lists,
             today = state.today,
-            onDismiss = { editing = null; editingRepeat = null },
-            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null; editingRepeat = null },
-            onDelete = { viewModel.delete(it); editing = null; editingRepeat = null },
-            initialRepeat = editingRepeat,
+            onDismiss = { editing = null },
+            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null },
+            onDelete = { viewModel.delete(it); editing = null },
+            initialRepeat = target.repeat,
+            pause = target.pause,
+            onPause = ruleId?.let { id -> { until -> viewModel.pauseRule(id, until); editing = null } },
+            onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
         )
     }
 }

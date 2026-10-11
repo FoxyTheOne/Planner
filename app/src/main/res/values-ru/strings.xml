@@ -185,4 +185,18 @@
     <string name="cycle_day_hint">Ничего</string>
     <string name="cycle_copy_prev">Как в неделе %1$d</string>
     <string name="cycle_empty">Впишите в таблицу хотя бы одно дело</string>
+    <string name="pause_title">Пауза</string>
+    <string name="pause_action">Поставить на паузу</string>
+    <string name="pause_hint">Дни паузы не считаются: цикл продолжится с того же места</string>
+    <string name="pause_week">На неделю</string>
+    <string name="pause_two_weeks">На 2 недели</string>
+    <string name="pause_month">На месяц</string>
+    <string name="pause_until_date">До даты…</string>
+    <string name="pause_open_ended">Пока не продолжу</string>
+    <string name="paused_until">На паузе до %1$s</string>
+    <string name="paused">На паузе</string>
+    <string name="resume">Продолжить</string>
+    <string name="section_paused">на паузе</string>
+    <string name="msg_paused">Повторение на паузе</string>
+    <string name="msg_resumed">Повторение продолжается</string>
 </resources>

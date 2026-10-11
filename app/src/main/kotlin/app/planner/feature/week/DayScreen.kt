@@ -30,17 +30,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.planner.core.domain.recurrence.Recurrence
-import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.RecurrenceRule
-import app.planner.common.RepeatSaver
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.DayItemRow
 import app.planner.common.PickTaskSheet
 import app.planner.common.SlotSaver
 import app.planner.common.TaskEditorSheet
-import app.planner.common.TaskSaver
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
@@ -64,9 +62,8 @@ fun DayScreen(
     LaunchedEffect(date) { viewModel.showWeekOf(date) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     var pickSlot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf<Slot?>(null) }
-    var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
-    // Если в редакторе открыто повторение — как часто оно повторяется (иначе null)
-    var editingRepeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf<Repeat?>(null) }
+    // Что открыто в редакторе: задача или правило повторения (с его повторением и паузой); null — закрыт
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
 
     DayContent(
         date = date,
@@ -77,8 +74,8 @@ fun DayScreen(
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
         // Тап по повторению — открыть его правило в том же редакторе, что и задачи
-        onEditRule = { rule -> editing = Recurrence.draftFromRule(rule); editingRepeat = rule.repeat },
-        onEdit = { editing = it },
+        onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
+        onEdit = { editing = EditorTarget(it) },
     )
 
     pickSlot?.let { slot ->
@@ -92,15 +89,20 @@ fun DayScreen(
             onCreate = { viewModel.createIn(slot, it); pickSlot = null },
         )
     }
-    editing?.let { task ->
+    editing?.let { target ->
+        // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
+        val ruleId = target.task.ruleId.takeIf { target.task.id == 0L }
         TaskEditorSheet(
-            initial = task,
+            initial = target.task,
             lists = state.lists,
             today = state.today,
-            onDismiss = { editing = null; editingRepeat = null },
-            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null; editingRepeat = null },
-            onDelete = { viewModel.delete(it); editing = null; editingRepeat = null },
-            initialRepeat = editingRepeat,
+            onDismiss = { editing = null },
+            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null },
+            onDelete = { viewModel.delete(it); editing = null },
+            initialRepeat = target.repeat,
+            pause = target.pause,
+            onPause = ruleId?.let { id -> { until -> viewModel.pauseRule(id, until); editing = null } },
+            onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
         )
     }
 }

@@ -115,6 +115,23 @@ class PauseTest {
     }
 
     @Test
+    fun `pause button starts today and resume ends it`() {
+        val r = rule(Repeat.Daily)
+
+        // Нажали «На неделю» в среду 14-го: пауза 14…20 включительно
+        val paused = Recurrence.pause(r, today = date(14), until = date(20))
+
+        assertEquals(Pause(date(14), date(20)), Recurrence.activePause(paused, date(17)))
+        assertNull(Recurrence.activePause(paused, date(21))) // после паузы — снова работает
+        assertFalse(Recurrence.occursOn(paused, date(14)))
+
+        // Вернулись раньше, в пятницу 16-го, и нажали «Продолжить»
+        val resumed = Recurrence.resume(paused, today = date(16))
+        assertTrue(Recurrence.occursOn(resumed, date(16)))
+        assertNull(Recurrence.activePause(resumed, date(16)))
+    }
+
+    @Test
     fun `pause just hides days for simple repeats`() {
         val r = rule(Repeat.Daily, Pause(date(6), date(7)))
 

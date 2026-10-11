@@ -240,6 +240,17 @@ object Recurrence {
             anchorWeekNumber = weekNumber
         )
 
+    /** Пауза, которая идёт в [date], или null, если правило в этот день работает. */
+    fun activePause(rule: RecurrenceRule, date: LocalDate): Pause? =
+        rule.pauses.firstOrNull { date in it }
+
+    /**
+     * «Поставить на паузу» с [today] по [until] включительно; until = null — пока не нажмут «Продолжить».
+     * Пауза просто добавляется к остальным: если они пересекаются, движок сам их склеит.
+     */
+    fun pause(rule: RecurrenceRule, today: LocalDate, until: LocalDate?): RecurrenceRule =
+        rule.copy(pauses = rule.pauses + Pause(today, until))
+
     /**
      * «Продолжить» — снять паузу, которая идёт сейчас (в том числе паузу без даты).
      * Сегодня правило снова работает. Паузы, запланированные на будущее, не трогаем.

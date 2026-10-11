@@ -1,5 +1,10 @@
 package app.planner.feature.today
 
+import app.planner.core.domain.recurrence.Recurrence
+import app.planner.common.pausedText
+import java.time.LocalDate
+import androidx.compose.material.icons.outlined.PauseCircle
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,10 +44,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.planner.core.domain.recurrence.Recurrence
-import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.RecurrenceRule
-import app.planner.common.RepeatSaver
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.DayItem
@@ -80,9 +84,8 @@ fun TodayScreen(
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
-    // Если в редакторе открыто повторение — как часто оно повторяется (иначе null)
-    var editingRepeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf<Repeat?>(null) }
+    // Что открыто в редакторе: задача или правило повторения (с его повторением и паузой); null — закрыт
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
     var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     var showOverdue by rememberSaveable { mutableStateOf(false) }
 
@@ -94,22 +97,27 @@ fun TodayScreen(
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
         // Тап по повторению — открыть его правило в том же редакторе, что и задачи
-        onEditRule = { rule -> editing = Recurrence.draftFromRule(rule); editingRepeat = rule.repeat },
-        onEdit = { editing = it },
+        onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
+        onEdit = { editing = EditorTarget(it) },
         onSwipeTomorrow = viewModel::moveToTomorrow,
         onSwipeSchedule = { scheduling = it },
-        onAdd = { editing = Task(title = "", date = state.today) },
+        onAdd = { editing = EditorTarget(Task(title = "", date = state.today)) },
     )
 
-    editing?.let { task ->
+    editing?.let { target ->
+        // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
+        val ruleId = target.task.ruleId.takeIf { target.task.id == 0L }
         TaskEditorSheet(
-            initial = task,
+            initial = target.task,
             lists = state.lists,
             today = state.today,
-            onDismiss = { editing = null; editingRepeat = null },
-            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null; editingRepeat = null },
-            onDelete = { viewModel.delete(it); editing = null; editingRepeat = null },
-            initialRepeat = editingRepeat,
+            onDismiss = { editing = null },
+            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null },
+            onDelete = { viewModel.delete(it); editing = null },
+            initialRepeat = target.repeat,
+            pause = target.pause,
+            onPause = ruleId?.let { id -> { until -> viewModel.pauseRule(id, until); editing = null } },
+            onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
         )
     }
     scheduling?.let { task ->
@@ -216,6 +224,14 @@ fun TodayContent(
                             }
                         }
                     }
+                }
+            }
+
+            // Повторения на паузе: их дней нет в разделах, но открыть правило и нажать «Продолжить» нужно
+            if (state.paused.isNotEmpty()) {
+                item(key = "s_paused") { SectionLabel(stringResource(R.string.section_paused)) }
+                items(state.paused, key = { "paused_${it.id}" }) { rule ->
+                    PausedRuleRow(rule, state.today, onClick = { onEditRule(rule) })
                 }
             }
 
@@ -359,6 +375,29 @@ fun SwipeableTaskRow(
                 toggleDescription = stringResource(R.string.cd_mark_done),
             )
             DashedRule()
+        }
+    }
+}
+
+/** «⏸ Полив · на паузе до 20 октября» — строка повторения, которое сейчас на паузе. */
+@Composable
+private fun PausedRuleRow(rule: RecurrenceRule, today: LocalDate, onClick: () -> Unit) {
+    val paper = PlannerTheme.paper
+    val pause = Recurrence.activePause(rule, today) ?: return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        // Та же ширина 40dp, что у чекбокса в строке задачи — названия стоят ровно
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.PauseCircle, null, tint = paper.inkFaint)
+        }
+        Column(Modifier.padding(start = 10.dp)) {
+            Text(rule.title, color = paper.inkMuted, style = MaterialTheme.typography.bodyLarge)
+            Text(pausedText(pause), color = paper.inkFaint, style = MaterialTheme.typography.bodyMedium)
         }
     }
 }

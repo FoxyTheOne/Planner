@@ -100,6 +100,13 @@ private fun CycleEditorPreview() = SheetSurface {
         onDone = {})
 }
 
+/** Шторка «Пауза»: на неделю, на 2 недели, на месяц, до даты, пока не продолжу. */
+@PlannerPreviews
+@Composable
+private fun PauseSheetPreview() = SheetSurface {
+    PauseSheetBody(today = SampleData.today, onPause = {})
+}
+
 /** Шторка из недели: свободный слот в пятницу, вкладка «Из списков». */
 @PlannerPreviews
 @Composable

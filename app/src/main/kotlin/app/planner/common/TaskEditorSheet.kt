@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.planner.R
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -86,6 +88,9 @@ fun TaskEditorSheet(
     onSave: (task: Task, newListName: String?, repeat: Repeat?) -> Unit,
     onDelete: ((Task) -> Unit)? = null,
     initialRepeat: Repeat? = null,
+    pause: Pause? = null,
+    onPause: ((until: LocalDate?) -> Unit)? = null,
+    onResume: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -98,6 +103,9 @@ fun TaskEditorSheet(
             onSave = onSave,
             onDelete = onDelete,
             initialRepeat = initialRepeat,
+            pause = pause,
+            onPause = onPause,
+            onResume = onResume,
         )
     }
 }
@@ -116,6 +124,9 @@ fun TaskEditorSheetBody(
     onSave: (task: Task, newListName: String?, repeat: Repeat?) -> Unit,
     onDelete: ((Task) -> Unit)? = null,
     initialRepeat: Repeat? = null,
+    pause: Pause? = null,
+    onPause: ((until: LocalDate?) -> Unit)? = null,
+    onResume: (() -> Unit)? = null,
 ) {
     // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
     val isNew = initial.id == 0L && initial.ruleId == null
@@ -144,6 +155,7 @@ fun TaskEditorSheetBody(
     var showSchedule by rememberSaveable { mutableStateOf(false) }
     var repeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf(initialRepeat) }
     var showRepeat by rememberSaveable { mutableStateOf(false) }
+    var showPause by rememberSaveable { mutableStateOf(false) }
     // FocusRequester — «пульт» для поля ввода: позволяет из кода поставить в него курсор.
     // Его сохранять не нужно (и нельзя): после поворота поле создаётся заново, и пульт — тоже
     val focus = remember { FocusRequester() }
@@ -279,8 +291,7 @@ fun TaskEditorSheetBody(
         val current = slot
         // У повторения дата — это день, с которого оно начинается: «С сегодня · вечер»
         val dateText = when {
-            current != null && repeat != null ->
-                stringResource(R.string.repeat_starting, slotText(current, today).replaceFirstChar { it.lowercase() })
+            current != null && repeat != null -> startText(current, today)
             current != null -> slotText(current, today)
             repeat != null -> stringResource(R.string.repeat_starting, stringResource(R.string.day_today_lower))
             else -> null
@@ -303,6 +314,21 @@ fun TaskEditorSheetBody(
             onClear = { repeat = null },
             clearDescription = stringResource(R.string.cd_clear_repeat),
         )
+        // --- Пауза: только у уже сохранённого повторения (onPause передают, когда открыто правило) ---
+        if (onPause != null) {
+            if (pause == null) {
+                EditorActionRow(
+                    icon = Icons.Outlined.PauseCircle,
+                    value = null,
+                    action = stringResource(R.string.pause_action),
+                    onClick = { showPause = true },
+                    onClear = null,
+                    clearDescription = "",
+                )
+            } else {
+                PausedRow(pause = pause, onResume = { onResume?.invoke() })
+            }
+        }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -334,6 +360,13 @@ fun TaskEditorSheetBody(
             initial = slot,
             onDismiss = { showSchedule = false },
             onConfirm = { slot = it; showSchedule = false },
+        )
+    }
+    if (showPause && onPause != null) {
+        PauseSheet(
+            today = today,
+            onDismiss = { showPause = false },
+            onPause = { until -> showPause = false; onPause(until) },
         )
     }
     if (showRepeat) {
@@ -389,6 +422,31 @@ private fun EditorActionRow(
     }
 }
 
+/** «⏸ На паузе до 20 октября   Продолжить» — повторение сейчас на паузе. */
+@Composable
+private fun PausedRow(pause: Pause, onResume: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp),
+    ) {
+        Icon(Icons.Outlined.PauseCircle, null, tint = PlannerTheme.paper.inkMuted)
+        Text(
+            text = pausedText(pause),
+            modifier = Modifier
+                .padding(start = 12.dp)
+                .weight(1f),
+        )
+        TextButton(onClick = onResume) { Text(stringResource(R.string.resume)) }
+    }
+}
+
+/** «На паузе до 20 октября» или просто «На паузе», если пауза без даты. */
+@Composable
+fun pausedText(pause: Pause): String =
+    pause.until?.let { stringResource(R.string.paused_until, DateTexts.dayMonth(it)) } ?: stringResource(R.string.paused)
+
 /** Цветная точка списка в меню; у «Без списка» — пустой кружок. */
 @Composable
 private fun ListColorDot(list: TaskList) {
@@ -407,6 +465,21 @@ private fun ListColorDot(list: TaskList) {
 @Composable
 fun listName(list: TaskList): String =
     if (list.isInbox) stringResource(R.string.list_inbox) else list.name
+
+/**
+ * Начало повторения словами: «С сегодня · вечер», «С завтра», «С 2 октября · 18:30».
+ * Без дня недели: «С пт 2, 2 октября» звучало бы странно, а день недели тут и не важен.
+ */
+@Composable
+private fun startText(slot: Slot, today: LocalDate): String {
+    val day = when (slot.date) {
+        today -> stringResource(R.string.day_today_lower)
+        today.plusDays(1) -> stringResource(R.string.day_tomorrow_lower)
+        else -> DateTexts.dayMonth(slot.date)
+    }
+    val detail = slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
+    return stringResource(R.string.repeat_starting, listOfNotNull(day, detail).joinToString(" · "))
+}
 
 /** «Завтра · утро», «Пт 25, 25 сентября · 10:30» — дата задачи словами. */
 @Composable

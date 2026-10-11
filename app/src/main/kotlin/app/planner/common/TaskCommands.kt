@@ -10,6 +10,7 @@ import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.core.domain.usecase.CreateListUseCase
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -143,6 +144,20 @@ class TaskCommands @Inject constructor(
         val rule = rules.getRule(ruleId) ?: return
         rules.delete(rule)
         messages.post(UiMessage(UiText.Res(R.string.msg_repeat_deleted), undo = { rules.save(rule) }))
+    }
+
+    /** Поставить правило на паузу с сегодняшнего дня по [until] (null — пока не нажмут «Продолжить»). */
+    suspend fun pauseRule(ruleId: Long, until: LocalDate?) {
+        val rule = rules.getRule(ruleId) ?: return
+        rules.save(Recurrence.pause(rule, todayClock.today(), until))
+        messages.post(UiMessage(UiText.Res(R.string.msg_paused), undo = { rules.save(rule) }))
+    }
+
+    /** «Продолжить»: снять паузу, которая идёт сейчас. */
+    suspend fun resumeRule(ruleId: Long) {
+        val rule = rules.getRule(ruleId) ?: return
+        rules.save(Recurrence.resume(rule, todayClock.today()))
+        messages.post(UiMessage(UiText.Res(R.string.msg_resumed), undo = { rules.save(rule) }))
     }
 
     /** «Запланировано: завтра» или «Запланировано: Пт 25, 10:30». */

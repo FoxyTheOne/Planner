@@ -186,4 +186,18 @@
     <string name="cycle_day_hint">Нічога</string>
     <string name="cycle_copy_prev">Як у тыдні %1$d</string>
     <string name="cycle_empty">Упішыце ў табліцу хоць адну справу</string>
+    <string name="pause_title">Паўза</string>
+    <string name="pause_action">Паставіць на паўзу</string>
+    <string name="pause_hint">Дні паўзы не лічацца: цыкл працягнецца з таго ж месца</string>
+    <string name="pause_week">На тыдзень</string>
+    <string name="pause_two_weeks">На 2 тыдні</string>
+    <string name="pause_month">На месяц</string>
+    <string name="pause_until_date">Да даты…</string>
+    <string name="pause_open_ended">Пакуль не працягну</string>
+    <string name="paused_until">На паўзе да %1$s</string>
+    <string name="paused">На паўзе</string>
+    <string name="resume">Працягнуць</string>
+    <string name="section_paused">на паўзе</string>
+    <string name="msg_paused">Паўтарэнне на паўзе</string>
+    <string name="msg_resumed">Паўтарэнне працягваецца</string>
 </resources>
