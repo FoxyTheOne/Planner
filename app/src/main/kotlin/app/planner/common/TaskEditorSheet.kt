@@ -46,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -273,64 +274,35 @@ fun TaskEditorSheetBody(
                 .padding(top = 8.dp),
         )
 
-        // --- Когда: тап открывает шторку «Запланировать» ---
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp)
-                .clickable { showSchedule = true }
-                .padding(vertical = 6.dp),
-        ) {
-            Icon(Icons.Outlined.CalendarMonth, null, tint = PlannerTheme.paper.inkMuted)
-            // У повторения дата — это день, с которого оно начинается: «С сегодня · вечер»
-            val current = slot
-            val dateText = when {
-                current != null && repeat != null ->
-                    stringResource(
-                        R.string.repeat_starting,
-                        slotText(current, today).replaceFirstChar { it.lowercase() })
-
-                current != null -> slotText(current, today)
-                repeat != null -> stringResource(
-                    R.string.repeat_starting,
-                    stringResource(R.string.day_today_lower)
-                )
-
-                else -> stringResource(R.string.task_no_date)
-            }
-            Text(
-                text = dateText,
-                color = if (slot != null || repeat != null) PlannerTheme.paper.ink else PlannerTheme.paper.inkMuted,
-                modifier = Modifier
-                    .padding(start = 12.dp)
-                    .weight(1f),
-            )
-            if (slot != null) {
-                IconButton(onClick = { slot = null }) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        stringResource(R.string.cd_clear_date)
-                    )
-                }
-            }
+        // --- Когда и Повторять. Пока ничего не выбрано — строка выглядит как кнопка-действие
+        // («Запланировать» цветом кнопок); выбрали — видно значение и ✕, чтобы убрать ---
+        val current = slot
+        // У повторения дата — это день, с которого оно начинается: «С сегодня · вечер»
+        val dateText = when {
+            current != null && repeat != null ->
+                stringResource(R.string.repeat_starting, slotText(current, today).replaceFirstChar { it.lowercase() })
+            current != null -> slotText(current, today)
+            repeat != null -> stringResource(R.string.repeat_starting, stringResource(R.string.day_today_lower))
+            else -> null
         }
-
-        // --- Повторять: тап открывает шторку «Повторять» ---
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { showRepeat = true }
-                .padding(vertical = 12.dp),
-        ) {
-            Icon(Icons.Outlined.Repeat, null, tint = PlannerTheme.paper.inkMuted)
-            Text(
-                text = repeatSummary(repeat),
-                color = if (repeat != null) PlannerTheme.paper.ink else PlannerTheme.paper.inkMuted,
-                modifier = Modifier.padding(start = 12.dp),
-            )
-        }
+        EditorActionRow(
+            icon = Icons.Outlined.CalendarMonth,
+            value = dateText,
+            action = stringResource(R.string.schedule_title),
+            onClick = { showSchedule = true },
+            // Убрать можно только выбранную дату; «С сегодня» у повторения без даты — не выбор, а подсказка
+            onClear = if (current != null) ({ slot = null }) else null,
+            clearDescription = stringResource(R.string.cd_clear_date),
+            modifier = Modifier.padding(top = 12.dp),
+        )
+        EditorActionRow(
+            icon = Icons.Outlined.Repeat,
+            value = repeat?.let { repeatSummary(it) },
+            action = stringResource(R.string.repeat_add),
+            onClick = { showRepeat = true },
+            onClear = { repeat = null },
+            clearDescription = stringResource(R.string.cd_clear_repeat),
+        )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -367,9 +339,53 @@ fun TaskEditorSheetBody(
     if (showRepeat) {
         RepeatSheet(
             initial = repeat,
+            today = today,
             onDismiss = { showRepeat = false },
             onDone = { repeat = it; showRepeat = false },
         )
+    }
+}
+
+/**
+ * Строка редактора, которая открывает выбор (дата, повторение).
+ *
+ * - Ничего не выбрано ([value] = null): значок и глагол [action] цветом кнопок («Запланировать») —
+ *   сразу видно, что сюда нажимают и что произойдёт. Серый текст читался бы как «недоступно».
+ * - Выбрано: значение обычным цветом и ✕ справа, чтобы убрать выбор, не открывая шторку.
+ *
+ * @param onClear null — крестика нет (убирать нечего).
+ */
+@Composable
+private fun EditorActionRow(
+    icon: ImageVector,
+    value: String?,
+    action: String,
+    onClick: () -> Unit,
+    onClear: (() -> Unit)?,
+    clearDescription: String,
+    modifier: Modifier = Modifier,
+) {
+    val paper = PlannerTheme.paper
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp) // одна высота с крестиком и без — строки не прыгают
+            .clickable(onClick = onClick),
+    ) {
+        Icon(icon, null, tint = if (value != null) paper.inkMuted else accent)
+        Text(
+            text = value ?: action,
+            color = if (value != null) paper.ink else accent,
+            style = if (value != null) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.labelLarge,
+            modifier = Modifier
+                .padding(start = 12.dp)
+                .weight(1f),
+        )
+        if (value != null && onClear != null) {
+            IconButton(onClick = onClear) { Icon(Icons.Outlined.Close, clearDescription) }
+        }
     }
 }
 

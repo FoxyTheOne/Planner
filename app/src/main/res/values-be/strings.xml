@@ -76,7 +76,6 @@
 
     <string name="task_title_hint">Што трэба зрабіць?</string>
     <string name="task_note_hint">Нататка</string>
-    <string name="task_no_date">Без даты</string>
     <string name="task_list">Спіс</string>
 
     <string name="pick_tab_new">Новая</string>
@@ -174,9 +173,17 @@
         <item quantity="many">Цыкл: %d тыдняў</item>
         <item quantity="other">Цыкл: %d тыдня</item>
     </plurals>
-    <string name="repeat_cycle_later">Рэдактар табліцы цыкла з\'явіцца крыху пазней</string>
     <string name="repeat_starting">З %1$s</string>
     <string name="msg_repeat_deleted">Паўтарэнне выдалена</string>
     <string name="cd_less">Менш</string>
     <string name="cd_more">Больш</string>
+    <string name="repeat_add">Дадаць паўтарэнне</string>
+    <string name="cd_clear_repeat">Не паўтараць</string>
+    <string name="cycle_setup">Наладзіць табліцу</string>
+    <string name="cycle_weeks_count">Тыдняў у цыкле</string>
+    <string name="cycle_now">Цяпер ідзе тыдзень</string>
+    <string name="cycle_week_n">Тыдзень %1$d</string>
+    <string name="cycle_day_hint">Нічога</string>
+    <string name="cycle_copy_prev">Як у тыдні %1$d</string>
+    <string name="cycle_empty">Упішыце ў табліцу хоць адну справу</string>
 </resources>

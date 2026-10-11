@@ -132,6 +132,31 @@ class CycleTest {
         assertEquals(LocalDate.of(2026, 10, 11), fixed.anchorWeekStart) // воскресенье этой недели
     }
 
+    // ---------- Новый цикл из редактора ----------
+
+    @Test
+    fun `new cycle starts from this week and drops empty fields`() {
+        val sat10 = LocalDate.of(2026, 10, 10)
+        // В редакторе: неделя 1 — среда; неделя 2 — пусто и одни пробелы; сейчас идёт неделя 2
+        val cycle = Recurrence.newCycle(
+            weeks = listOf(mapOf(WEDNESDAY to " фикус "), mapOf(WEDNESDAY to "", SATURDAY to "   ")),
+            today = sat10,
+            weekStart = SUNDAY,
+            currentWeekNumber = 2,
+        )
+
+        assertEquals(listOf(mapOf(WEDNESDAY to "фикус"), emptyMap()), cycle.weeks) // пустое выброшено
+        assertEquals(LocalDate.of(2026, 10, 4), cycle.anchorWeekStart) // воскресенье этой недели
+        assertEquals(2, Recurrence.currentWeekNumber(cycle, sat10)) // сейчас — неделя 2
+        assertEquals(1, Recurrence.currentWeekNumber(cycle, sat10.plusWeeks(1))) // дальше по кругу — 1
+    }
+
+    @Test
+    fun `table without any task is not a cycle yet`() {
+        assertEquals(false, Recurrence.hasAnyTask(listOf(mapOf(WEDNESDAY to " "), emptyMap())))
+        assertEquals(true, Recurrence.hasAnyTask(listOf(emptyMap(), mapOf(SATURDAY to "подкормка"))))
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `anchor week must start on the cycle week start`() {
         // Цикл с понедельника, а опорная неделя — со вторника: так быть не может

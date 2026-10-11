@@ -77,7 +77,6 @@
     <!-- Задача -->
     <string name="task_title_hint">What needs doing?</string>
     <string name="task_note_hint">Note</string>
-    <string name="task_no_date">No date</string>
     <string name="task_list">List</string>
 
     <!-- Выбор задачи для слота -->
@@ -177,9 +176,17 @@
         <item quantity="one">Cycle of %d week</item>
         <item quantity="other">Cycle of %d weeks</item>
     </plurals>
-    <string name="repeat_cycle_later">The cycle table editor is coming soon</string>
     <string name="repeat_starting">Starting %1$s</string>
     <string name="msg_repeat_deleted">Repeat deleted</string>
     <string name="cd_less">Less</string>
     <string name="cd_more">More</string>
+    <string name="repeat_add">Make it repeat</string>
+    <string name="cd_clear_repeat">Stop repeating</string>
+    <string name="cycle_setup">Set up the table</string>
+    <string name="cycle_weeks_count">Weeks in the cycle</string>
+    <string name="cycle_now">This week is week</string>
+    <string name="cycle_week_n">Week %1$d</string>
+    <string name="cycle_day_hint">Nothing</string>
+    <string name="cycle_copy_prev">Same as week %1$d</string>
+    <string name="cycle_empty">Write down at least one task in the table</string>
 </resources>

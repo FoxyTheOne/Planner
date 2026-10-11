@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import app.planner.core.designsystem.preview.PlannerPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.PartOfDay
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.overdue.OverdueGroup
@@ -25,7 +26,9 @@ import app.planner.preview.SampleData
 @Composable
 private fun SheetSurface(content: @Composable () -> Unit) {
     PlannerTheme {
-        Box(Modifier.background(PlannerTheme.paper.highlight).padding(top = 16.dp)) { content() }
+        Box(Modifier
+            .background(PlannerTheme.paper.highlight)
+            .padding(top = 16.dp)) { content() }
     }
 }
 
@@ -84,7 +87,17 @@ private fun TaskEditorRepeatPreview() = SheetSurface {
 @PlannerPreviews
 @Composable
 private fun RepeatSheetPreview() = SheetSurface {
-    RepeatSheetBody(initial = SampleData.poolRule.repeat, onDone = {})
+    RepeatSheetBody(initial = SampleData.poolRule.repeat, today = SampleData.today, onDone = {})
+}
+
+/** Редактор цикла полива: 2 недели, открыта неделя 2 — четверг с подкормкой. */
+@PlannerPreviews
+@Composable
+private fun CycleEditorPreview() = SheetSurface {
+    CycleEditorSheetBody(
+        initial = SampleData.wateringRule.repeat as Repeat.Cycle,
+        today = SampleData.today,
+        onDone = {})
 }
 
 /** Шторка из недели: свободный слот в пятницу, вкладка «Из списков». */
@@ -94,7 +107,11 @@ private fun PickTaskSheetPreview() = SheetSurface {
     PickTaskSheetBody(
         slot = Slot(SampleData.today.plusDays(1)),
         today = SampleData.today,
-        candidates = listOf(SampleData.readDune, SampleData.buyBook, SampleData.printPhotos.copy(date = null)),
+        candidates = listOf(
+            SampleData.readDune,
+            SampleData.buyBook,
+            SampleData.printPhotos.copy(date = null)
+        ),
         lists = SampleData.lists,
         onPick = {},
         onCreate = {},
@@ -108,7 +125,13 @@ private fun OverdueSheetPreview() = SheetSurface {
     OverdueSheetBody(
         overdue = mapOf(
             OverdueGroup.YESTERDAY to listOf(SampleData.forgotten),
-            OverdueGroup.THIS_WEEK to listOf(SampleData.documents.copy(date = SampleData.today.minusDays(4))),
+            OverdueGroup.THIS_WEEK to listOf(
+                SampleData.documents.copy(
+                    date = SampleData.today.minusDays(
+                        4
+                    )
+                )
+            ),
         ),
         today = SampleData.today,
         onSchedule = { _, _ -> },

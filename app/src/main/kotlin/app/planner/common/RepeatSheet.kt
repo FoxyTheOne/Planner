@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,27 +40,31 @@ import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Repeat
 import java.time.DayOfWeek
+import java.time.LocalDate
 
 /** Какой вариант выбран в шторке «Повторять» — отдельно от данных (дней, числа N). */
 private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, CYCLE }
 
 /**
- * Шторка «Повторять»: не повторять / каждый день / по дням недели / раз в N дней.
+ * Шторка «Повторять»: не повторять / каждый день / по дням недели / раз в N дней / цикл по неделям.
  * Открывается из редактора задачи по строке «↻». Возвращает выбранное повторение
  * (null — «Не повторять») в [onDone].
  *
- * Цикл по неделям здесь пока только показывается, если он уже есть (его таблицу настроим
- * в отдельном редакторе); создать новый цикл отсюда пока нельзя.
+ * Таблицу цикла заполняют в отдельной шторке ([CycleEditorSheet]): выбрали «Цикл» — она
+ * открывается сама, а потом её можно открыть снова кнопкой «Настроить таблицу».
+ *
+ * @param today нужен новому циклу: «эта неделя — неделя N».
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RepeatSheet(
     initial: Repeat?,
+    today: LocalDate,
     onDismiss: () -> Unit,
     onDone: (Repeat?) -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        RepeatSheetBody(initial = initial, onDone = onDone)
+        RepeatSheetBody(initial = initial, today = today, onDone = onDone)
     }
 }
 
@@ -68,6 +73,7 @@ fun RepeatSheet(
 @Composable
 fun RepeatSheetBody(
     initial: Repeat?,
+    today: LocalDate,
     onDone: (Repeat?) -> Unit,
 ) {
     // Вариант и его данные храним по отдельности: переключилась на «каждый день» и обратно —
@@ -85,6 +91,9 @@ fun RepeatSheetBody(
     }
     var days by rememberSaveable { mutableStateOf((initial as? Repeat.OnWeekdays)?.days ?: emptySet()) }
     var n by rememberSaveable { mutableIntStateOf((initial as? Repeat.EveryNDays)?.n ?: 2) }
+    // Таблица цикла (RepeatSaver хранит Repeat?, поэтому и здесь тип Repeat?, а читаем как Cycle)
+    var cycle by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf<Repeat?>(initial as? Repeat.Cycle) }
+    var editingCycle by rememberSaveable { mutableStateOf(false) }
 
     // Готово можно нажать, только если выбор полный: «по дням недели» — хотя бы один день
     val result: Repeat? = when (kind) {
@@ -92,7 +101,7 @@ fun RepeatSheetBody(
         RepeatKind.DAILY -> Repeat.Daily
         RepeatKind.WEEKDAYS -> days.takeIf { it.isNotEmpty() }?.let { Repeat.OnWeekdays(it) }
         RepeatKind.EVERY_N -> Repeat.EveryNDays(n)
-        RepeatKind.CYCLE -> initial as? Repeat.Cycle
+        RepeatKind.CYCLE -> cycle
     }
     val canFinish = kind == RepeatKind.NONE || result != null
     val paper = PlannerTheme.paper
@@ -140,15 +149,16 @@ fun RepeatSheetBody(
             }
         }
 
-        // Цикл — только если он уже есть: его меняют в отдельном редакторе (будет позже)
-        if (initial is Repeat.Cycle) {
-            KindOption(repeatSummary(initial), kind == RepeatKind.CYCLE) { kind = RepeatKind.CYCLE }
-            Text(
-                stringResource(R.string.repeat_cycle_later),
-                color = paper.inkMuted,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 48.dp),
-            )
+        // Цикл: выбрали впервые — сразу открываем таблицу, иначе показываем «Цикл: 4 недели · Настроить таблицу»
+        KindOption(stringResource(R.string.repeat_cycle), kind == RepeatKind.CYCLE) {
+            kind = RepeatKind.CYCLE
+            if (cycle == null) editingCycle = true
+        }
+        if (kind == RepeatKind.CYCLE) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 48.dp)) {
+                cycle?.let { Text(repeatSummary(it), color = paper.ink, modifier = Modifier.padding(end = 8.dp)) }
+                TextButton(onClick = { editingCycle = true }) { Text(stringResource(R.string.cycle_setup)) }
+            }
         }
 
         Row(Modifier.fillMaxWidth().padding(top = 16.dp)) {
@@ -157,6 +167,15 @@ fun RepeatSheetBody(
                 Text(stringResource(R.string.action_done))
             }
         }
+    }
+
+    if (editingCycle) {
+        CycleEditorSheet(
+            initial = cycle as? Repeat.Cycle,
+            today = today,
+            onDismiss = { editingCycle = false },
+            onDone = { cycle = it; editingCycle = false },
+        )
     }
 }
 

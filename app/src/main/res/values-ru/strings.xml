@@ -75,7 +75,6 @@
 
     <string name="task_title_hint">Что нужно сделать?</string>
     <string name="task_note_hint">Заметка</string>
-    <string name="task_no_date">Без даты</string>
     <string name="task_list">Список</string>
 
     <string name="pick_tab_new">Новая</string>
@@ -173,9 +172,17 @@
         <item quantity="many">Цикл: %d недель</item>
         <item quantity="other">Цикл: %d недели</item>
     </plurals>
-    <string name="repeat_cycle_later">Редактор таблицы цикла появится чуть позже</string>
     <string name="repeat_starting">С %1$s</string>
     <string name="msg_repeat_deleted">Повторение удалено</string>
     <string name="cd_less">Меньше</string>
     <string name="cd_more">Больше</string>
+    <string name="repeat_add">Сделать повторяющейся</string>
+    <string name="cd_clear_repeat">Не повторять</string>
+    <string name="cycle_setup">Настроить таблицу</string>
+    <string name="cycle_weeks_count">Недель в цикле</string>
+    <string name="cycle_now">Сейчас идёт неделя</string>
+    <string name="cycle_week_n">Неделя %1$d</string>
+    <string name="cycle_day_hint">Ничего</string>
+    <string name="cycle_copy_prev">Как в неделе %1$d</string>
+    <string name="cycle_empty">Впишите в таблицу хотя бы одно дело</string>
 </resources>

@@ -196,6 +196,37 @@ object Recurrence {
     }
 
     /**
+     * Новый цикл из редактора: таблица дел, какая неделя цикла идёт сейчас и с какого дня
+     * начинается неделя (как в «Неделе» по языку телефона).
+     *
+     * Пустые и состоящие из пробелов дела выбрасываем: пустое поле в редакторе значит
+     * «в этот день ничего». Опорная неделя — текущая: «эта неделя — [currentWeekNumber]-я».
+     */
+    fun newCycle(
+        weeks: List<Map<DayOfWeek, String>>,
+        today: LocalDate,
+        weekStart: DayOfWeek,
+        currentWeekNumber: Int = 1,
+    ): Repeat.Cycle = Repeat.Cycle(
+        weeks = cleanWeeks(weeks),
+        anchorWeekStart = startOfWeek(today, weekStart),
+        anchorWeekNumber = currentWeekNumber,
+        weekStart = weekStart,
+    )
+
+    /** Таблица дел без пустых полей и лишних пробелов по краям. */
+    fun cleanWeeks(weeks: List<Map<DayOfWeek, String>>): List<Map<DayOfWeek, String>> =
+        weeks.map { week -> week.mapValues { it.value.trim() }.filterValues { it.isNotEmpty() } }
+
+    /** Есть ли в таблице хоть одно дело — иначе цикл ничего бы не показывал. */
+    fun hasAnyTask(weeks: List<Map<DayOfWeek, String>>): Boolean =
+        cleanWeeks(weeks).any { it.isNotEmpty() }
+
+    /** Какая неделя цикла идёт сейчас — номер, как видит человек: 1, 2, 3… */
+    fun currentWeekNumber(cycle: Repeat.Cycle, today: LocalDate, pauses: List<Pause> = emptyList()): Int =
+        cycleWeekIndex(cycle, today, pauses) + 1
+
+    /**
      * «Сейчас идёт неделя N»: если цикл сбился, человек говорит, какая неделя на самом деле.
      * Просто записываем «эта неделя — N-я»; дела по неделям и начало недели цикла остаются как были.
      *
