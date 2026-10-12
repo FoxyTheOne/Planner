@@ -1,11 +1,11 @@
 package app.planner.feature.today
 
-import app.planner.common.DayItem
-import app.planner.common.dayItems
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.planner.common.DayItem
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
+import app.planner.common.dayItems
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.RecurrenceRule
@@ -13,6 +13,7 @@ import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
+import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.overdue.Overdue
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
@@ -41,9 +42,13 @@ import javax.inject.Inject
  * Действия (отметить, перенести, удалить) запускаются в `viewModelScope` — корутинах,
  * которые автоматически отменяются, когда экран закрыт навсегда.
  */
-/** Повторения одного дня: ещё не отмеченные дни и правила, которые сейчас на паузе. */
+/**
+ * Повторения для «Сегодня»: ещё не отмеченные дни сегодня и завтра (завтрашние — для превью
+ * «Завтра: …») и правила, которые сейчас на паузе.
+ */
 private data class RepeatsOfDay(
     val occurrences: List<Occurrence>,
+    val tomorrow: List<Occurrence>,
     val paused: List<RecurrenceRule>,
 )
 
@@ -100,10 +105,11 @@ class TodayViewModel @Inject constructor(
             // Повторения на сегодня (тоже combine): какие дни ещё не отмечены и какие правила на паузе
             combine(
                 recurrenceRepository.observeRules(),
-                tasks.observeOccurrenceTasks(today, today)
+                tasks.observeOccurrenceTasks(today, today.plusDays(1))
             ) { rules, done ->
                 RepeatsOfDay(
                     occurrences = Recurrence.occurrencesOn(rules, today, instances = done),
+                    tomorrow = Recurrence.occurrencesOn(rules, today.plusDays(1), instances = done),
                     paused = rules.filter { Recurrence.activePause(it, today) != null },
                 )
             },
@@ -145,8 +151,13 @@ class TodayViewModel @Inject constructor(
             // «1 из 5»: отмеченные повторения уже стали задачами, неотмеченные — ещё строки по правилу
             doneCount = todayTasks.count { it.isDone },
             totalCount = todayTasks.size + occurrences.size,
-            tomorrowCount = tomorrowTasks.size,
-            tomorrowTimed = tomorrowTasks.filter { it.time != null && !it.isDone },
+            // В превью «Завтра» — и задачи, и дни повторений (бассейн в 18:30 тоже важно увидеть заранее)
+            tomorrowCount = tomorrowTasks.size + repeats.tomorrow.size,
+            tomorrowTimed = (
+                    tomorrowTasks.filter { it.time != null && !it.isDone } +
+                            repeats.tomorrow.filter { it.rule.time != null }
+                                .map { Recurrence.toTask(it, TaskStatus.OPEN) }
+                    ).sortedBy { it.time },
             overdue = Overdue.grouped(overdue, today),
             showOverdueBanner = overdue.isNotEmpty() && settings.overdueBannerHiddenOn != today,
             lists = lists,
@@ -177,7 +188,9 @@ class TodayViewModel @Inject constructor(
         viewModelScope.launch { commands.completeOccurrence(occurrence) }
 
     fun skipOccurrence(task: Task) = viewModelScope.launch { commands.skipOccurrence(task) }
-    fun pauseRule(ruleId: Long, until: LocalDate?) = viewModelScope.launch { commands.pauseRule(ruleId, until) }
+    fun pauseRule(ruleId: Long, until: LocalDate?) =
+        viewModelScope.launch { commands.pauseRule(ruleId, until) }
+
     fun resumeRule(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
 
     fun moveToTomorrow(task: Task) = viewModelScope.launch { commands.moveToTomorrow(task) }

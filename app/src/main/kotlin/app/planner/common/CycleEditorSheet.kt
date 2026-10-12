@@ -41,6 +41,7 @@ import app.planner.R
 import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.recurrence.Recurrence
 import java.time.DayOfWeek
@@ -72,12 +73,15 @@ private val WeeksSaver: Saver<List<Map<DayOfWeek, String>>, Any> = Saver(
  * как в «Неделе». У существующего — то, с которым его создали (см. комментарий к Cycle).
  *
  * @param initial уже существующий цикл или null, если цикл создаётся.
+ * @param pauses паузы правила: недели целиком на паузе в цикле не считаются, и без них
+ *   «сейчас идёт неделя N» показывалось бы неверно.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CycleEditorSheet(
     initial: Repeat.Cycle?,
     today: LocalDate,
+    pauses: List<Pause> = emptyList(),
     onDismiss: () -> Unit,
     onDone: (Repeat.Cycle) -> Unit,
 ) {
@@ -85,7 +89,7 @@ fun CycleEditorSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
-        CycleEditorSheetBody(initial = initial, today = today, onDone = onDone)
+        CycleEditorSheetBody(initial = initial, today = today, pauses = pauses, onDone = onDone)
     }
 }
 
@@ -95,11 +99,12 @@ fun CycleEditorSheet(
 fun CycleEditorSheetBody(
     initial: Repeat.Cycle?,
     today: LocalDate,
+    pauses: List<Pause> = emptyList(),
     onDone: (Repeat.Cycle) -> Unit,
 ) {
     val weekStart = initial?.weekStart ?: DateTexts.firstDayOfWeek()
     // Какая неделя идёт сейчас по уже существующему циклу — чтобы понять, меняли ли её
-    val initialCurrent = initial?.let { Recurrence.currentWeekNumber(it, today) } ?: 1
+    val initialCurrent = initial?.let { Recurrence.currentWeekNumber(it, today, pauses) } ?: 1
 
     // Новый цикл — сразу 2 пустые недели: цикл из одной недели — это просто «по дням недели»
     var weeks by rememberSaveable(stateSaver = WeeksSaver) {
@@ -223,9 +228,11 @@ fun CycleEditorSheetBody(
                 modifier = Modifier.padding(top = 12.dp),
             )
         }
-        Row(Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
             Spacer(Modifier.weight(1f))
             Button(onClick = { onDone(result()) }, enabled = canFinish) {
                 Text(stringResource(R.string.action_done))

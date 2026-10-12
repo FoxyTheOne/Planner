@@ -43,11 +43,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import app.planner.core.domain.model.RecurrenceRule
-import app.planner.common.EditorTarget
-import app.planner.common.EditorTargetSaver
-import app.planner.common.SlotSaver
-import app.planner.common.TaskSaver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,10 +61,15 @@ import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.DayItem
 import app.planner.common.DayItemRow
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.common.PickTaskSheet
+import app.planner.common.SlotSaver
 import app.planner.common.TaskEditorSheet
+import app.planner.common.TaskSaver
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.designsystem.theme.SerifFamily
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
@@ -95,7 +95,11 @@ fun WeekScreen(
     var planning by rememberSaveable { mutableStateOf(false) }
     var pickSlot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf<Slot?>(null) }
     // Что открыто в редакторе: задача или правило повторения (с его повторением и паузой); null — закрыт
-    var editing by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) {
+        mutableStateOf<EditorTarget?>(
+            null
+        )
+    }
     // Для тех, кому неудобно перетаскивать: тап по задаче в лотке, потом тап по дню
     var selectedFromTray by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
 
@@ -135,18 +139,25 @@ fun WeekScreen(
     }
     editing?.let { target ->
         // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
-        val ruleId = target.task.ruleId.takeIf { target.task.id == 0L }
+        val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
         TaskEditorSheet(
             initial = target.task,
             lists = state.lists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null },
+            onSave = { task, newList, repeat ->
+                viewModel.save(task, newList, repeat); editing = null
+            },
             onDelete = { viewModel.delete(it); editing = null },
             initialRepeat = target.repeat,
             pause = target.pause,
-            onPause = ruleId?.let { id -> { until -> viewModel.pauseRule(id, until); editing = null } },
+            onPause = ruleId?.let { id ->
+                { until ->
+                    viewModel.pauseRule(id, until); editing = null
+                }
+            },
             onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
+            rulePauses = target.pauses,
         )
     }
 }
@@ -175,7 +186,9 @@ fun WeekContent(
     onDrop: (taskId: Long, day: LocalDate) -> Unit,
     onSelectFromTray: (Task) -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().padding(contentPadding)) {
+    Column(Modifier
+        .fillMaxSize()
+        .padding(contentPadding)) {
         WeekHeader(
             weekStart = state.weekStart,
             planning = planning,
@@ -231,12 +244,16 @@ private fun WeekHeader(
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 8.dp, top = 12.dp),
     ) {
         Text(
             DateTexts.weekRange(weekStart),
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.weight(1f).clickable(onClick = onThisWeek),
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onThisWeek),
         )
         if (planning) {
             TextButton(onClick = onTogglePlanning) { Text(stringResource(R.string.action_done)) }
@@ -245,8 +262,18 @@ private fun WeekHeader(
                 Icon(Icons.Outlined.EditCalendar, stringResource(R.string.planning_title))
             }
         }
-        IconButton(onClick = onPrev) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.cd_prev_week)) }
-        IconButton(onClick = onNext) { Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.cd_next_week)) }
+        IconButton(onClick = onPrev) {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                stringResource(R.string.cd_prev_week)
+            )
+        }
+        IconButton(onClick = onNext) {
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                stringResource(R.string.cd_next_week)
+            )
+        }
     }
     if (planning) {
         Text(
@@ -288,14 +315,24 @@ private fun DayBlock(
         object : DragAndDropTarget {
             override fun onDrop(event: DragAndDropEvent): Boolean {
                 dragOver = false
-                val id = event.toAndroidDragEvent().clipData?.getItemAt(0)?.text?.toString()?.toLongOrNull()
+                val id = event.toAndroidDragEvent().clipData?.getItemAt(0)?.text?.toString()
+                    ?.toLongOrNull()
                     ?: return false
                 onDrop(id)
                 return true
             }
-            override fun onEntered(event: DragAndDropEvent) { dragOver = true }
-            override fun onExited(event: DragAndDropEvent) { dragOver = false }
-            override fun onEnded(event: DragAndDropEvent) { dragOver = false }
+
+            override fun onEntered(event: DragAndDropEvent) {
+                dragOver = true
+            }
+
+            override fun onExited(event: DragAndDropEvent) {
+                dragOver = false
+            }
+
+            override fun onEnded(event: DragAndDropEvent) {
+                dragOver = false
+            }
         }
     }
     val shape = RoundedCornerShape(10.dp)
@@ -304,7 +341,10 @@ private fun DayBlock(
             .fillMaxWidth()
             .then(
                 when {
-                    dragOver -> Modifier.border(1.5.dp, paper.timeAccent, shape).background(paper.highlight, shape)
+                    dragOver -> Modifier
+                        .border(1.5.dp, paper.timeAccent, shape)
+                        .background(paper.highlight, shape)
+
                     isToday -> Modifier.background(paper.highlight, shape)
                     else -> Modifier
                 },
@@ -312,7 +352,9 @@ private fun DayBlock(
             .then(
                 if (planning) {
                     Modifier.dragAndDropTarget(
-                        shouldStartDragAndDrop = { it.mimeTypes().contains(ClipDescription.MIMETYPE_TEXT_PLAIN) },
+                        shouldStartDragAndDrop = {
+                            it.mimeTypes().contains(ClipDescription.MIMETYPE_TEXT_PLAIN)
+                        },
                         target = dropTarget,
                     )
                 } else Modifier,
@@ -333,12 +375,20 @@ private fun DayBlock(
             )
             if (!planning) {
                 IconButton(onClick = onAdd) {
-                    Icon(Icons.Outlined.Add, stringResource(R.string.cd_add_to_day, DateTexts.shortDay(day)), tint = paper.inkMuted)
+                    Icon(
+                        Icons.Outlined.Add,
+                        stringResource(R.string.cd_add_to_day, DateTexts.shortDay(day)),
+                        tint = paper.inkMuted
+                    )
                 }
             }
         }
         if (items.isEmpty() && planning) {
-            Text(stringResource(R.string.week_free), color = paper.inkFaint, modifier = Modifier.padding(bottom = 8.dp))
+            Text(
+                stringResource(R.string.week_free),
+                color = paper.inkFaint,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
         }
         items.forEach { item ->
             DayItemRow(item, state.lists, onToggle, onCompleteOccurrence, onEdit, onEditRule)
@@ -363,13 +413,26 @@ private fun PlanningTray(
     var tab by rememberSaveable { mutableIntStateOf(if (overdue.isNotEmpty()) 0 else 1) }
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, tonalElevation = 2.dp) {
         Column {
-            PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.planning_tray_overdue, overdue.size)) })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.pick_tab_lists)) })
+            PrimaryTabRow(
+                selectedTabIndex = tab,
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                Tab(
+                    selected = tab == 0,
+                    onClick = { tab = 0 },
+                    text = { Text(stringResource(R.string.planning_tray_overdue, overdue.size)) })
+                Tab(
+                    selected = tab == 1,
+                    onClick = { tab = 1 },
+                    text = { Text(stringResource(R.string.pick_tab_lists)) })
             }
             val items = if (tab == 0) overdue else unscheduled
             if (items.isEmpty()) {
-                Text(stringResource(R.string.planning_tray_empty), color = paper.inkMuted, modifier = Modifier.padding(16.dp))
+                Text(
+                    stringResource(R.string.planning_tray_empty),
+                    color = paper.inkMuted,
+                    modifier = Modifier.padding(16.dp)
+                )
             } else {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -385,18 +448,34 @@ private fun PlanningTray(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else paper.paper, shape)
-                                .border(0.5.dp, if (isSelected) paper.timeAccent else MaterialTheme.colorScheme.outline, shape)
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer else paper.paper,
+                                    shape
+                                )
+                                .border(
+                                    0.5.dp,
+                                    if (isSelected) paper.timeAccent else MaterialTheme.colorScheme.outline,
+                                    shape
+                                )
                                 // Долгое нажатие начинает перетаскивание, обычный тап — выбор
                                 .dragAndDropSource { _ ->
-                                    DragAndDropTransferData(ClipData.newPlainText("task", task.id.toString()))
+                                    DragAndDropTransferData(
+                                        ClipData.newPlainText(
+                                            "task",
+                                            task.id.toString()
+                                        )
+                                    )
                                 }
                                 .clickable { onSelect(task) }
                                 .semantics { contentDescription = task.title }
                                 .padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
                         ) {
                             Icon(Icons.Outlined.DragIndicator, null, tint = paper.inkFaint)
-                            Text(task.title, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                            Text(
+                                task.title,
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1
+                            )
                         }
                     }
                 }

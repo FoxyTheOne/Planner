@@ -1,10 +1,5 @@
 package app.planner.feature.today
 
-import app.planner.core.domain.recurrence.Recurrence
-import app.planner.common.pausedText
-import java.time.LocalDate
-import androidx.compose.material.icons.outlined.PauseCircle
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -44,26 +41,27 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.planner.core.domain.model.RecurrenceRule
-import app.planner.common.EditorTarget
-import app.planner.common.EditorTargetSaver
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.DayItem
 import app.planner.common.DayItemRow
-import app.planner.common.asTask
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
-import app.planner.common.labelColorOf
+import app.planner.common.asTask
+import app.planner.common.pausedText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
-import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.recurrence.Occurrence
+import app.planner.core.domain.recurrence.Recurrence
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /**
  * Экран «Сегодня» — главный экран приложения.
@@ -85,7 +83,11 @@ fun TodayScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Что открыто в редакторе: задача или правило повторения (с его повторением и паузой); null — закрыт
-    var editing by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) {
+        mutableStateOf<EditorTarget?>(
+            null
+        )
+    }
     var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     var showOverdue by rememberSaveable { mutableStateOf(false) }
 
@@ -107,18 +109,25 @@ fun TodayScreen(
 
     editing?.let { target ->
         // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
-        val ruleId = target.task.ruleId.takeIf { target.task.id == 0L }
+        val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
         TaskEditorSheet(
             initial = target.task,
             lists = state.lists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null },
+            onSave = { task, newList, repeat ->
+                viewModel.save(task, newList, repeat); editing = null
+            },
             onDelete = { viewModel.delete(it); editing = null },
             initialRepeat = target.repeat,
             pause = target.pause,
-            onPause = ruleId?.let { id -> { until -> viewModel.pauseRule(id, until); editing = null } },
+            onPause = ruleId?.let { id ->
+                { until ->
+                    viewModel.pauseRule(id, until); editing = null
+                }
+            },
             onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
+            rulePauses = target.pauses,
         )
     }
     scheduling?.let { task ->
@@ -128,7 +137,9 @@ fun TodayScreen(
             onDismiss = { scheduling = null },
             onConfirm = { viewModel.schedule(task, it); scheduling = null },
             // Только у дня повторения (черновик или уже перенесённый): «Пропустить этот раз»
-            onSkip = if (task.occurrenceDate != null) ({ viewModel.skipOccurrence(task); scheduling = null }) else null,
+            onSkip = if (task.isOccurrenceDay) ({
+                viewModel.skipOccurrence(task); scheduling = null
+            }) else null,
         )
     }
     if (showOverdue) {
@@ -376,7 +387,11 @@ private fun PausedRuleRow(rule: RecurrenceRule, today: LocalDate, onClick: () ->
         }
         Column(Modifier.padding(start = 10.dp)) {
             Text(rule.title, color = paper.inkMuted, style = MaterialTheme.typography.bodyLarge)
-            Text(pausedText(pause), color = paper.inkFaint, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                pausedText(pause),
+                color = paper.inkFaint,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
     }
 }

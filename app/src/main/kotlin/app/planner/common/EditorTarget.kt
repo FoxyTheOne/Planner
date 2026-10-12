@@ -18,11 +18,13 @@ import java.time.LocalDate
  *
  * @param repeat как часто повторяется; null — обычная задача.
  * @param pause пауза, которая идёт сейчас; null — не на паузе (или это не повторение).
+ * @param pauses все паузы правила — редактору цикла, чтобы правильно показать, какая неделя идёт сейчас.
  */
 data class EditorTarget(
     val task: Task,
     val repeat: Repeat? = null,
     val pause: Pause? = null,
+    val pauses: List<Pause> = emptyList(),
 ) {
     companion object {
         /** Открыть правило повторения: черновик из правила, его повторение и текущая пауза. */
@@ -30,6 +32,7 @@ data class EditorTarget(
             task = Recurrence.draftFromRule(rule),
             repeat = rule.repeat,
             pause = Recurrence.activePause(rule, today),
+            pauses = rule.pauses,
         )
     }
 }
@@ -46,6 +49,8 @@ val EditorTargetSaver: Saver<EditorTarget?, Any> = Saver(
                 with(RepeatSaver) { save(it.repeat) },
                 it.pause?.from,
                 it.pause?.until,
+                // Паузы — парами дат «с, по» (обе — LocalDate, Bundle их хранить умеет)
+                ArrayList(it.pauses.flatMap { p -> listOf(p.from, p.until) }),
             )
         }
     },
@@ -55,6 +60,12 @@ val EditorTargetSaver: Saver<EditorTarget?, Any> = Saver(
             task = TaskSaver.restore(v[0]!!)!!,
             repeat = v[1]?.let { RepeatSaver.restore(it) },
             pause = (v[2] as LocalDate?)?.let { from -> Pause(from, v[3] as LocalDate?) },
+            pauses = (v[4] as List<*>).chunked(2) { (from, until) ->
+                Pause(
+                    from as LocalDate,
+                    until as LocalDate?
+                )
+            },
         )
     },
 )

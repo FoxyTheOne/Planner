@@ -32,10 +32,11 @@ import javax.inject.Singleton
  */
 sealed interface UiText {
     /** Строка из strings.xml, например R.string.msg_scheduled = «Запланировано: %s», и что подставить в %s. */
-    data class Res(@StringRes val id: Int, val args: List<Any> = emptyList()) : UiText
+    // @param: — к какой части относится пометка: к параметру конструктора (так её проверяет Android Studio)
+    data class Res(@param:StringRes val id: Int, val args: List<Any> = emptyList()) : UiText
 
     /** Строка с числом из plurals: «1 задача / 2 задачи / 5 задач» — форма зависит от числа. */
-    data class Plural(@PluralsRes val id: Int, val count: Int) : UiText
+    data class Plural(@param:PluralsRes val id: Int, val count: Int) : UiText
 
     /** Готовый текст, который переводить не нужно (например, «Пт 25» — дата уже на языке телефона). */
     data class Raw(val text: String) : UiText

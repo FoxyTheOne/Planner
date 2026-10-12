@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import app.planner.R
 import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Repeat
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -60,11 +61,15 @@ private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, CYCLE }
 fun RepeatSheet(
     initial: Repeat?,
     today: LocalDate,
+    pauses: List<Pause> = emptyList(),
     onDismiss: () -> Unit,
     onDone: (Repeat?) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        RepeatSheetBody(initial = initial, today = today, onDone = onDone)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        RepeatSheetBody(initial = initial, today = today, pauses = pauses, onDone = onDone)
     }
 }
 
@@ -74,6 +79,7 @@ fun RepeatSheet(
 fun RepeatSheetBody(
     initial: Repeat?,
     today: LocalDate,
+    pauses: List<Pause> = emptyList(),
     onDone: (Repeat?) -> Unit,
 ) {
     // Вариант и его данные храним по отдельности: переключилась на «каждый день» и обратно —
@@ -89,7 +95,11 @@ fun RepeatSheetBody(
             },
         )
     }
-    var days by rememberSaveable { mutableStateOf((initial as? Repeat.OnWeekdays)?.days ?: emptySet()) }
+    var days by rememberSaveable {
+        mutableStateOf(
+            (initial as? Repeat.OnWeekdays)?.days ?: emptySet()
+        )
+    }
     var n by rememberSaveable { mutableIntStateOf((initial as? Repeat.EveryNDays)?.n ?: 2) }
     // Таблица цикла (RepeatSaver хранит Repeat?, поэтому и здесь тип Repeat?, а читаем как Cycle)
     var cycle by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf<Repeat?>(initial as? Repeat.Cycle) }
@@ -114,10 +124,16 @@ fun RepeatSheetBody(
     ) {
         Text(stringResource(R.string.repeat_title), style = MaterialTheme.typography.titleLarge)
 
-        KindOption(stringResource(R.string.repeat_none), kind == RepeatKind.NONE) { kind = RepeatKind.NONE }
-        KindOption(stringResource(R.string.repeat_daily), kind == RepeatKind.DAILY) { kind = RepeatKind.DAILY }
+        KindOption(stringResource(R.string.repeat_none), kind == RepeatKind.NONE) {
+            kind = RepeatKind.NONE
+        }
+        KindOption(stringResource(R.string.repeat_daily), kind == RepeatKind.DAILY) {
+            kind = RepeatKind.DAILY
+        }
 
-        KindOption(stringResource(R.string.repeat_weekdays), kind == RepeatKind.WEEKDAYS) { kind = RepeatKind.WEEKDAYS }
+        KindOption(stringResource(R.string.repeat_weekdays), kind == RepeatKind.WEEKDAYS) {
+            kind = RepeatKind.WEEKDAYS
+        }
         if (kind == RepeatKind.WEEKDAYS) {
             // Дни в том порядке, в каком идёт неделя по языку телефона (с пн или с вс)
             FlowRow(
@@ -135,14 +151,22 @@ fun RepeatSheetBody(
             }
         }
 
-        KindOption(stringResource(R.string.repeat_every_n), kind == RepeatKind.EVERY_N) { kind = RepeatKind.EVERY_N }
+        KindOption(stringResource(R.string.repeat_every_n), kind == RepeatKind.EVERY_N) {
+            kind = RepeatKind.EVERY_N
+        }
         if (kind == RepeatKind.EVERY_N) {
             // «−  Раз в 3 дня  +»: N от 2 (раз в 1 день — это «каждый день») до 365
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 36.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 36.dp)
+            ) {
                 IconButton(onClick = { n = (n - 1).coerceAtLeast(2) }, enabled = n > 2) {
                     Icon(Icons.Outlined.Remove, stringResource(R.string.cd_less))
                 }
-                Text(pluralStringResource(R.plurals.repeat_every_n_summary, n, n), color = paper.ink)
+                Text(
+                    pluralStringResource(R.plurals.repeat_every_n_summary, n, n),
+                    color = paper.ink
+                )
                 IconButton(onClick = { n = (n + 1).coerceAtMost(365) }) {
                     Icon(Icons.Outlined.Add, stringResource(R.string.cd_more))
                 }
@@ -155,13 +179,26 @@ fun RepeatSheetBody(
             if (cycle == null) editingCycle = true
         }
         if (kind == RepeatKind.CYCLE) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 48.dp)) {
-                cycle?.let { Text(repeatSummary(it), color = paper.ink, modifier = Modifier.padding(end = 8.dp)) }
-                TextButton(onClick = { editingCycle = true }) { Text(stringResource(R.string.cycle_setup)) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 48.dp)
+            ) {
+                cycle?.let {
+                    Text(
+                        repeatSummary(it),
+                        color = paper.ink,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                }
+                TextButton(onClick = {
+                    editingCycle = true
+                }) { Text(stringResource(R.string.cycle_setup)) }
             }
         }
 
-        Row(Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        Row(Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp)) {
             Spacer(Modifier.weight(1f))
             Button(onClick = { onDone(result) }, enabled = canFinish) {
                 Text(stringResource(R.string.action_done))
@@ -173,6 +210,7 @@ fun RepeatSheetBody(
         CycleEditorSheet(
             initial = cycle as? Repeat.Cycle,
             today = today,
+            pauses = pauses,
             onDismiss = { editingCycle = false },
             onDone = { cycle = it; editingCycle = false },
         )
@@ -208,8 +246,19 @@ fun repeatSummary(repeat: Repeat?): String = when (repeat) {
     Repeat.Daily -> stringResource(R.string.repeat_daily)
     is Repeat.OnWeekdays -> stringResource(
         R.string.repeat_weekdays_summary,
-        weekOrder().filter { it in repeat.days }.joinToString(", ") { DateTexts.weekdayShort(it).lowercase() },
+        weekOrder().filter { it in repeat.days }
+            .joinToString(", ") { DateTexts.weekdayShort(it).lowercase() },
     )
-    is Repeat.EveryNDays -> pluralStringResource(R.plurals.repeat_every_n_summary, repeat.n, repeat.n)
-    is Repeat.Cycle -> pluralStringResource(R.plurals.repeat_cycle_summary, repeat.weeks.size, repeat.weeks.size)
+
+    is Repeat.EveryNDays -> pluralStringResource(
+        R.plurals.repeat_every_n_summary,
+        repeat.n,
+        repeat.n
+    )
+
+    is Repeat.Cycle -> pluralStringResource(
+        R.plurals.repeat_cycle_summary,
+        repeat.weeks.size,
+        repeat.weeks.size
+    )
 }

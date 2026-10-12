@@ -30,18 +30,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.planner.core.domain.model.RecurrenceRule
-import app.planner.common.EditorTarget
-import app.planner.common.EditorTargetSaver
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.DayItemRow
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.common.PickTaskSheet
 import app.planner.common.SlotSaver
 import app.planner.common.TaskEditorSheet
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
@@ -63,7 +63,11 @@ fun DayScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var pickSlot by rememberSaveable(stateSaver = SlotSaver) { mutableStateOf<Slot?>(null) }
     // Что открыто в редакторе: задача или правило повторения (с его повторением и паузой); null — закрыт
-    var editing by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) {
+        mutableStateOf<EditorTarget?>(
+            null
+        )
+    }
 
     DayContent(
         date = date,
@@ -91,18 +95,25 @@ fun DayScreen(
     }
     editing?.let { target ->
         // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
-        val ruleId = target.task.ruleId.takeIf { target.task.id == 0L }
+        val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
         TaskEditorSheet(
             initial = target.task,
             lists = state.lists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { task, newList, repeat -> viewModel.save(task, newList, repeat); editing = null },
+            onSave = { task, newList, repeat ->
+                viewModel.save(task, newList, repeat); editing = null
+            },
             onDelete = { viewModel.delete(it); editing = null },
             initialRepeat = target.repeat,
             pause = target.pause,
-            onPause = ruleId?.let { id -> { until -> viewModel.pauseRule(id, until); editing = null } },
+            onPause = ruleId?.let { id ->
+                { until ->
+                    viewModel.pauseRule(id, until); editing = null
+                }
+            },
             onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
+            rulePauses = target.pauses,
         )
     }
 }
@@ -136,9 +147,11 @@ fun DayContent(
         ) + 1 else 0,
     )
 
-    Column(Modifier
-        .fillMaxSize()
-        .padding(contentPadding)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 8.dp, end = 16.dp)
@@ -175,7 +188,14 @@ fun DayContent(
                     )
                 }
                 untimed.forEach { item ->
-                    DayItemRow(item, state.lists, onToggle, onCompleteOccurrence, onEdit, onEditRule)
+                    DayItemRow(
+                        item,
+                        state.lists,
+                        onToggle,
+                        onCompleteOccurrence,
+                        onEdit,
+                        onEditRule
+                    )
                 }
             }
             items(HOURS.toList(), key = { it }) { hour ->
@@ -196,7 +216,14 @@ fun DayContent(
                     Column(Modifier.weight(1f)) {
                         DashedRule()
                         byHour[hour].orEmpty().forEach { item ->
-                            DayItemRow(item, state.lists, onToggle, onCompleteOccurrence, onEdit, onEditRule)
+                            DayItemRow(
+                                item,
+                                state.lists,
+                                onToggle,
+                                onCompleteOccurrence,
+                                onEdit,
+                                onEditRule
+                            )
                         }
                     }
                 }

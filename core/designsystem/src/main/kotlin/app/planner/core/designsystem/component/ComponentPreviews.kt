@@ -25,9 +25,11 @@ import app.planner.core.domain.model.ListColor
 @Composable
 private fun PreviewSurface(content: @Composable () -> Unit) {
     PlannerTheme {
-        Column(Modifier
-            .background(PlannerTheme.paper.paper)
-            .padding(16.dp)) { content() }
+        Column(
+            Modifier
+                .background(PlannerTheme.paper.paper)
+                .padding(16.dp)
+        ) { content() }
     }
 }
 
@@ -58,7 +60,7 @@ private fun TaskRowPreview() = PreviewSurface {
 /** Дни повторений: бассейн (ещё не отмечен) и полив по циклу с делами этой недели (уже отмечен). */
 @PlannerPreviews
 @Composable
-private fun RepeatRowPreview() = PreviewSurface {
+private fun RepeatingTaskRowPreview() = PreviewSurface {
     TaskRow(title = "Бассейн", done = false, onToggle = {}, time = "18:30", repeating = true)
     DashedRule()
     TaskRow(

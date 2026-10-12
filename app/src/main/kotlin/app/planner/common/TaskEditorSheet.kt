@@ -91,6 +91,7 @@ fun TaskEditorSheet(
     pause: Pause? = null,
     onPause: ((until: LocalDate?) -> Unit)? = null,
     onResume: (() -> Unit)? = null,
+    rulePauses: List<Pause> = emptyList(),
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -106,6 +107,7 @@ fun TaskEditorSheet(
             pause = pause,
             onPause = onPause,
             onResume = onResume,
+            rulePauses = rulePauses,
         )
     }
 }
@@ -127,9 +129,10 @@ fun TaskEditorSheetBody(
     pause: Pause? = null,
     onPause: ((until: LocalDate?) -> Unit)? = null,
     onResume: (() -> Unit)? = null,
+    rulePauses: List<Pause> = emptyList(),
 ) {
     // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
-    val isNew = initial.id == 0L && initial.ruleId == null
+    val isNew = initial.id == 0L && !initial.isRuleDraft
     // Состояние шторки: то, что человек вводит, пока не нажал «Сохранить».
     // mutableStateOf — «коробка» со значением; когда в неё кладут новое, Compose перерисовывает тех, кто её читал.
     // remember — сохранить коробку между перерисовками (иначе при каждой букве она создавалась бы
@@ -293,7 +296,11 @@ fun TaskEditorSheetBody(
         val dateText = when {
             current != null && repeat != null -> startText(current, today)
             current != null -> slotText(current, today)
-            repeat != null -> stringResource(R.string.repeat_starting, stringResource(R.string.day_today_lower))
+            repeat != null -> stringResource(
+                R.string.repeat_starting,
+                stringResource(R.string.day_today_lower)
+            )
+
             else -> null
         }
         EditorActionRow(
@@ -306,14 +313,18 @@ fun TaskEditorSheetBody(
             clearDescription = stringResource(R.string.cd_clear_date),
             modifier = Modifier.padding(top = 12.dp),
         )
-        EditorActionRow(
-            icon = Icons.Outlined.Repeat,
-            value = repeat?.let { repeatSummary(it) },
-            action = stringResource(R.string.repeat_add),
-            onClick = { showRepeat = true },
-            onClear = { repeat = null },
-            clearDescription = stringResource(R.string.cd_clear_repeat),
-        )
+        // У дня повторения (отмечен, перенесён) своего повторения нет — оно у правила.
+        // Иначе «Сделать повторяющейся» создало бы новое правило из одного дня старого
+        if (!initial.isOccurrenceDay) {
+            EditorActionRow(
+                icon = Icons.Outlined.Repeat,
+                value = repeat?.let { repeatSummary(it) },
+                action = stringResource(R.string.repeat_add),
+                onClick = { showRepeat = true },
+                onClear = { repeat = null },
+                clearDescription = stringResource(R.string.cd_clear_repeat),
+            )
+        }
         // --- Пауза: только у уже сохранённого повторения (onPause передают, когда открыто правило) ---
         if (onPause != null) {
             if (pause == null) {
@@ -373,6 +384,7 @@ fun TaskEditorSheetBody(
         RepeatSheet(
             initial = repeat,
             today = today,
+            pauses = rulePauses,
             onDismiss = { showRepeat = false },
             onDone = { repeat = it; showRepeat = false },
         )
@@ -445,7 +457,8 @@ private fun PausedRow(pause: Pause, onResume: () -> Unit) {
 /** «На паузе до 20 октября» или просто «На паузе», если пауза без даты. */
 @Composable
 fun pausedText(pause: Pause): String =
-    pause.until?.let { stringResource(R.string.paused_until, DateTexts.dayMonth(it)) } ?: stringResource(R.string.paused)
+    pause.until?.let { stringResource(R.string.paused_until, DateTexts.dayMonth(it)) }
+        ?: stringResource(R.string.paused)
 
 /** Цветная точка списка в меню; у «Без списка» — пустой кружок. */
 @Composable
@@ -477,7 +490,8 @@ private fun startText(slot: Slot, today: LocalDate): String {
         today.plusDays(1) -> stringResource(R.string.day_tomorrow_lower)
         else -> DateTexts.dayMonth(slot.date)
     }
-    val detail = slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
+    val detail =
+        slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
     return stringResource(R.string.repeat_starting, listOfNotNull(day, detail).joinToString(" · "))
 }
 
