@@ -116,6 +116,8 @@ object Recurrence {
         time = draft.time,
         partOfDay = draft.partOfDay,
         listId = draft.listId,
+        // У задачи-черновика такого поля нет — берём из правила, иначе правка превратит привычку в дело
+        isHabit = existing?.isHabit ?: false,
     )
 
     /**
@@ -240,7 +242,11 @@ object Recurrence {
         cleanWeeks(weeks).any { it.isNotEmpty() }
 
     /** Какая неделя цикла идёт сейчас — номер, как видит человек: 1, 2, 3… */
-    fun currentWeekNumber(cycle: Repeat.Cycle, today: LocalDate, pauses: List<Pause> = emptyList()): Int =
+    fun currentWeekNumber(
+        cycle: Repeat.Cycle,
+        today: LocalDate,
+        pauses: List<Pause> = emptyList()
+    ): Int =
         cycleWeekIndex(cycle, today, pauses) + 1
 
     /**

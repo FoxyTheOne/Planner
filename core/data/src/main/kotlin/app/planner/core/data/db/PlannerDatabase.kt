@@ -35,19 +35,21 @@ import androidx.room.migration.AutoMigrationSpec
  * - 2 — правила повторения (таблица recurrence_rules);
  * - 3 — у задач колонки ruleId и occurrenceDate: отмеченный день повторения хранится задачей;
  * - 4 — у цикла своё начало недели: cycleAnchorMonday переименована в cycleAnchorWeekStart,
- *   добавлена cycleWeekStart (у старых циклов пустая — значит, с понедельника, как и было).
+ *   добавлена cycleWeekStart (у старых циклов пустая — значит, с понедельника, как и было);
+ * - 5 — у правил колонка isHabit (у старых правил 0: обычное дело, как и было).
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
  */
 @Database(
     entities = [TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4, spec = PlannerDatabase.Migration3To4::class),
+        AutoMigration(from = 4, to = 5),
     ],
 )
 @TypeConverters(Converters::class)

@@ -92,6 +92,24 @@ class BackupFormatTest {
     }
 
     @Test
+    fun `rule from format 4 is not a habit, habit survives export`() {
+        // В формате 4 поля isHabit ещё не было
+        val v4 = """
+            {"formatVersion":4,"exportedAt":"2026-10-10T10:00:00Z","lists":[],"tasks":[],
+             "rules":[{"id":1,"title":"Бассейн","startDate":"2026-10-05","repeat":{"type":"DAILY"}}]}
+        """.trimIndent()
+        val old = backupJson.decodeFromString(BackupSnapshot.serializer(), v4).rules.single().toDomain()
+        assertEquals(false, old.isHabit)
+
+        val habit = old.copy(title = "Вода", isHabit = true)
+        val back = backupJson.decodeFromString(
+            RuleDto.serializer(),
+            backupJson.encodeToString(RuleDto.serializer(), habit.toDto()),
+        ).toDomain()
+        assertEquals(habit, back)
+    }
+
+    @Test
     fun `weekdays are written as names in the file`() {
         val rule = RecurrenceRule(
             title = "Бассейн", repeat = Repeat.OnWeekdays(setOf(WEDNESDAY, MONDAY)), startDate = LocalDate.of(2026, 10, 5),

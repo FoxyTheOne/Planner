@@ -79,6 +79,9 @@ class RecurrenceEntitiesTest {
     )
 
     @Test
+    fun `habit survives the round trip`() = assertRoundTrip(base(Repeat.Daily).copy(isHabit = true))
+
+    @Test
     fun `weekdays are stored as bits`() {
         // пн = 1, ср = 4, пт = 16 → 21
         val entity = base(Repeat.OnWeekdays(setOf(MONDAY, WEDNESDAY, FRIDAY))).toEntity()

@@ -55,9 +55,9 @@ class MigrationTest {
             close()
         }
 
-        // 2. Миграции 1 → 2 → 3 → 4 (AutoMigration из PlannerDatabase) + проверка схемы.
+        // 2. Миграции 1 → 2 → 3 → 4 → 5 (AutoMigration из PlannerDatabase) + проверка схемы.
         // Новая версия базы — меняем здесь число на неё, и тест проверит всю цепочку
-        helper.runMigrationsAndValidate(dbName, 4, true).close()
+        helper.runMigrationsAndValidate(dbName, 5, true).close()
 
         // 3. Открываем обычным кодом приложения
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -114,6 +114,30 @@ class MigrationTest {
             assertEquals(LocalDate.of(2026, 10, 5), cycle.anchorWeekStart) // дата не потерялась
             assertEquals(2, cycle.anchorWeekNumber)
             assertEquals(DayOfWeek.MONDAY, cycle.weekStart) // старый цикл — с понедельника, как и был
+        } finally {
+            db.close()
+        }
+    }
+
+    /** Миграция 4 → 5: правила, созданные до привычек, остаются обычными делами (isHabit = 0). */
+    @Test
+    fun migrate4To5_oldRulesAreNotHabits() = runBlocking {
+        helper.createDatabase(dbName, 4).apply {
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, pauses) " +
+                    "VALUES (1, 'Бассейн', ${LocalDate.of(2026, 10, 5).toEpochDay()}, 'DAILY', '[]')",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 5, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            val rule = db.recurrenceRuleDao().get(1)!!.toDomain()
+            assertEquals("Бассейн", rule.title)
+            assertEquals(false, rule.isHabit)
         } finally {
             db.close()
         }

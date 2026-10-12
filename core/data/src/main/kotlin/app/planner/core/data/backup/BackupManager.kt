@@ -35,6 +35,7 @@ import javax.inject.Singleton
  *   их нет — по умолчанию null, то есть обычная задача.
  * - 4 — у цикла `weekStart` (с какого дня начинается его неделя) и `anchorWeekStart` вместо
  *   `anchorMonday`. В старых файлах weekStart нет — значит MONDAY, а дата берётся из anchorMonday.
+ * - 5 — у правил `isHabit`. В старых файлах его нет — значит false, обычное дело.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -44,7 +45,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 4
+        const val FORMAT_VERSION = 5
     }
 
     private val json = backupJson
@@ -194,6 +195,7 @@ data class RuleDto(
     val listId: Long? = null,
     val repeat: RepeatDto,
     val pauses: List<PauseDto> = emptyList(),
+    val isHabit: Boolean = false,
 )
 
 /**
@@ -239,6 +241,7 @@ internal fun RecurrenceRule.toDto() = RuleDto(
         )
     },
     pauses = pauses.map { PauseDto(it.from.toString(), it.until?.toString()) },
+    isHabit = isHabit,
 )
 
 internal fun RuleDto.toDomain() = RecurrenceRule(
@@ -265,4 +268,5 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
     time = time?.let(LocalTime::parse),
     partOfDay = partOfDay?.let { runCatching { PartOfDay.valueOf(it) }.getOrNull() },
     listId = listId,
+    isHabit = isHabit,
 )

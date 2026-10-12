@@ -144,6 +144,16 @@ class RecurrenceTest {
     }
 
     @Test
+    fun `editing a habit keeps it a habit`() {
+        val water = rule(Repeat.Daily).copy(id = 4, isHabit = true)
+        val draft = Recurrence.draftFromRule(water).copy(title = "Вода, 6 стаканов")
+
+        val updated = Recurrence.ruleFromDraft(draft, Repeat.Daily, today = monday, existing = water)
+
+        assertTrue(updated.isHabit)
+    }
+
+    @Test
     fun `draft without date starts the rule today`() {
         val rule = Recurrence.ruleFromDraft(Task(title = "Таблетки"), Repeat.Daily, today = monday)
         assertEquals(monday, rule.startDate)

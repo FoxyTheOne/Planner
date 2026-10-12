@@ -1,5 +1,6 @@
 package app.planner.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -66,6 +67,16 @@ data class RecurrenceRuleEntity(
     val cycleWeekStart: String?,
     /** JSON: `[{"from":20738,"until":20744}]` — пауза 12–18 октября 2026, даты числом дней от 1970 года. */
     val pauses: String,
+    /**
+     * Привычка (см. [RecurrenceRule.isHabit]). Колонка появилась в версии базы 5.
+     *
+     * `defaultValue = "0"` — чем заполнить колонку у правил, которые уже лежат в базе, когда
+     * миграция её добавит. SQLite хранит Boolean числом: 0 — false, 1 — true.
+     * Без значения по умолчанию автомиграция не получится: колонка обязательная (не null),
+     * и Room не знает, что записать в старые строки.
+     */
+    @ColumnInfo(defaultValue = "0")
+    val isHabit: Boolean = false,
 )
 
 // Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей
@@ -83,10 +94,21 @@ private val json = Json { ignoreUnknownKeys = true }
 fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
     // Сначала общие поля, потом заполняем колонки своего варианта через copy
     val base = RecurrenceRuleEntity(
-        id = id, title = title, startDate = startDate, endDate = endDate,
-        time = time, partOfDay = partOfDay, listId = listId,
-        repeatType = "", weekdays = null, everyNDays = null,
-        cycleWeeks = null, cycleAnchorWeekStart = null, cycleAnchorWeekNumber = null, cycleWeekStart = null,
+        id = id,
+        title = title,
+        startDate = startDate,
+        endDate = endDate,
+        time = time,
+        partOfDay = partOfDay,
+        listId = listId,
+        isHabit = isHabit,
+        repeatType = "",
+        weekdays = null,
+        everyNDays = null,
+        cycleWeeks = null,
+        cycleAnchorWeekStart = null,
+        cycleAnchorWeekNumber = null,
+        cycleWeekStart = null,
         pauses = json.encodeToString(pauses.map {
             // toEpochDay() превращает дату в число дней, прошедших с 1 января 1970 года. 12 октября 2026 → 20738, 18 октября → 20744. Числом удобнее, чем строкой "2026-10-12": короче, и так же даты хранятся во всей нашей базе (см. Converters)
             PauseJson(
@@ -135,7 +157,7 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
         pauses = json.decodeFromString<List<PauseJson>>(pauses).map {
             Pause(LocalDate.ofEpochDay(it.from), it.until?.let(LocalDate::ofEpochDay))
         },
-        time = time, partOfDay = partOfDay, listId = listId,
+        time = time, partOfDay = partOfDay, listId = listId, isHabit = isHabit,
     )
 }
 
