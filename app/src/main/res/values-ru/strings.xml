@@ -185,6 +185,9 @@
     <string name="cycle_day_hint">Ничего</string>
     <string name="cycle_copy_prev">Как в неделе %1$d</string>
     <string name="cycle_empty">Впишите в таблицу хотя бы одно дело</string>
+    <string name="occurrence_moved_from">вместо %1$s</string>
+    <string name="action_skip_once">Пропустить этот раз</string>
+    <string name="msg_skipped">Пропущено</string>
     <string name="pause_title">Пауза</string>
     <string name="pause_action">Поставить на паузу</string>
     <string name="pause_hint">Дни паузы не считаются: цикл продолжится с того же места</string>

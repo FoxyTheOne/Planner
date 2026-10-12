@@ -9,7 +9,9 @@ import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
+import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Occurrence
+import app.planner.core.domain.recurrence.Recurrence
 import java.time.LocalTime
 
 /**
@@ -43,6 +45,16 @@ sealed interface DayItem {
         // Строка по правилу всегда «не сделано»: отмеченный день становится задачей (TaskItem)
         override val isDone get() = false
     }
+}
+
+/**
+ * Строка как задача — для действий, которые умеют работать только с задачами (перенос, «Запланировать»).
+ * У дня повторения это черновик: задача с id = 0, ruleId и occurrenceDate (см. Recurrence.toTask).
+ * Сохранят его — и день повторения станет настоящей задачей на новой дате.
+ */
+fun DayItem.asTask(): Task = when (this) {
+    is DayItem.TaskItem -> task
+    is DayItem.RepeatItem -> Recurrence.toTask(occurrence, TaskStatus.OPEN)
 }
 
 /**
@@ -81,8 +93,9 @@ fun DayItemRow(
                 onClick = { onEdit(task) },
                 modifier = modifier,
                 time = task.time?.let(DateTexts::time),
-                // У отмеченного дня повторения — значок ↻ и дела этого дня (они лежат в заметке)
-                subtitle = if (task.isOccurrence) task.note else null,
+                // У дня повторения — значок ↻ и дела этого дня (они лежат в заметке),
+                // а у перенесённого ещё и «вместо ср 7»: видно, откуда он взялся
+                subtitle = if (task.isOccurrence) occurrenceSubtitle(task) else null,
                 repeating = task.isOccurrence,
                 labelColor = labelColorOf(task.listId, lists),
                 toggleDescription = description,
@@ -104,6 +117,20 @@ fun DayItemRow(
             )
         }
     }
+}
+
+/**
+ * Вторая строка дня повторения: дела цикла и, если день перенесли, — с какого дня.
+ * «фикус · вместо ср 7». Если в среду и четверг по правилу бассейн, а средний перенесли на четверг,
+ * в четверг будет две строки — и подпись объясняет, почему.
+ */
+@Composable
+private fun occurrenceSubtitle(task: Task): String? {
+    val from = task.occurrenceDate
+    val moved = if (from != null && from != task.date) {
+        stringResource(R.string.occurrence_moved_from, DateTexts.shortDay(from).lowercase())
+    } else null
+    return listOfNotNull(task.note.ifEmpty { null }, moved).joinToString(" · ").ifEmpty { null }
 }
 
 /** Цвет точки-метки по id списка (у задач и у правил повторения). У «Без списка» точки нет. */

@@ -11,6 +11,7 @@ import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.core.domain.usecase.CreateListUseCase
 import java.time.LocalDate
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,9 +41,10 @@ class TaskCommands @Inject constructor(
     private val todayClock: TodayClock,
 ) {
     suspend fun toggleDone(task: Task) {
-        if (task.isOccurrence && task.isDone) {
-            // Сняли отметку с дня повторения — удаляем задачу, и на экране снова «виртуальная» строка
-            // по правилу. Так, если правило потом поменяют (новое название, время), день подхватит изменения
+        // Сняли отметку с дня повторения, который не переносили, — удаляем задачу, и на экране снова
+        // «виртуальная» строка по правилу. Так, если правило потом поменяют (новое название, время), день
+        // подхватит изменения. Перенесённый день (дата ≠ дню правила) не удаляем: иначе перенос потерялся бы
+        if (task.isOccurrence && task.isDone && task.date == task.occurrenceDate) {
             tasks.delete(task)
         } else {
             tasks.setDone(task.id, !task.isDone)
@@ -54,7 +56,18 @@ class TaskCommands @Inject constructor(
      * и «виртуальная» строка по правилу на этот день больше не показывается.
      */
     suspend fun completeOccurrence(occurrence: Occurrence) {
-        tasks.addOrUpdate(Recurrence.toTask(occurrence, TaskStatus.DONE))
+        val draft = Recurrence.toTask(occurrence, TaskStatus.DONE)
+        tasks.addOrUpdate(withExistingId(draft))
+    }
+
+    /**
+     * Если для этого дня правила задача уже есть — берём её id, чтобы обновить её, а не создать вторую.
+     * Так бывает при быстром двойном нажатии: строка по правилу ещё не успела исчезнуть с экрана.
+     */
+    private suspend fun withExistingId(draft: Task): Task {
+        val day = draft.occurrenceDate ?: return draft
+        val existing = tasks.observeOccurrenceTasks(day, day).first().firstOrNull { it.ruleId == draft.ruleId }
+        return if (existing != null) draft.copy(id = existing.id) else draft
     }
 
     /** Создать новую задачу (id = 0) без нового списка — например, из шторки недели. */
@@ -82,7 +95,13 @@ class TaskCommands @Inject constructor(
         when {
             repeat != null -> {
                 val existing = ruleDraftId?.let { rules.getRule(it) }
-                rules.save(Recurrence.ruleFromDraft(saved, repeat, todayClock.today(), existing))
+                val rule = Recurrence.ruleFromDraft(saved, repeat, todayClock.today(), existing)
+                rules.save(rule)
+                // Правило поменяли — его перенесённые, ещё не сделанные дни получают новое название и список
+                // (дата и время остаются: это перенос). Сделанные дни не трогаем — это история
+                if (existing != null) {
+                    tasks.getOpenOccurrenceTasks(rule.id).forEach { tasks.addOrUpdate(Recurrence.syncInstance(it, rule)) }
+                }
                 // Обычная задача из базы стала повторяющейся — сама по себе она больше не нужна
                 if (task.id != 0L && !task.isOccurrence) tasks.delete(task)
             }
@@ -96,18 +115,51 @@ class TaskCommands @Inject constructor(
     }
 
     suspend fun schedule(task: Task, slot: Slot) {
+        if (isOccurrenceDraft(task)) return moveOccurrence(task, slot, scheduledText(slot))
         tasks.schedule(task.id, slot)
         messages.post(UiMessage(scheduledText(slot), undo = { tasks.addOrUpdate(task) }))
     }
 
     suspend fun moveToTomorrow(task: Task) {
-        val tomorrow = todayClock.today().plusDays(1)
-        tasks.schedule(task.id, Slot(tomorrow, task.partOfDay, task.time))
+        val tomorrow = Slot(todayClock.today().plusDays(1), task.partOfDay, task.time)
+        if (isOccurrenceDraft(task)) return moveOccurrence(task, tomorrow, UiText.Res(R.string.msg_moved_tomorrow))
+        tasks.schedule(task.id, tomorrow)
         messages.post(
             UiMessage(
                 UiText.Res(R.string.msg_moved_tomorrow),
                 undo = { tasks.addOrUpdate(task) })
         )
+    }
+
+    /**
+     * Черновик дня повторения: задача, которой ещё нет в базе (id = 0), но с днём правила.
+     * Такой приходит, когда смахивают строку повторения (см. DayItem.asTask).
+     */
+    private fun isOccurrenceDraft(task: Task) = task.id == 0L && task.occurrenceDate != null
+
+    /**
+     * Перенести один день повторения: он становится задачей на новой дате, а на свой день
+     * строка по правилу больше не выпадает — задача помнит его в occurrenceDate. Само правило не меняется.
+     * «Отменить» удаляет эту задачу, и день повторения возвращается на место.
+     */
+    /**
+     * «Пропустить этот раз»: день повторения помечается пропущенным (SKIPPED) и исчезает из плана.
+     * Ничего не переносится; строка по правилу на этот день больше не появится. Пригодится и
+     * статистике привычек: «пропущено» — это решение человека, а не «забыл».
+     * Если день уже был задачей (его перенесли), пропущенным становится она.
+     */
+    suspend fun skipOccurrence(task: Task) {
+        val skipped = withExistingId(task).copy(status = TaskStatus.SKIPPED)
+        val id = tasks.addOrUpdate(skipped)
+        // «Отменить»: перенесённый день возвращаем как был, а черновик просто удаляем — строка по правилу вернётся
+        val undo: suspend () -> Unit =
+            if (task.id != 0L) ({ tasks.addOrUpdate(task) }) else ({ tasks.getTask(id)?.let { tasks.delete(it) } })
+        messages.post(UiMessage(UiText.Res(R.string.msg_skipped), undo = undo))
+    }
+
+    private suspend fun moveOccurrence(draft: Task, slot: Slot, message: UiText) {
+        val id = tasks.addOrUpdate(withExistingId(draft).copy(date = slot.date, partOfDay = slot.partOfDay, time = slot.time))
+        messages.post(UiMessage(message, undo = { tasks.getTask(id)?.let { tasks.delete(it) } }))
     }
 
     suspend fun returnToList(task: Task) {

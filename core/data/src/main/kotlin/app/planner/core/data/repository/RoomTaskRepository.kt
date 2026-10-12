@@ -46,6 +46,9 @@ class RoomTaskRepository @Inject constructor(
     override fun observeOccurrenceTasks(from: LocalDate, to: LocalDate): Flow<List<Task>> =
         taskDao.observeOccurrenceTasks(from, to).map { it.map { e -> e.toDomain() } }
 
+    override suspend fun getOpenOccurrenceTasks(ruleId: Long): List<Task> =
+        taskDao.getOpenOfRule(ruleId).map { it.toDomain() }
+
     override fun observeOverdue(today: LocalDate): Flow<List<Task>> =
         taskDao.observeOverdue(today).map { it.map { e -> e.toDomain() } }
 

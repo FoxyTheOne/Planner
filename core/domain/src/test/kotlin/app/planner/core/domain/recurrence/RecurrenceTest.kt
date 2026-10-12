@@ -150,6 +150,42 @@ class RecurrenceTest {
     }
 
     @Test
+    fun `moved day hides its own day but stays the same occurrence`() {
+        val pool = rule(Repeat.OnWeekdays(setOf(MONDAY, WEDNESDAY))).copy(id = 5)
+        // Понедельничный бассейн перенесли на вторник: задача на вторник, но день правила — понедельник
+        val moved = Recurrence.toTask(Recurrence.occurrence(pool, monday)!!, TaskStatus.OPEN)
+            .copy(date = monday.plusDays(1))
+
+        val week = Recurrence.occurrencesBetween(listOf(pool), monday, monday.plusDays(6), listOf(moved))
+
+        assertEquals(monday, moved.occurrenceDate)
+        assertEquals(listOf(monday.plusDays(2)), week.map { it.date }) // по правилу осталась только среда
+    }
+
+    @Test
+    fun `renamed rule updates a moved day but keeps its new date`() {
+        val watering = rule(Repeat.Cycle(listOf(mapOf(MONDAY to "фикус")), anchorWeekStart = monday)).copy(id = 5, title = "Полив")
+        // Понедельничный полив перенесли на среду, 19:00
+        val moved = Recurrence.toTask(Recurrence.occurrence(watering, monday)!!, TaskStatus.OPEN)
+            .copy(id = 40, date = monday.plusDays(2), time = LocalTime.of(19, 0))
+
+        // Правило переименовали, перенесли в другой список и поменяли дела в таблице
+        val changed = watering.copy(
+            title = "Полив цветов",
+            listId = 3,
+            repeat = Repeat.Cycle(listOf(mapOf(MONDAY to "фикус, монстера")), anchorWeekStart = monday),
+        )
+        val synced = Recurrence.syncInstance(moved, changed)
+
+        assertEquals("Полив цветов", synced.title)
+        assertEquals(3L, synced.listId)
+        assertEquals("фикус, монстера", synced.note)
+        assertEquals(monday.plusDays(2), synced.date) // перенос остался
+        assertEquals(LocalTime.of(19, 0), synced.time)
+        assertEquals(40L, synced.id) // та же задача, а не новая
+    }
+
+    @Test
     fun `cycle details go to the task note`() {
         val watering = rule(Repeat.Cycle(listOf(mapOf(MONDAY to "фикус")), anchorWeekStart = monday))
 

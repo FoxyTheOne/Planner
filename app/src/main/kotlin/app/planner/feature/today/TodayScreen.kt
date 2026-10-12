@@ -51,13 +51,13 @@ import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.DayItem
 import app.planner.common.DayItemRow
+import app.planner.common.asTask
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
 import app.planner.common.labelColorOf
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
-import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -99,8 +99,9 @@ fun TodayScreen(
         // Тап по повторению — открыть его правило в том же редакторе, что и задачи
         onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         onEdit = { editing = EditorTarget(it) },
-        onSwipeTomorrow = viewModel::moveToTomorrow,
-        onSwipeSchedule = { scheduling = it },
+        onSwipeTomorrow = { item -> viewModel.moveToTomorrow(item.asTask()) },
+        // Шторка «Запланировать» работает с задачей; день повторения отдаём ей черновиком
+        onSwipeSchedule = { item -> scheduling = item.asTask() },
         onAdd = { editing = EditorTarget(Task(title = "", date = state.today)) },
     )
 
@@ -126,6 +127,8 @@ fun TodayScreen(
             initial = task.date?.let { Slot(it, task.partOfDay, task.time) },
             onDismiss = { scheduling = null },
             onConfirm = { viewModel.schedule(task, it); scheduling = null },
+            // Только у дня повторения (черновик или уже перенесённый): «Пропустить этот раз»
+            onSkip = if (task.occurrenceDate != null) ({ viewModel.skipOccurrence(task); scheduling = null }) else null,
         )
     }
     if (showOverdue) {
@@ -159,8 +162,8 @@ fun TodayContent(
     onCompleteOccurrence: (Occurrence) -> Unit,
     onEditRule: (RecurrenceRule) -> Unit,
     onEdit: (Task) -> Unit,
-    onSwipeTomorrow: (Task) -> Unit,
-    onSwipeSchedule: (Task) -> Unit,
+    onSwipeTomorrow: (DayItem) -> Unit,
+    onSwipeSchedule: (DayItem) -> Unit,
     onAdd: () -> Unit,
 ) {
     Box(
@@ -193,35 +196,21 @@ fun TodayContent(
                 if (sectionItems.isNotEmpty()) {
                     item(key = "s_$section") { SectionLabel(stringResource(section.labelRes())) }
                     items(sectionItems, key = { it.key }) { item ->
-                        // when по sealed interface: задача — строка с чекбоксом и свайпами, повторение — строка с ↻
-                        when (item) {
-                            is DayItem.TaskItem -> {
-                                val task = item.task
-                                SwipeableTaskRow(
-                                    task = task,
-                                    lists = state.lists,
-                                    onToggle = { onToggle(task) },
-                                    onClick = { onEdit(task) },
-                                    onSwipeTomorrow = { onSwipeTomorrow(task) },
-                                    onSwipeSchedule = { onSwipeSchedule(task) },
-                                    modifier = Modifier.animateItem(),
-                                )
-                            }
-
-                            is DayItem.RepeatItem -> {
-                                // День повторения, ещё не отмеченный. Отметили — он станет задачей и придёт сюда как TaskItem
-                                Column(Modifier.animateItem()) {
-                                    DayItemRow(
-                                        item = item,
-                                        lists = state.lists,
-                                        onToggle = onToggle,
-                                        onCompleteOccurrence = onCompleteOccurrence,
-                                        onEditRule = onEditRule,
-                                        onEdit = onEdit,
-                                    )
-                                    DashedRule()
-                                }
-                            }
+                        // И задачу, и день повторения можно смахнуть (сделанное — нет); рисует строку общий DayItemRow
+                        SwipeablePlanRow(
+                            enabled = !item.isDone,
+                            onSwipeTomorrow = { onSwipeTomorrow(item) },
+                            onSwipeSchedule = { onSwipeSchedule(item) },
+                            modifier = Modifier.animateItem(),
+                        ) {
+                            DayItemRow(
+                                item = item,
+                                lists = state.lists,
+                                onToggle = onToggle,
+                                onCompleteOccurrence = onCompleteOccurrence,
+                                onEditRule = onEditRule,
+                                onEdit = onEdit,
+                            )
                         }
                     }
                 }
@@ -303,22 +292,23 @@ private fun OverdueBanner(count: Int, onClick: () -> Unit) {
 }
 
 /**
- * Строка задачи, которую можно смахнуть: влево — на завтра, вправо — выбрать дату.
- * Под строкой при смахивании видна подсказка, что произойдёт.
+ * Строку дня можно смахнуть: влево — на завтра, вправо — выбрать дату.
+ * Под строкой при смахивании видна подсказка, что произойдёт. Подходит и для задач,
+ * и для дней повторений — что именно нарисовать, передают в [content].
  *
  * SwipeToDismissBox — стандартный компонент «смахни, чтобы убрать». Мы используем его
- * только как жест: сами строку не убираем — после переноса задача исчезнет из «Сегодня»,
+ * только как жест: сами строку не убираем — после переноса она исчезнет из «Сегодня»,
  * когда база пришлёт обновлённый список.
+ *
+ * @param enabled можно ли смахивать: сделанное не переносим.
  */
 @Composable
-fun SwipeableTaskRow(
-    task: Task,
-    lists: List<TaskList>,
-    onToggle: () -> Unit,
-    onClick: () -> Unit,
+fun SwipeablePlanRow(
+    enabled: Boolean,
     onSwipeTomorrow: () -> Unit,
     onSwipeSchedule: () -> Unit,
     modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
     val paper = PlannerTheme.paper
     val state = rememberSwipeToDismissBoxState()
@@ -326,9 +316,8 @@ fun SwipeableTaskRow(
     SwipeToDismissBox(
         state = state,
         modifier = modifier,
-        // Сделанное не переносим — свайп только у открытых задач
-        enableDismissFromStartToEnd = !task.isDone,
-        enableDismissFromEndToStart = !task.isDone,
+        enableDismissFromStartToEnd = enabled,
+        enableDismissFromEndToStart = enabled,
         onDismiss = { value ->
             // Строку не убираем сами: задача уедет из списка, когда обновится база
             when (value) {
@@ -361,19 +350,9 @@ fun SwipeableTaskRow(
             }
         },
     ) {
+        // Фон бумаги под строкой — чтобы при смахивании подсказка не просвечивала сквозь текст
         Column(Modifier.background(paper.paper)) {
-            TaskRow(
-                title = task.title,
-                done = task.isDone,
-                onToggle = onToggle,
-                onClick = onClick,
-                time = task.time?.let(DateTexts::time),
-                // У отмеченного дня повторения — значок ↻ и дела этого дня (они лежат в заметке)
-                subtitle = if (task.isOccurrence) task.note else null,
-                repeating = task.isOccurrence,
-                labelColor = labelColorOf(task.listId, lists),
-                toggleDescription = stringResource(R.string.cd_mark_done),
-            )
+            content()
             DashedRule()
         }
     }

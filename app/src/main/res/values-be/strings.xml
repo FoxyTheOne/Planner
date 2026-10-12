@@ -186,6 +186,9 @@
     <string name="cycle_day_hint">Нічога</string>
     <string name="cycle_copy_prev">Як у тыдні %1$d</string>
     <string name="cycle_empty">Упішыце ў табліцу хоць адну справу</string>
+    <string name="occurrence_moved_from">замест %1$s</string>
+    <string name="action_skip_once">Прапусціць гэты раз</string>
+    <string name="msg_skipped">Прапушчана</string>
     <string name="pause_title">Паўза</string>
     <string name="pause_action">Паставіць на паўзу</string>
     <string name="pause_hint">Дні паўзы не лічацца: цыкл працягнецца з таго ж месца</string>

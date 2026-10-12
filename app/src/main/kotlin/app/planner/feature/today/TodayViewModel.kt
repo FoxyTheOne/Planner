@@ -176,6 +176,7 @@ class TodayViewModel @Inject constructor(
     fun completeOccurrence(occurrence: Occurrence) =
         viewModelScope.launch { commands.completeOccurrence(occurrence) }
 
+    fun skipOccurrence(task: Task) = viewModelScope.launch { commands.skipOccurrence(task) }
     fun pauseRule(ruleId: Long, until: LocalDate?) = viewModelScope.launch { commands.pauseRule(ruleId, until) }
     fun resumeRule(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
 

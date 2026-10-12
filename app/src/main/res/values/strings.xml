@@ -189,6 +189,9 @@
     <string name="cycle_day_hint">Nothing</string>
     <string name="cycle_copy_prev">Same as week %1$d</string>
     <string name="cycle_empty">Write down at least one task in the table</string>
+    <string name="occurrence_moved_from">instead of %1$s</string>
+    <string name="action_skip_once">Skip this time</string>
+    <string name="msg_skipped">Skipped</string>
     <string name="pause_title">Pause</string>
     <string name="pause_action">Pause</string>
     <string name="pause_hint">Paused days don\'t count: a cycle picks up where it stopped</string>

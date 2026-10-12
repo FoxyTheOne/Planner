@@ -25,9 +25,10 @@ interface TaskDao {
 
     // Внутри дня: сначала задачи со временем по порядку, потом остальные по времени создания.
     // «time IS NULL» даёт 0 для задач со временем и 1 для остальных — так они уходят вниз.
+    // Пропущенные дни повторений (SKIPPED) в плане не показываем: «в этот раз не делаем»
     @Query(
         """
-        SELECT * FROM tasks WHERE date BETWEEN :from AND :to
+        SELECT * FROM tasks WHERE date BETWEEN :from AND :to AND status != 'SKIPPED'
         ORDER BY date, time IS NULL, time, createdAt
         """,
     )
@@ -45,17 +46,22 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE ruleId IS NOT NULL AND occurrenceDate BETWEEN :from AND :to")
     fun observeOccurrenceTasks(from: LocalDate, to: LocalDate): Flow<List<TaskEntity>>
 
+    // Открытые (ещё не сделанные) дни одного правила — их обновляют, когда правило поменяли
+    @Query("SELECT * FROM tasks WHERE ruleId = :ruleId AND status = 'OPEN'")
+    suspend fun getOpenOfRule(ruleId: Long): List<TaskEntity>
+
     // Задачи одного списка: сначала то, что ещё ждёт своего часа, запланированные — внизу, по дате
-    @Query("SELECT * FROM tasks WHERE listId = :listId AND status = 'OPEN' ORDER BY date IS NOT NULL, date, createdAt")
+    // Дни повторений (ruleId) в списках не показываем: это не дела «когда-нибудь», а дни правила
+    @Query("SELECT * FROM tasks WHERE listId = :listId AND status = 'OPEN' AND ruleId IS NULL ORDER BY date IS NOT NULL, date, createdAt")
     fun observeByList(listId: Long): Flow<List<TaskEntity>>
 
     // Все открытые задачи — для поиска в оглавлении списков (фильтр по тексту делаем в Kotlin:
     // SQLite умеет сравнивать без учёта регистра только латиницу, а у нас кириллица)
-    @Query("SELECT * FROM tasks WHERE status = 'OPEN' ORDER BY createdAt DESC")
+    @Query("SELECT * FROM tasks WHERE status = 'OPEN' AND ruleId IS NULL ORDER BY createdAt DESC")
     fun observeOpen(): Flow<List<TaskEntity>>
 
     // Сколько открытых задач в каждом списке — счётчики в оглавлении
-    @Query("SELECT listId, COUNT(*) AS count FROM tasks WHERE status = 'OPEN' AND listId IS NOT NULL GROUP BY listId")
+    @Query("SELECT listId, COUNT(*) AS count FROM tasks WHERE status = 'OPEN' AND listId IS NOT NULL AND ruleId IS NULL GROUP BY listId")
     fun observeOpenCounts(): Flow<List<ListCount>>
 
     // Всё открытое без даты — кандидаты для шторки «Из списков» и лотка планирования

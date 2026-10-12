@@ -50,6 +50,8 @@ import java.time.ZoneOffset
 /**
  * Шторка «Запланировать»: быстрые даты, часть дня, точное время.
  * Время необязательно — большинство дел планируются просто «на завтра».
+ *
+ * @param onSkip есть только у дня повторения: кнопка «Пропустить этот раз» внизу.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -58,12 +60,14 @@ fun ScheduleSheet(
     initial: Slot?,
     onDismiss: () -> Unit,
     onConfirm: (Slot) -> Unit,
+    onSkip: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         ScheduleSheetBody(
             today = today,
             initial = initial,
             onConfirm = onConfirm,
+            onSkip = onSkip,
         )
     }
 }
@@ -79,6 +83,7 @@ fun ScheduleSheetBody(
     today: LocalDate,
     initial: Slot?,
     onConfirm: (Slot) -> Unit,
+    onSkip: (() -> Unit)? = null,
 ) {
     var date by rememberSaveable { mutableStateOf(initial?.date ?: today.plusDays(1)) }
     var part by rememberSaveable { mutableStateOf(initial?.partOfDay) }
@@ -151,6 +156,12 @@ fun ScheduleSheetBody(
             onClick = { onConfirm(Slot(date, part, time)) },
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         ) { Text(stringResource(R.string.action_done)) }
+        // Для дня повторения: «в этот раз не делаем» — ничего никуда не переносим, день помечается пропущенным
+        if (onSkip != null) {
+            TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                Text(stringResource(R.string.action_skip_once))
+            }
+        }
     }
 
     if (showDatePicker) {
