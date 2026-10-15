@@ -26,6 +26,21 @@ data class Occurrence(
 )
 
 /**
+ * Привычка в конкретный день — «таблетка» над планом дня.
+ *
+ * Чем отличается от обычного дня повторения: «таблетка» видна весь день, и отмеченная тоже.
+ * Её отмечают и снимают отметку одним нажатием, поэтому нужно знать и то, что выпадает
+ * по правилу ([occurrence]), и задачу-отметку, если она уже есть ([task]).
+ *
+ * @param task задача, в которую превратился этот день, когда его отметили (см. [Recurrence.toTask]);
+ *   null — сегодня ещё не отмечена.
+ */
+data class HabitDay(val occurrence: Occurrence, val task: Task?) {
+    val rule: RecurrenceRule get() = occurrence.rule
+    val isDone: Boolean get() = task?.isDone == true
+}
+
+/**
  * Движок повторений: отвечает на вопросы «выпадает ли правило на этот день?»
  * и «в какие дни оно выпадает с … по …?».
  *
@@ -78,6 +93,27 @@ object Recurrence {
     ): List<Occurrence> =
         rules.mapNotNull { occurrence(it, date) }
             .filterNot { occ -> instances.any { it.ruleId == occ.rule.id && it.occurrenceDate == date } }
+
+    /**
+     * Привычки на [date] — и ещё не отмеченные, и уже отмеченные (в отличие от [occurrencesOn],
+     * где отмеченный день исчезает: там вместо него на экране стоит сама задача).
+     * Правила, которые не привычки, пропускаются.
+     *
+     * @param instances задачи дней повторений; из них берётся отметка привычки на этот день.
+     */
+    fun habitsOn(
+        rules: List<RecurrenceRule>,
+        date: LocalDate,
+        instances: List<Task> = emptyList(),
+    ): List<HabitDay> =
+        rules.filter { it.isHabit }.mapNotNull { rule ->
+            // ?.let — «если не null, сделай с ним»: в этот день по правилу ничего нет → null → пропуск
+            occurrence(rule, date)?.let { occ ->
+                HabitDay(
+                    occ,
+                    instances.firstOrNull { it.ruleId == rule.id && it.occurrenceDate == date })
+            }
+        }
 
     /**
      * Всё, что выпадает с [from] по [to] по всем правилам, — для «Недели».

@@ -144,6 +144,21 @@ class RecurrenceTest {
     }
 
     @Test
+    fun `habits of the day include done ones and skip plain rules`() {
+        val water = rule(Repeat.Daily).copy(id = 1, title = "Вода", isHabit = true)
+        val reading = rule(Repeat.Daily).copy(id = 2, title = "Читать", isHabit = true)
+        val gym = rule(Repeat.OnWeekdays(setOf(FRIDAY))).copy(id = 3, isHabit = true) // не сегодня
+        val pool = rule(Repeat.Daily).copy(id = 4, title = "Бассейн") // дело, не привычка
+        val waterDone = Recurrence.toTask(Recurrence.occurrence(water, monday)!!, TaskStatus.DONE).copy(id = 10)
+
+        val habits = Recurrence.habitsOn(listOf(water, reading, gym, pool), monday, listOf(waterDone))
+
+        assertEquals(listOf("Вода", "Читать"), habits.map { it.rule.title })
+        assertTrue(habits[0].isDone) // отмеченная привычка не пропала, а показана отмеченной
+        assertFalse(habits[1].isDone)
+    }
+
+    @Test
     fun `editing a habit keeps it a habit`() {
         val water = rule(Repeat.Daily).copy(id = 4, isHabit = true)
         val draft = Recurrence.draftFromRule(water).copy(title = "Вода, 6 стаканов")

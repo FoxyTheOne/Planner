@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,11 +54,13 @@ import app.planner.common.TaskSaver
 import app.planner.common.asTask
 import app.planner.common.pausedText
 import app.planner.core.designsystem.component.DashedRule
+import app.planner.core.designsystem.component.HabitPill
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.recurrence.HabitDay
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import kotlinx.coroutines.launch
@@ -98,6 +101,7 @@ fun TodayScreen(
         onOpenOverdue = { showOverdue = true },
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
+        onToggleHabit = viewModel::toggleHabit,
         // Тап по повторению — открыть его правило в том же редакторе, что и задачи
         onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         onEdit = { editing = EditorTarget(it) },
@@ -171,6 +175,7 @@ fun TodayContent(
     onOpenOverdue: () -> Unit,
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
+    onToggleHabit: (HabitDay) -> Unit,
     onEditRule: (RecurrenceRule) -> Unit,
     onEdit: (Task) -> Unit,
     onSwipeTomorrow: (DayItem) -> Unit,
@@ -190,6 +195,16 @@ fun TodayContent(
 
             if (state.showOverdueBanner) {
                 item { OverdueBanner(count = state.overdueCount, onClick = onOpenOverdue) }
+            }
+
+            if (state.habits.isNotEmpty()) {
+                item(key = "habits") {
+                    HabitPills(
+                        state.habits,
+                        onToggle = onToggleHabit,
+                        onOpen = onEditRule
+                    )
+                }
             }
 
             if (state.isEmpty) {
@@ -271,6 +286,37 @@ private fun TodayHeader(state: TodayUiState, onOpenSettings: () -> Unit) {
             Icon(
                 Icons.Outlined.Settings,
                 stringResource(R.string.cd_settings)
+            )
+        }
+    }
+}
+
+/**
+ * Привычки дня — ряд «таблеток» над планом. Тап — отметить или снять отметку,
+ * долгое нажатие — открыть привычку (настроить, поставить на паузу).
+ *
+ * FlowRow — как Row, но не обрезает лишнее, а переносит на следующую строку, как слова в тексте.
+ * Привычек может быть и две, и восемь — все будут видны, без прокрутки вбок.
+ */
+@Composable
+private fun HabitPills(
+    habits: List<HabitDay>,
+    onToggle: (HabitDay) -> Unit,
+    onOpen: (RecurrenceRule) -> Unit
+) {
+    val openLabel = stringResource(R.string.habit_open)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = 16.dp),
+    ) {
+        habits.forEach { habit ->
+            HabitPill(
+                title = habit.rule.title,
+                done = habit.isDone,
+                onClick = { onToggle(habit) },
+                onLongClick = { onOpen(habit.rule) },
+                onLongClickLabel = openLabel,
             )
         }
     }

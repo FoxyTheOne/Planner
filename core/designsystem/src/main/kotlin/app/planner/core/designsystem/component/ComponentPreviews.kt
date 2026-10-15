@@ -87,6 +87,17 @@ private fun ScheduledInListPreview() = PreviewSurface {
     )
 }
 
+/** Привычки дня: «Вода» уже отмечена, остальные — ещё нет. */
+@PlannerPreviews
+@Composable
+private fun HabitPillsPreview() = PreviewSurface {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HabitPill("Вода", done = true, onClick = {}, onLongClick = {})
+        HabitPill("Зарядка", done = false, onClick = {}, onLongClick = {})
+        HabitPill("Читать", done = false, onClick = {}, onLongClick = {})
+    }
+}
+
 @PlannerPreviews
 @Composable
 private fun ChipsPreview() = PreviewSurface {

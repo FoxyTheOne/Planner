@@ -57,16 +57,23 @@ class WeekViewModel @Inject constructor(
                     listRepository.observeLists(),
                     tasks.observeUnscheduled(),
                     tasks.observeOverdue(today),
-                    // Дни повторений на эту неделю, ещё не отмеченные (как в «Сегодня», только на 7 дней)
+                    // Дни повторений на эту неделю, ещё не отмеченные (как в «Сегодня», только на 7 дней).
+                    // Привычек в «Неделе» нет: неделя — для планирования, а привычку не планируют —
+                    // «Вода» каждый день только забила бы все семь колонок. Они видны в «Сегодня».
                     combine(
                         recurrenceRepository.observeRules(),
                         tasks.observeOccurrenceTasks(start, end)
                     ) { rules, done ->
-                        Recurrence.occurrencesBetween(rules, start, end, instances = done)
+                        val (habits, plans) = rules.partition { it.isHabit }
+                        // Pair — пара значений; `to` — короткая запись: a to b == Pair(a, b)
+                        Recurrence.occurrencesBetween(plans, start, end, instances = done) to
+                                habits.map { it.id }.toSet()
                     },
-                ) { weekTasks, lists, unscheduled, overdue, occurrences ->
+                ) { weekTasks, lists, unscheduled, overdue, (occurrences, habitIds) ->
                     val days = (0L..6L).map(start::plusDays)
-                    val tasksByDay = weekTasks.groupBy { it.date!! }
+                    // Отмеченные привычки — задачи с ruleId; убираем их по id правил-привычек
+                    val tasksByDay =
+                        weekTasks.filterNot { it.ruleId in habitIds }.groupBy { it.date!! }
                     val occurrencesByDay = occurrences.groupBy { it.date }
                     WeekUiState(
                         today = today,
@@ -99,7 +106,9 @@ class WeekViewModel @Inject constructor(
     fun completeOccurrence(occurrence: Occurrence) =
         viewModelScope.launch { commands.completeOccurrence(occurrence) }
 
-    fun pauseRule(ruleId: Long, until: LocalDate?) = viewModelScope.launch { commands.pauseRule(ruleId, until) }
+    fun pauseRule(ruleId: Long, until: LocalDate?) =
+        viewModelScope.launch { commands.pauseRule(ruleId, until) }
+
     fun resumeRule(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
 
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }

@@ -15,6 +15,7 @@ import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.overdue.Overdue
+import app.planner.core.domain.recurrence.HabitDay
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.repository.IRecurrenceRepository
@@ -44,11 +45,16 @@ import javax.inject.Inject
  */
 /**
  * Повторения для «Сегодня»: ещё не отмеченные дни сегодня и завтра (завтрашние — для превью
- * «Завтра: …») и правила, которые сейчас на паузе.
+ * «Завтра: …»), привычки на сегодня и правила, которые сейчас на паузе.
+ *
+ * @param habitIds id правил-привычек: их отмеченные дни приходят вместе с задачами,
+ *   и по этим id мы убираем их из разделов (они уже показаны «таблетками»).
  */
 private data class RepeatsOfDay(
     val occurrences: List<Occurrence>,
     val tomorrow: List<Occurrence>,
+    val habits: List<HabitDay>,
+    val habitIds: Set<Long>,
     val paused: List<RecurrenceRule>,
 )
 
@@ -107,9 +113,13 @@ class TodayViewModel @Inject constructor(
                 recurrenceRepository.observeRules(),
                 tasks.observeOccurrenceTasks(today, today.plusDays(1))
             ) { rules, done ->
+                // partition делит список на два: (подходит, не подходит) — привычки отдельно от дел
+                val (habits, plans) = rules.partition { it.isHabit }
                 RepeatsOfDay(
-                    occurrences = Recurrence.occurrencesOn(rules, today, instances = done),
-                    tomorrow = Recurrence.occurrencesOn(rules, today.plusDays(1), instances = done),
+                    occurrences = Recurrence.occurrencesOn(plans, today, instances = done),
+                    tomorrow = Recurrence.occurrencesOn(plans, today.plusDays(1), instances = done),
+                    habits = Recurrence.habitsOn(habits, today, instances = done),
+                    habitIds = habits.map { it.id }.toSet(),
                     paused = rules.filter { Recurrence.activePause(it, today) != null },
                 )
             },
@@ -138,7 +148,10 @@ class TodayViewModel @Inject constructor(
         repeats: RepeatsOfDay,
     ): TodayUiState {
         val occurrences = repeats.occurrences
-        val (todayTasks, tomorrowTasks) = twoDays.partition { it.date == today }
+        // Отмеченные привычки — тоже задачи (с ruleId), но они уже нарисованы «таблетками»
+        val (todayTasks, tomorrowTasks) = twoDays
+            .filterNot { it.ruleId in repeats.habitIds }
+            .partition { it.date == today }
         // Задачи и повторения — в одну кучу, дальше они сортируются и раскладываются по частям дня вместе
         val items = dayItems(todayTasks, occurrences)
         val sections = items
@@ -162,6 +175,7 @@ class TodayViewModel @Inject constructor(
             showOverdueBanner = overdue.isNotEmpty() && settings.overdueBannerHiddenOn != today,
             lists = lists,
             paused = repeats.paused,
+            habits = repeats.habits,
         )
     }
 
@@ -186,6 +200,20 @@ class TodayViewModel @Inject constructor(
     fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
     fun completeOccurrence(occurrence: Occurrence) =
         viewModelScope.launch { commands.completeOccurrence(occurrence) }
+
+    /**
+     * Нажали на «таблетку» привычки.
+     * - Отмечена — снимаем: toggleDone удалит задачу, и «таблетка» снова будет пустой (по правилу).
+     * - Не отмечена — отмечаем через completeOccurrence, даже если задача на этот день уже есть.
+     *   Так бывает, если правило раньше было делом и этот день перенесли или пропустили.
+     *   completeOccurrence возьмёт id той задачи и запишет её заново: сделано, на свой день.
+     *   (toggleDone тут не подошёл бы: отметил бы сделанным перенесённый день — на чужую дату.)
+     */
+    fun toggleHabit(habit: HabitDay) = viewModelScope.launch {
+        val task = habit.task
+        if (task != null && task.isDone) commands.toggleDone(task)
+        else commands.completeOccurrence(habit.occurrence)
+    }
 
     fun skipOccurrence(task: Task) = viewModelScope.launch { commands.skipOccurrence(task) }
     fun pauseRule(ruleId: Long, until: LocalDate?) =

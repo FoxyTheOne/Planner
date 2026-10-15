@@ -65,4 +65,9 @@ object SampleData {
         startDate = today.minusMonths(1),
         time = LocalTime.of(18, 30),
     )
+
+    /** Привычки каждый день: «таблетки» над планом в «Сегодня». */
+    val habitRules = listOf("Вода", "Зарядка", "Читать 10 минут").mapIndexed { i, title ->
+        RecurrenceRule(id = 10L + i, title = title, repeat = Repeat.Daily, startDate = today.minusMonths(1), isHabit = true)
+    }
 }

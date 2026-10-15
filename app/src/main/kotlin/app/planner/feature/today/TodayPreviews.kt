@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import app.planner.core.designsystem.preview.PlannerScreenPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Pause
+import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.overdue.OverdueGroup
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.preview.SampleData
@@ -41,6 +42,11 @@ private fun TodayPreview() {
             lists = lists,
             // Внизу — повторение на паузе (отпуск на неделю)
             paused = listOf(poolRule.copy(pauses = listOf(Pause(today.minusDays(1), today.plusDays(5))))),
+            // Привычки: «Вода» уже отмечена (у неё есть задача-отметка), остальные — нет
+            habits = Recurrence.habitsOn(
+                habitRules, today,
+                instances = listOf(Recurrence.toTask(Recurrence.occurrence(habitRules[0], today)!!, TaskStatus.DONE)),
+            ),
         )
     }
     PlannerTheme { TodayContentForPreview(state) }
@@ -61,6 +67,7 @@ private fun TodayContentForPreview(state: TodayUiState) = TodayContent(
     onOpenOverdue = {},
     onToggle = {},
     onCompleteOccurrence = {},
+    onToggleHabit = {},
     onEditRule = {},
     onEdit = {},
     onSwipeTomorrow = {},

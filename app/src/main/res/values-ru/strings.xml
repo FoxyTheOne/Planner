@@ -152,6 +152,7 @@
     <string name="cd_edit_list">Изменить список</string>
     <string name="cd_choose_list">Выбрать список</string>
     <string name="cd_clear_search">Очистить поиск</string>
+    <string name="habit_open">Настроить привычку</string>
     <!-- Повторения -->
     <string name="repeat_title">Повторять</string>
     <string name="repeat_none">Не повторять</string>

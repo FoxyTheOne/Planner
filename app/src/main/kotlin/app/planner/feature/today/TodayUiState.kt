@@ -5,6 +5,7 @@ import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.overdue.OverdueGroup
+import app.planner.core.domain.recurrence.HabitDay
 import java.time.LocalDate
 
 /*
@@ -32,6 +33,11 @@ data class TodayUiState(
     val lists: List<TaskList> = emptyList(),
     /** Повторения, которые сегодня на паузе: их не видно в разделах, но открыть, чтобы продолжить, нужно. */
     val paused: List<RecurrenceRule> = emptyList(),
+    /**
+     * Привычки на сегодня — «таблетки» над планом. В разделы утро/день/вечер они не попадают
+     * и в счёт «2 из 5» не входят: это не дела, которые надо «закрыть», а то, что хочется делать.
+     */
+    val habits: List<HabitDay> = emptyList(),
 ) {
     val overdueCount: Int get() = overdue.values.sumOf { it.size }
     val isEmpty: Boolean get() = sections.values.all { it.isEmpty() }
