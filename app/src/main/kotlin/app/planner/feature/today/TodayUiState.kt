@@ -6,6 +6,7 @@ import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.overdue.OverdueGroup
 import app.planner.core.domain.recurrence.HabitDay
+import app.planner.core.domain.recurrence.HabitHistory
 import java.time.LocalDate
 
 /*
@@ -38,6 +39,8 @@ data class TodayUiState(
      * и в счёт «2 из 5» не входят: это не дела, которые надо «закрыть», а то, что хочется делать.
      */
     val habits: List<HabitDay> = emptyList(),
+    /** Мягкая статистика каждой привычки (по id правила): показывается в редакторе привычки. */
+    val habitHistory: Map<Long, HabitHistory> = emptyMap(),
 ) {
     val overdueCount: Int get() = overdue.values.sumOf { it.size }
     val isEmpty: Boolean get() = sections.values.all { it.isEmpty() }

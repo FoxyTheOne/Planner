@@ -63,6 +63,7 @@ import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
+import app.planner.core.domain.recurrence.HabitHistory
 import java.time.LocalDate
 
 /**
@@ -80,7 +81,8 @@ import java.time.LocalDate
  * id правила), а в [initialRepeat] — как часто оно повторяется.
  *
  * У повторения есть ещё переключатель «Привычка»: тогда оно будет «таблеткой» над планом дня,
- * а не строкой (см. RecurrenceRule.isHabit). Для правки привычки [initialHabit] = true.
+ * а не строкой (см. RecurrenceRule.isHabit). Для правки привычки [initialHabit] = true,
+ * а под переключателем — её мягкая статистика за 30 дней ([habitHistory], если её передали).
  *
  * @param onSave получает всё, что ввели, одним объектом [EditorResult].
  */
@@ -99,6 +101,7 @@ fun TaskEditorSheet(
     onResume: (() -> Unit)? = null,
     rulePauses: List<Pause> = emptyList(),
     initialHabit: Boolean = false,
+    habitHistory: HabitHistory? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -116,6 +119,7 @@ fun TaskEditorSheet(
             onResume = onResume,
             rulePauses = rulePauses,
             initialHabit = initialHabit,
+            habitHistory = habitHistory,
         )
     }
 }
@@ -133,6 +137,8 @@ fun TaskEditorSheet(
  *
  * @param onPause и [onResume] получают id правила. Кнопки паузы показываются только у правила
  *   (черновик правила, см. Task.isRuleDraft): у обычной задачи и у дня повторения паузы нет.
+ * @param habitHistory статистика, если открыта привычка. Её считает ViewModel экрана, а не шторка:
+ *   нужны отметки из базы, а шторка с базой не работает.
  */
 @Composable
 fun TaskEditorSheet(
@@ -144,6 +150,7 @@ fun TaskEditorSheet(
     onDelete: (Task) -> Unit,
     onPause: (ruleId: Long, until: LocalDate?) -> Unit,
     onResume: (ruleId: Long) -> Unit,
+    habitHistory: HabitHistory? = null,
 ) {
     // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
     val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
@@ -161,6 +168,7 @@ fun TaskEditorSheet(
         onResume = ruleId?.let { id -> { onResume(id); onDismiss() } },
         rulePauses = target.pauses,
         initialHabit = target.isHabit,
+        habitHistory = habitHistory,
     )
 }
 
@@ -183,6 +191,7 @@ fun TaskEditorSheetBody(
     onResume: (() -> Unit)? = null,
     rulePauses: List<Pause> = emptyList(),
     initialHabit: Boolean = false,
+    habitHistory: HabitHistory? = null,
 ) {
     // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
     val isNew = initial.id == 0L && !initial.isRuleDraft
@@ -385,6 +394,16 @@ fun TaskEditorSheetBody(
             // Привычка — только у повторения: у разовой задачи «таблетки» не бывает
             if (repeat != null) {
                 HabitSwitchRow(checked = isHabit, onCheckedChange = { isHabit = it })
+                // Статистика есть только у уже сохранённой привычки; выключили переключатель — прячем
+                if (isHabit && habitHistory != null) {
+                    HabitHistoryView(
+                        habitHistory,
+                        Modifier.padding(
+                            start = 36.dp,
+                            bottom = 8.dp
+                        ), // под текстом, а не под значком
+                    )
+                }
             }
         }
         // --- Пауза: только у уже сохранённого повторения (onPause передают, когда открыто правило) ---

@@ -2,8 +2,8 @@ package app.planner.feature.today
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.planner.common.EditorResult
 import app.planner.common.DayItem
+import app.planner.common.EditorResult
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.common.dayItems
@@ -16,6 +16,7 @@ import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.overdue.Overdue
 import app.planner.core.domain.recurrence.HabitDay
+import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.repository.IRecurrenceRepository
@@ -47,16 +48,21 @@ import javax.inject.Inject
  * Повторения для «Сегодня»: ещё не отмеченные дни сегодня и завтра (завтрашние — для превью
  * «Завтра: …»), привычки на сегодня и правила, которые сейчас на паузе.
  *
- * @param habitIds id правил-привычек: их отмеченные дни приходят вместе с задачами,
- *   и по этим id мы убираем их из разделов (они уже показаны «таблетками»).
+ * @param habitHistory статистика каждой привычки по id правила — и тех, что сегодня на паузе.
  */
 private data class RepeatsOfDay(
     val occurrences: List<Occurrence>,
     val tomorrow: List<Occurrence>,
     val habits: List<HabitDay>,
-    val habitIds: Set<Long>,
+    val habitHistory: Map<Long, HabitHistory>,
     val paused: List<RecurrenceRule>,
-)
+) {
+    /**
+     * id правил-привычек: их отмеченные дни приходят вместе с задачами, и по этим id
+     * мы убираем их из разделов (они уже показаны «таблетками»). Ключи словаря — это и есть все привычки.
+     */
+    val habitIds: Set<Long> get() = habitHistory.keys
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -111,7 +117,12 @@ class TodayViewModel @Inject constructor(
             // Повторения на сегодня (тоже combine): какие дни ещё не отмечены и какие правила на паузе
             combine(
                 recurrenceRepository.observeRules(),
-                tasks.observeOccurrenceTasks(today, today.plusDays(1))
+                // С запасом на 30 дней назад — для статистики привычек. Для сегодня и завтра лишние
+                // дни не мешают: occurrencesOn и habitsOn сами берут отметки только своего дня
+                tasks.observeOccurrenceTasks(
+                    today.minusDays(HabitHistory.DAYS - 1L),
+                    today.plusDays(1)
+                )
             ) { rules, done ->
                 // partition делит список на два: (подходит, не подходит) — привычки отдельно от дел
                 val (habits, plans) = rules.partition { it.isHabit }
@@ -119,7 +130,8 @@ class TodayViewModel @Inject constructor(
                     occurrences = Recurrence.occurrencesOn(plans, today, instances = done),
                     tomorrow = Recurrence.occurrencesOn(plans, today.plusDays(1), instances = done),
                     habits = Recurrence.habitsOn(habits, today, instances = done),
-                    habitIds = habits.map { it.id }.toSet(),
+                    // associate — список → словарь: каждому правилу (по id) его история
+                    habitHistory = habits.associate { it.id to HabitHistory.of(it, done, today) },
                     paused = rules.filter { Recurrence.activePause(it, today) != null },
                 )
             },
@@ -176,6 +188,7 @@ class TodayViewModel @Inject constructor(
             lists = lists,
             paused = repeats.paused,
             habits = repeats.habits,
+            habitHistory = repeats.habitHistory,
         )
     }
 

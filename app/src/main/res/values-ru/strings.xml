@@ -155,6 +155,19 @@
     <string name="habit_open">Настроить привычку</string>
     <string name="habit_switch">Привычка</string>
     <string name="habit_switch_hint">Кнопкой над планом дня, без переносов</string>
+    <plurals name="habit_stats_month">
+        <item quantity="one">За 30 дней — %d раз</item>
+        <item quantity="few">За 30 дней — %d раза</item>
+        <item quantity="many">За 30 дней — %d раз</item>
+        <item quantity="other">За 30 дней — %d раза</item>
+    </plurals>
+    <plurals name="habit_stats_since">
+        <item quantity="one">С %1$s — %2$d раз</item>
+        <item quantity="few">С %1$s — %2$d раза</item>
+        <item quantity="many">С %1$s — %2$d раз</item>
+        <item quantity="other">С %1$s — %2$d раза</item>
+    </plurals>
+    <string name="habit_stats_none">Отметок пока нет</string>
     <!-- Повторения -->
     <string name="repeat_title">Повторять</string>
     <string name="repeat_none">Не повторять</string>

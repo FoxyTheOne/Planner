@@ -156,6 +156,19 @@
     <string name="habit_open">Наладзіць звычку</string>
     <string name="habit_switch">Звычка</string>
     <string name="habit_switch_hint">Кнопкай над планам дня, без пераносаў</string>
+    <plurals name="habit_stats_month">
+        <item quantity="one">За 30 дзён — %d раз</item>
+        <item quantity="few">За 30 дзён — %d разы</item>
+        <item quantity="many">За 30 дзён — %d разоў</item>
+        <item quantity="other">За 30 дзён — %d разу</item>
+    </plurals>
+    <plurals name="habit_stats_since">
+        <item quantity="one">З %1$s — %2$d раз</item>
+        <item quantity="few">З %1$s — %2$d разы</item>
+        <item quantity="many">З %1$s — %2$d разоў</item>
+        <item quantity="other">З %1$s — %2$d разу</item>
+    </plurals>
+    <string name="habit_stats_none">Адзнак пакуль няма</string>
     <!-- Паўтарэнні -->
     <string name="repeat_title">Паўтараць</string>
     <string name="repeat_none">Не паўтараць</string>

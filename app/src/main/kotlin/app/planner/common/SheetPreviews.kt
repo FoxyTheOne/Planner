@@ -13,6 +13,7 @@ import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.overdue.OverdueGroup
+import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.feature.today.OverdueSheetBody
 import app.planner.preview.SampleData
@@ -26,9 +27,11 @@ import app.planner.preview.SampleData
 @Composable
 private fun SheetSurface(content: @Composable () -> Unit) {
     PlannerTheme {
-        Box(Modifier
-            .background(PlannerTheme.paper.highlight)
-            .padding(top = 16.dp)) { content() }
+        Box(
+            Modifier
+                .background(PlannerTheme.paper.highlight)
+                .padding(top = 16.dp)
+        ) { content() }
     }
 }
 
@@ -80,6 +83,34 @@ private fun TaskEditorRepeatPreview() = SheetSurface {
         onSave = {},
         onDelete = {},
         initialRepeat = SampleData.poolRule.repeat,
+    )
+}
+
+/**
+ * Привычка «Вода», открытая долгим нажатием: переключатель включён, под ним статистика.
+ * Отмечена через день, а неделю назад была пауза — в полоске видна «дырка».
+ */
+@PlannerPreviews
+@Composable
+private fun TaskEditorHabitPreview() = SheetSurface {
+    val water = SampleData.habitRules[0]
+    val today = SampleData.today
+    val history = HabitHistory.of(water, emptyList(), today).let { full ->
+        val paused = (7L..11L).map { today.minusDays(it) }.toSet()
+        full.copy(
+            planned = full.planned - paused, // минус для множества — «все, кроме этих»
+            done = full.days.filterIndexed { i, day -> i % 2 == 0 && day !in paused }.toSet(),
+        )
+    }
+    TaskEditorSheetBody(
+        initial = Recurrence.draftFromRule(water),
+        lists = SampleData.lists,
+        today = today,
+        onSave = {},
+        onDelete = {},
+        initialRepeat = water.repeat,
+        initialHabit = true,
+        habitHistory = history,
     )
 }
 

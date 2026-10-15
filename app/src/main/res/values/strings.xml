@@ -163,6 +163,16 @@
     <string name="habit_open">Edit habit</string>
     <string name="habit_switch">Habit</string>
     <string name="habit_switch_hint">A button above the day plan, never carried over</string>
+    <!-- 30 — HabitHistory.DAYS: поменяется период — поменять и здесь -->
+    <plurals name="habit_stats_month">
+        <item quantity="one">Last 30 days: %d time</item>
+        <item quantity="other">Last 30 days: %d times</item>
+    </plurals>
+    <plurals name="habit_stats_since">
+        <item quantity="one">Since %1$s: %2$d time</item>
+        <item quantity="other">Since %1$s: %2$d times</item>
+    </plurals>
+    <string name="habit_stats_none">No check-ins yet</string>
     <!-- Повторения -->
     <string name="repeat_title">Repeat</string>
     <string name="repeat_none">Don\'t repeat</string>

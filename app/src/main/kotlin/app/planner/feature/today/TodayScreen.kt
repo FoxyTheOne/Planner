@@ -121,6 +121,8 @@ fun TodayScreen(
             onDelete = viewModel::delete,
             onPause = viewModel::pauseRule,
             onResume = viewModel::resumeRule,
+            // Открыли привычку — её статистика (у задач и правил-дел её нет: null)
+            habitHistory = target.task.ruleId?.let { state.habitHistory[it] },
         )
     }
     scheduling?.let { task ->
