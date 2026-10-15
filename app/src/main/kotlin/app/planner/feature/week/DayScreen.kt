@@ -94,25 +94,15 @@ fun DayScreen(
         )
     }
     editing?.let { target ->
-        // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
-        val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
         TaskEditorSheet(
-            initial = target.task,
+            target = target,
             lists = state.lists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { viewModel.save(it); editing = null },
-            onDelete = { viewModel.delete(it); editing = null },
-            initialRepeat = target.repeat,
-            pause = target.pause,
-            onPause = ruleId?.let { id ->
-                { until ->
-                    viewModel.pauseRule(id, until); editing = null
-                }
-            },
-            onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
-            rulePauses = target.pauses,
-            initialHabit = target.isHabit,
+            onSave = viewModel::save,
+            onDelete = viewModel::delete,
+            onPause = viewModel::pauseRule,
+            onResume = viewModel::resumeRule,
         )
     }
 }

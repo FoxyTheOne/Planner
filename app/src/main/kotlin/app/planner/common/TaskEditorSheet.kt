@@ -35,9 +35,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -118,6 +118,50 @@ fun TaskEditorSheet(
             initialHabit = initialHabit,
         )
     }
+}
+
+/**
+ * Редактор для того, что открыто на экране ([EditorTarget]): задачи или правила повторения.
+ *
+ * Это ПЕРЕГРУЗКА — вторая функция с тем же именем, но другими параметрами. Kotlin выбирает
+ * нужную по тому, что передали: `target = …` — эту, `initial = …` — основную выше.
+ * Сама она ничего не рисует: раскладывает [target] по параметрам основной функции.
+ * Раньше это делал каждый экран (Сегодня, Неделя, День) — три одинаковых куска по 20 строк.
+ *
+ * Ещё она сама закрывает шторку после любого действия (сохранить, удалить, пауза):
+ * экранам больше не нужно писать `{ viewModel.save(it); editing = null }` — хватает `viewModel::save`.
+ *
+ * @param onPause и [onResume] получают id правила. Кнопки паузы показываются только у правила
+ *   (черновик правила, см. Task.isRuleDraft): у обычной задачи и у дня повторения паузы нет.
+ */
+@Composable
+fun TaskEditorSheet(
+    target: EditorTarget,
+    lists: List<TaskList>,
+    today: LocalDate,
+    onDismiss: () -> Unit,
+    onSave: (EditorResult) -> Unit,
+    onDelete: (Task) -> Unit,
+    onPause: (ruleId: Long, until: LocalDate?) -> Unit,
+    onResume: (ruleId: Long) -> Unit,
+) {
+    // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
+    val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
+    TaskEditorSheet(
+        initial = target.task,
+        lists = lists,
+        today = today,
+        onDismiss = onDismiss,
+        onSave = { onSave(it); onDismiss() },
+        onDelete = { onDelete(it); onDismiss() },
+        initialRepeat = target.repeat,
+        pause = target.pause,
+        // ?.let: нет правила (ruleId == null) — нет и обработчика (null), и строки паузы не будет
+        onPause = ruleId?.let { id -> { until -> onPause(id, until); onDismiss() } },
+        onResume = ruleId?.let { id -> { onResume(id); onDismiss() } },
+        rulePauses = target.pauses,
+        initialHabit = target.isHabit,
+    )
 }
 
 /**
