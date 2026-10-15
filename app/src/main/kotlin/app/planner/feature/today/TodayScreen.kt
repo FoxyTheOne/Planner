@@ -119,9 +119,7 @@ fun TodayScreen(
             lists = state.lists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { task, newList, repeat ->
-                viewModel.save(task, newList, repeat); editing = null
-            },
+            onSave = { viewModel.save(it); editing = null },
             onDelete = { viewModel.delete(it); editing = null },
             initialRepeat = target.repeat,
             pause = target.pause,
@@ -132,6 +130,7 @@ fun TodayScreen(
             },
             onResume = ruleId?.let { id -> { viewModel.resumeRule(id); editing = null } },
             rulePauses = target.pauses,
+            initialHabit = target.isHabit,
         )
     }
     scheduling?.let { task ->

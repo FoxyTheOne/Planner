@@ -161,6 +161,8 @@
     <string name="cd_choose_list">Choose a list</string>
     <string name="cd_clear_search">Clear search</string>
     <string name="habit_open">Edit habit</string>
+    <string name="habit_switch">Habit</string>
+    <string name="habit_switch_hint">A button above the day plan, never carried over</string>
     <!-- Повторения -->
     <string name="repeat_title">Repeat</string>
     <string name="repeat_none">Don\'t repeat</string>

@@ -51,7 +51,7 @@ private fun TaskEditorNewPreview() = SheetSurface {
         initial = Task(title = "", listId = SampleData.books.id),
         lists = SampleData.lists,
         today = SampleData.today,
-        onSave = { _, _, _ -> },
+        onSave = {},
         onDelete = null,
     )
 }
@@ -64,7 +64,7 @@ private fun TaskEditorExistingPreview() = SheetSurface {
         initial = SampleData.documents.copy(note = "Паспорт, страховка, квитанции"),
         lists = SampleData.lists,
         today = SampleData.today,
-        onSave = { _, _, _ -> },
+        onSave = {},
         onDelete = {},
     )
 }
@@ -77,7 +77,7 @@ private fun TaskEditorRepeatPreview() = SheetSurface {
         initial = Recurrence.draftFromRule(SampleData.poolRule),
         lists = SampleData.lists,
         today = SampleData.today,
-        onSave = { _, _, _ -> },
+        onSave = {},
         onDelete = {},
         initialRepeat = SampleData.poolRule.repeat,
     )

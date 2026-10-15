@@ -169,6 +169,17 @@ class RecurrenceTest {
     }
 
     @Test
+    fun `habit switch in the editor decides`() {
+        val draft = Task(title = "Зарядка")
+        // Новое правило с включённым «Привычка»
+        val habit = Recurrence.ruleFromDraft(draft, Repeat.Daily, today = monday, isHabit = true)
+        assertTrue(habit.isHabit)
+        // Переключатель выключили при правке — снова обычное дело
+        val plain = Recurrence.ruleFromDraft(draft, Repeat.Daily, today = monday, existing = habit, isHabit = false)
+        assertFalse(plain.isHabit)
+    }
+
+    @Test
     fun `draft without date starts the rule today`() {
         val rule = Recurrence.ruleFromDraft(Task(title = "Таблетки"), Repeat.Daily, today = monday)
         assertEquals(monday, rule.startDate)

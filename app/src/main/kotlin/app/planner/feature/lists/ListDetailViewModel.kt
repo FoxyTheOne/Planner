@@ -3,12 +3,12 @@ package app.planner.feature.lists
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.planner.common.EditorResult
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.core.domain.list.IInboxNames
 import app.planner.core.domain.list.ListNameProblem
 import app.planner.core.domain.list.nameProblem
-import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -62,12 +62,16 @@ class ListDetailViewModel @Inject constructor(
             allLists = lists,
             loaded = true,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ListDetailUiState(todayClock.today()))
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        ListDetailUiState(todayClock.today())
+    )
 
     fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
     fun schedule(task: Task, slot: Slot) = viewModelScope.launch { commands.schedule(task, slot) }
-    fun saveTask(task: Task, newListName: String?, repeat: Repeat? = null) = viewModelScope.launch { commands.save(task, newListName, repeat) }
+    fun saveTask(result: EditorResult) = viewModelScope.launch { commands.save(result) }
     fun saveList(list: TaskList) = viewModelScope.launch { listRepository.upsert(list) }
 
     /** Удалить этот список. Задачи остаются «Без списка»; последний открытый список забываем. */

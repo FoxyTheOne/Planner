@@ -2,6 +2,7 @@ package app.planner.feature.today
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.planner.common.EditorResult
 import app.planner.common.DayItem
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
@@ -9,7 +10,6 @@ import app.planner.common.dayItems
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.RecurrenceRule
-import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -226,9 +226,8 @@ class TodayViewModel @Inject constructor(
     fun returnToList(task: Task) = viewModelScope.launch { commands.returnToList(task) }
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
 
-    /** Сохранить из редактора; [newListName] — если там же придумали новый список. */
-    fun save(task: Task, newListName: String?, repeat: Repeat? = null) =
-        viewModelScope.launch { commands.save(task, newListName, repeat) }
+    /** Сохранить то, что ввели в редакторе (задачу или повторение), — см. TaskCommands.save. */
+    fun save(result: EditorResult) = viewModelScope.launch { commands.save(result) }
 
     fun allOverdueToToday() = viewModelScope.launch {
         val today = state.value.today

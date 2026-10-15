@@ -153,6 +153,8 @@
     <string name="cd_choose_list">Выбрать список</string>
     <string name="cd_clear_search">Очистить поиск</string>
     <string name="habit_open">Настроить привычку</string>
+    <string name="habit_switch">Привычка</string>
+    <string name="habit_switch_hint">Кнопкой над планом дня, без переносов</string>
     <!-- Повторения -->
     <string name="repeat_title">Повторять</string>
     <string name="repeat_none">Не повторять</string>

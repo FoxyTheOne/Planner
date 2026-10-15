@@ -154,6 +154,8 @@
     <string name="cd_choose_list">Выбраць спіс</string>
     <string name="cd_clear_search">Ачысціць пошук</string>
     <string name="habit_open">Наладзіць звычку</string>
+    <string name="habit_switch">Звычка</string>
+    <string name="habit_switch_hint">Кнопкай над планам дня, без пераносаў</string>
     <!-- Паўтарэнні -->
     <string name="repeat_title">Паўтараць</string>
     <string name="repeat_none">Не паўтараць</string>

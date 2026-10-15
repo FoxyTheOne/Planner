@@ -88,7 +88,7 @@ fun ListDetailScreen(
             lists = state.allLists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { t, newList, repeat -> viewModel.saveTask(t, newList, repeat); editing = null },
+            onSave = { viewModel.saveTask(it); editing = null },
             onDelete = { viewModel.delete(it); editing = null },
         )
     }
@@ -128,9 +128,11 @@ fun ListDetailContent(
 ) {
     val paper = PlannerTheme.paper
     val list = state.list
-    Box(Modifier
-        .fillMaxSize()
-        .padding(contentPadding)) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
         Column {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

@@ -135,13 +135,17 @@ object Recurrence {
      * название, список, дату и время. Здесь из него получается правило:
      * - дата черновика — с какого дня правило начинается (не выбрали — с [today]);
      * - время или часть дня — каждого повторения;
-     * - [existing] — если правило уже было (его редактируют): сохраняем его id и паузы.
+     * - [existing] — если правило уже было (его редактируют): сохраняем его id и паузы;
+     * - [isHabit] — привычка или дело. У задачи-черновика такого поля нет, поэтому оно передаётся
+     *   отдельно. Не передали — остаётся как было у правила (новое правило — дело).
      */
     fun ruleFromDraft(
         draft: Task,
         repeat: Repeat,
         today: LocalDate,
         existing: RecurrenceRule? = null,
+        // Значение по умолчанию может опираться на параметры левее: existing уже известен
+        isHabit: Boolean = existing?.isHabit ?: false,
     ): RecurrenceRule = RecurrenceRule(
         id = existing?.id ?: 0,
         title = draft.title,
@@ -152,8 +156,7 @@ object Recurrence {
         time = draft.time,
         partOfDay = draft.partOfDay,
         listId = draft.listId,
-        // У задачи-черновика такого поля нет — берём из правила, иначе правка превратит привычку в дело
-        isHabit = existing?.isHabit ?: false,
+        isHabit = isHabit,
     )
 
     /**

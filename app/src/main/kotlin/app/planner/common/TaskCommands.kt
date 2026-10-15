@@ -1,7 +1,6 @@
 package app.planner.common
 
 import app.planner.R
-import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
@@ -75,12 +74,13 @@ class TaskCommands @Inject constructor(
     suspend fun create(task: Task): Long = tasks.addOrUpdate(task)
 
     /**
-     * Сохранить из редактора. Если в редакторе придумали новый список ([newListName]),
+     * Сохранить из редактора. Если в редакторе придумали новый список (newListName),
      * сначала создаём список (следующим цветом палитры), потом кладём в него задачу или повторение.
      * Возвращает id списка.
      *
      * Редактор один для задач и повторений, поэтому вариантов три:
-     * - выбрано повторение ([repeat]) — сохраняем ПРАВИЛО (новое или правку старого), а не задачу;
+     * - выбрано повторение (repeat) — сохраняем ПРАВИЛО (новое или правку старого), а не задачу.
+     *   Привычка это или дело — тоже из редактора (isHabit);
      * - открыли повторение, а выбрали «Не повторять» — правило удаляем, остаётся одна обычная задача;
      * - обычная задача — как раньше.
      *
@@ -88,7 +88,9 @@ class TaskCommands @Inject constructor(
      * задачи нет, это правило, открытое в редакторе. Отмеченный день повторения — другое: у него
      * есть и id, и ruleId, и правится он как обычная задача.
      */
-    suspend fun save(task: Task, newListName: String?, repeat: Repeat? = null): Long? {
+    suspend fun save(result: EditorResult): Long? {
+        // Разложить объект на переменные: дальше код читается так же, как с отдельными параметрами
+        val (task, newListName, repeat, isHabit) = result
         // Правило «какой цвет и где встаёт новый список» — в CreateListUseCase (domain)
         val listId = if (newListName.isNullOrBlank()) task.listId else createList(newListName)
         val saved = task.copy(listId = listId)
@@ -96,7 +98,8 @@ class TaskCommands @Inject constructor(
         when {
             repeat != null -> {
                 val existing = ruleDraftId?.let { rules.getRule(it) }
-                val rule = Recurrence.ruleFromDraft(saved, repeat, todayClock.today(), existing)
+                val rule =
+                    Recurrence.ruleFromDraft(saved, repeat, todayClock.today(), existing, isHabit)
                 rules.save(rule)
                 // Правило поменяли — его перенесённые, ещё не сделанные дни получают новое название и список
                 // (дата и время остаются: это перенос). Сделанные дни не трогаем — это история

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Repeat
+import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -35,6 +37,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,6 +52,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
@@ -75,8 +79,10 @@ import java.time.LocalDate
  * уже существующего повторения: тогда в [initial] черновик из правила (у него id = 0, а ruleId —
  * id правила), а в [initialRepeat] — как часто оно повторяется.
  *
- * @param onSave получает задачу (черновик), название нового списка, если его решили создать
- *   (иначе null), и повторение (null — «не повторять»).
+ * У повторения есть ещё переключатель «Привычка»: тогда оно будет «таблеткой» над планом дня,
+ * а не строкой (см. RecurrenceRule.isHabit). Для правки привычки [initialHabit] = true.
+ *
+ * @param onSave получает всё, что ввели, одним объектом [EditorResult].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,13 +91,14 @@ fun TaskEditorSheet(
     lists: List<TaskList>,
     today: LocalDate,
     onDismiss: () -> Unit,
-    onSave: (task: Task, newListName: String?, repeat: Repeat?) -> Unit,
+    onSave: (EditorResult) -> Unit,
     onDelete: ((Task) -> Unit)? = null,
     initialRepeat: Repeat? = null,
     pause: Pause? = null,
     onPause: ((until: LocalDate?) -> Unit)? = null,
     onResume: (() -> Unit)? = null,
     rulePauses: List<Pause> = emptyList(),
+    initialHabit: Boolean = false,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -108,6 +115,7 @@ fun TaskEditorSheet(
             onPause = onPause,
             onResume = onResume,
             rulePauses = rulePauses,
+            initialHabit = initialHabit,
         )
     }
 }
@@ -123,13 +131,14 @@ fun TaskEditorSheetBody(
     initial: Task,
     lists: List<TaskList>,
     today: LocalDate,
-    onSave: (task: Task, newListName: String?, repeat: Repeat?) -> Unit,
+    onSave: (EditorResult) -> Unit,
     onDelete: ((Task) -> Unit)? = null,
     initialRepeat: Repeat? = null,
     pause: Pause? = null,
     onPause: ((until: LocalDate?) -> Unit)? = null,
     onResume: (() -> Unit)? = null,
     rulePauses: List<Pause> = emptyList(),
+    initialHabit: Boolean = false,
 ) {
     // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
     val isNew = initial.id == 0L && !initial.isRuleDraft
@@ -158,6 +167,7 @@ fun TaskEditorSheetBody(
     var showSchedule by rememberSaveable { mutableStateOf(false) }
     var repeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf(initialRepeat) }
     var showRepeat by rememberSaveable { mutableStateOf(false) }
+    var isHabit by rememberSaveable { mutableStateOf(initialHabit) }
     var showPause by rememberSaveable { mutableStateOf(false) }
     // FocusRequester — «пульт» для поля ввода: позволяет из кода поставить в него курсор.
     // Его сохранять не нужно (и нельзя): после поворота поле создаётся заново, и пульт — тоже
@@ -172,16 +182,20 @@ fun TaskEditorSheetBody(
     fun save() {
         if (!canSave) return
         onSave(
-            initial.copy(
-                title = title.trim(),
-                note = note.trim(),
-                listId = if (newListName != null) null else listId,
-                date = slot?.date,
-                partOfDay = slot?.partOfDay,
-                time = slot?.time,
+            EditorResult(
+                task = initial.copy(
+                    title = title.trim(),
+                    note = note.trim(),
+                    listId = if (newListName != null) null else listId,
+                    date = slot?.date,
+                    partOfDay = slot?.partOfDay,
+                    time = slot?.time,
+                ),
+                newListName = newListName?.trim(),
+                repeat = repeat,
+                // Переключатель мог остаться включённым, а повторение потом убрали ✕ — тогда это просто задача
+                isHabit = isHabit && repeat != null,
             ),
-            newListName?.trim(),
-            repeat,
         )
     }
 
@@ -324,6 +338,10 @@ fun TaskEditorSheetBody(
                 onClear = { repeat = null },
                 clearDescription = stringResource(R.string.cd_clear_repeat),
             )
+            // Привычка — только у повторения: у разовой задачи «таблетки» не бывает
+            if (repeat != null) {
+                HabitSwitchRow(checked = isHabit, onCheckedChange = { isHabit = it })
+            }
         }
         // --- Пауза: только у уже сохранённого повторения (onPause передают, когда открыто правило) ---
         if (onPause != null) {
@@ -451,6 +469,41 @@ private fun PausedRow(pause: Pause, onResume: () -> Unit) {
                 .weight(1f),
         )
         TextButton(onClick = onResume) { Text(stringResource(R.string.resume)) }
+    }
+}
+
+/**
+ * «Привычка — кнопкой над планом дня» и переключатель справа.
+ *
+ * `Modifier.toggleable` вешается на ВСЮ строку: нажать можно и на текст, не только на сам
+ * маленький переключатель. Поэтому у Switch `onCheckedChange = null` — он только показывает
+ * состояние, а нажатие ловит строка. Так и TalkBack прочитает строку одним целым:
+ * «Привычка, …, переключатель, выключен», а не текст и переключатель по отдельности.
+ */
+@Composable
+private fun HabitSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val paper = PlannerTheme.paper
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+    ) {
+        Icon(Icons.Outlined.SelfImprovement, null, tint = paper.inkMuted)
+        Column(
+            Modifier
+                .padding(start = 12.dp)
+                .weight(1f)
+        ) {
+            Text(stringResource(R.string.habit_switch), style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.habit_switch_hint),
+                color = paper.inkMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
