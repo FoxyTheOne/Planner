@@ -31,6 +31,12 @@ interface ITaskRepository {
     /** Удалить все дни правила [ruleId], ставшие задачами (отметки привычки, когда её удаляют). */
     suspend fun deleteOccurrenceTasks(ruleId: Long)
 
+    /** Шаги одной цели — все: сделанные, открытые, запланированные. Порядок — см. orderedSteps. */
+    fun observeGoalSteps(goalId: Long): Flow<List<Task>>
+
+    /** Шаги всех целей — для карточек на экране «Цели» (прогресс и следующий шаг). */
+    fun observeAllGoalSteps(): Flow<List<Task>>
+
     /** Хвосты: открытые задачи с датой раньше [today]. Дни повторений хвостами не бывают. */
     fun observeOverdue(today: LocalDate): Flow<List<Task>>
 

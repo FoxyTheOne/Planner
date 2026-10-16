@@ -53,6 +53,13 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE ruleId = :ruleId")
     suspend fun deleteOfRule(ruleId: Long)
 
+    // Шаги целей. Порядок для экрана считает orderedSteps (domain): там учитываются этапы
+    @Query("SELECT * FROM tasks WHERE goalId = :goalId ORDER BY createdAt")
+    fun observeByGoal(goalId: Long): Flow<List<TaskEntity>>
+
+    @Query("SELECT * FROM tasks WHERE goalId IS NOT NULL ORDER BY createdAt")
+    fun observeGoalSteps(): Flow<List<TaskEntity>>
+
     // Задачи одного списка: сначала то, что ещё ждёт своего часа, запланированные — внизу, по дате
     // Дни повторений (ruleId) в списках не показываем: это не дела «когда-нибудь», а дни правила
     @Query("SELECT * FROM tasks WHERE listId = :listId AND status = 'OPEN' AND ruleId IS NULL ORDER BY date IS NOT NULL, date, createdAt")
@@ -191,6 +198,9 @@ interface GoalDao {
 
     @Query("SELECT * FROM goal_stages WHERE goalId = :goalId ORDER BY position, id")
     fun observeStages(goalId: Long): Flow<List<GoalStageEntity>>
+
+    @Query("SELECT * FROM goal_stages ORDER BY goalId, position, id")
+    fun observeAllStages(): Flow<List<GoalStageEntity>>
 
     @Upsert
     suspend fun upsertStage(stage: GoalStageEntity): Long

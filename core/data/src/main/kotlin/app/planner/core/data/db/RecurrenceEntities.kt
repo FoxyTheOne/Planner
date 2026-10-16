@@ -94,7 +94,7 @@ private const val TYPE_WEEKDAYS = "WEEKDAYS"
 private const val TYPE_EVERY_N_DAYS = "EVERY_N_DAYS"
 private const val TYPE_CYCLE = "CYCLE"
 
-/** Как пауза лежит внутри JSON. Отдельная модель уровня presentation, чтобы модель уровня domain не зависела от формата хранения. */
+/** Как пауза лежит внутри JSON. Отдельная модель уровня data, чтобы модель уровня domain не зависела от формата хранения. */
 @Serializable
 private data class PauseJson(val from: Long, val until: Long? = null)
 
