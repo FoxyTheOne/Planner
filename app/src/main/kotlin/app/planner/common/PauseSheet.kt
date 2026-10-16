@@ -5,14 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,9 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.planner.R
 import app.planner.core.designsystem.theme.PlannerTheme
-import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
 
 /**
  * Шторка «Пауза»: на сколько поставить повторение на паузу.
@@ -42,7 +36,10 @@ fun PauseSheet(
     onDismiss: () -> Unit,
     onPause: (until: LocalDate?) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
         PauseSheetBody(today = today, onPause = onPause)
     }
 }
@@ -72,28 +69,25 @@ fun PauseSheetBody(
         )
         PauseOption(stringResource(R.string.pause_week)) { onPause(today.plusDays(6)) }
         PauseOption(stringResource(R.string.pause_two_weeks)) { onPause(today.plusDays(13)) }
-        PauseOption(stringResource(R.string.pause_month)) { onPause(today.plusMonths(1).minusDays(1)) }
+        PauseOption(stringResource(R.string.pause_month)) {
+            onPause(
+                today.plusMonths(1).minusDays(1)
+            )
+        }
         PauseOption(stringResource(R.string.pause_until_date)) { pickDate = true }
         PauseOption(stringResource(R.string.pause_open_ended)) { onPause(null) }
     }
 
     if (pickDate) {
-        // DatePicker работает в миллисекундах UTC — переводим туда и обратно, как в ScheduleSheet
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = today.plusDays(6).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),
-        )
-        DatePickerDialog(
-            onDismissRequest = { pickDate = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    val picked = state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-                    pickDate = false
-                    // Дата в прошлом — пауза хотя бы на сегодня, а не «закончилась раньше, чем началась»
-                    if (picked != null) onPause(maxOf(picked, today))
-                }) { Text(stringResource(R.string.action_ok)) }
+        PlannerDatePickerDialog(
+            initial = today.plusDays(6),
+            onPick = { picked ->
+                pickDate = false
+                // Дата в прошлом — пауза хотя бы на сегодня, а не «закончилась раньше, чем началась»
+                onPause(maxOf(picked, today))
             },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text(stringResource(R.string.action_cancel)) } },
-        ) { DatePicker(state = state) }
+            onDismiss = { pickDate = false },
+        )
     }
 }
 

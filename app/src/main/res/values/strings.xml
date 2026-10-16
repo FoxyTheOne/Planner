@@ -143,7 +143,6 @@
     <string name="backup_drive_soon">Google Drive backup is coming in a later update.</string>
 
     <!-- Скоро -->
-    <string name="coming_soon_goals">Big goals broken into steps are coming in the next update.</string>
     <string name="coming_soon_diary">A gentle daily diary is coming in a later update.</string>
 
     <!-- Описания для TalkBack -->
@@ -219,4 +218,30 @@
     <string name="section_paused">paused</string>
     <string name="msg_paused">Repeat paused</string>
     <string name="msg_resumed">Repeat resumed</string>
+    <!-- Цели -->
+    <string name="goals_empty">A big goal is a lot of small steps. Write the goal down — you can add the steps later.</string>
+    <string name="action_new_goal">Goal</string>
+    <string name="goal_new">New goal</string>
+    <string name="goal_edit">Goal</string>
+    <string name="goal_title_hint">What would you like to achieve?</string>
+    <string name="goal_why_hint">Why? Reread it when the spark fades</string>
+    <string name="goal_deadline_add">Add a deadline</string>
+    <string name="goal_deadline_until">Until %1$s</string>
+    <string name="cd_clear_deadline">Remove deadline</string>
+    <string name="goal_progress">%1$d of %2$d</string>
+    <string name="goal_no_steps">Add the first step</string>
+    <string name="goal_all_steps_done">All steps are done</string>
+    <string name="deadline_ahead">until %1$s · %2$s</string>
+    <string name="deadline_today">today</string>
+    <plurals name="deadline_days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
+    <plurals name="deadline_months_left">
+        <item quantity="one">%d month left</item>
+        <item quantity="other">%d months left</item>
+    </plurals>
+    <string name="deadline_passed">deadline was %1$s</string>
+    <string name="section_achieved">achieved</string>
+    <string name="goal_achieved_on">achieved %1$s</string>
 </resources>

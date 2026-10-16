@@ -1,5 +1,7 @@
 package app.planner.preview
 
+import app.planner.core.domain.model.Goal
+import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.RecurrenceRule
@@ -28,17 +30,38 @@ object SampleData {
 
     val lists = listOf(home, english, flowers, books, noList)
 
-    val callMom = Task(id = 1, title = "Позвонить маме", date = today, partOfDay = PartOfDay.MORNING, status = TaskStatus.DONE)
+    val callMom = Task(
+        id = 1,
+        title = "Позвонить маме",
+        date = today,
+        partOfDay = PartOfDay.MORNING,
+        status = TaskStatus.DONE
+    )
     val doctor = Task(id = 2, title = "Врач, каб. 214", date = today, time = LocalTime.of(10, 30))
-    val documents = Task(id = 3, title = "Разобрать документы", date = today, partOfDay = PartOfDay.DAY, listId = home.id)
-    val englishChapter = Task(id = 4, title = "Английский: гл. 4", date = today, partOfDay = PartOfDay.DAY, listId = english.id)
+    val documents = Task(
+        id = 3,
+        title = "Разобрать документы",
+        date = today,
+        partOfDay = PartOfDay.DAY,
+        listId = home.id
+    )
+    val englishChapter = Task(
+        id = 4,
+        title = "Английский: гл. 4",
+        date = today,
+        partOfDay = PartOfDay.DAY,
+        listId = english.id
+    )
     val buyEpin = Task(id = 6, title = "Купить эпин", date = today, listId = flowers.id)
-    val dentist = Task(id = 7, title = "Стоматолог", date = today.plusDays(1), time = LocalTime.of(9, 0))
+    val dentist =
+        Task(id = 7, title = "Стоматолог", date = today.plusDays(1), time = LocalTime.of(9, 0))
 
-    val printPhotos = Task(id = 10, title = "Распечатать фото", listId = home.id, date = today.plusDays(1))
+    val printPhotos =
+        Task(id = 10, title = "Распечатать фото", listId = home.id, date = today.plusDays(1))
     val readDune = Task(id = 11, title = "Дочитать «Дюну»", listId = books.id)
     val buyBook = Task(id = 12, title = "Купить «Сто лет одиночества»", listId = books.id)
-    val returnBook = Task(id = 13, title = "Вернуть книгу Оле", listId = books.id, date = today.plusDays(2))
+    val returnBook =
+        Task(id = 13, title = "Вернуть книгу Оле", listId = books.id, date = today.plusDays(2))
     val forgotten = Task(id = 14, title = "Позвонить в ЖЭК", date = today.minusDays(1))
 
     /** Цикл полива на 2 недели; 24 сентября 2026 — четверг второй недели. */
@@ -68,6 +91,46 @@ object SampleData {
 
     /** Привычки каждый день: «таблетки» над планом в «Сегодня». */
     val habitRules = listOf("Вода", "Зарядка", "Читать 10 минут").mapIndexed { i, title ->
-        RecurrenceRule(id = 10L + i, title = title, repeat = Repeat.Daily, startDate = today.minusMonths(1), isHabit = true)
+        RecurrenceRule(
+            id = 10L + i,
+            title = title,
+            repeat = Repeat.Daily,
+            startDate = today.minusMonths(1),
+            isHabit = true
+        )
     }
+
+    // --- Цели ---
+
+    /** Ремонт: два этапа, 2 шага из 5 сделаны, срок через 2 с лишним месяца. */
+    val repairGoal = Goal(
+        id = 1, title = "Ремонт в ванной", why = "Чтобы утром было приятно туда заходить",
+        deadline = LocalDate.of(2026, 12, 15),
+    )
+    val demolition = GoalStage(id = 1, goalId = 1, title = "Демонтаж", position = 0)
+    val tiles = GoalStage(id = 2, goalId = 1, title = "Плитка", position = 1)
+    val repairSteps = listOf(
+        Task(id = 30, title = "Посчитать бюджет", goalId = 1, status = TaskStatus.DONE),
+        Task(
+            id = 31,
+            title = "Снять старую плитку",
+            goalId = 1,
+            stageId = 1,
+            status = TaskStatus.DONE
+        ),
+        Task(id = 32, title = "Вынести строительный мусор", goalId = 1, stageId = 1, position = 1),
+        Task(id = 33, title = "Купить плитку", goalId = 1, stageId = 2),
+        Task(id = 34, title = "Положить плитку", goalId = 1, stageId = 2, position = 1),
+    )
+
+    /** Испанский: срок скоро (через 10 дней) — подпись срока цветом кнопок. */
+    val spanishGoal =
+        Goal(id = 2, title = "Испанский до A2", deadline = today.plusDays(10), position = 1)
+    val spanishSteps = listOf(Task(id = 40, title = "Сдать пробный тест", goalId = 2))
+
+    /** Без шагов и без срока — карточка подсказывает добавить первый шаг. */
+    val guitarGoal = Goal(id = 3, title = "Научиться играть на гитаре", position = 2)
+
+    /** Достигнутая — в архиве. */
+    val runGoal = Goal(id = 4, title = "Пробежать 5 км", achievedOn = LocalDate.of(2026, 8, 30))
 }

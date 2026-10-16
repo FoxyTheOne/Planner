@@ -90,6 +90,9 @@ fun positionForNewStep(steps: List<Task>, stageId: Long?): Int =
     // maxOfOrNull — наибольшее значение или null, если шагов в этапе нет
     (steps.filter { it.stageId == stageId }.maxOfOrNull { it.position } ?: -1) + 1
 
+/** Место для новой цели: после всех остальных — новая карточка появляется внизу, а не сдвигает привычный порядок. */
+fun positionForNewGoal(goals: List<Goal>): Int = (goals.maxOfOrNull { it.position } ?: -1) + 1
+
 /**
  * Всё, что нужно карточке цели: сколько сделано, следующий шаг и срок.
  *

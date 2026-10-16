@@ -473,7 +473,8 @@ fun TaskEditorSheetBody(
 }
 
 /**
- * Строка редактора, которая открывает выбор (дата, повторение).
+ * Строка редактора, которая открывает выбор (дата, повторение, срок цели).
+ * Общая для редактора задачи и редактора цели, поэтому не private.
  *
  * - Ничего не выбрано ([value] = null): значок и глагол [action] цветом кнопок («Запланировать») —
  *   сразу видно, что сюда нажимают и что произойдёт. Серый текст читался бы как «недоступно».
@@ -482,7 +483,7 @@ fun TaskEditorSheetBody(
  * @param onClear null — крестика нет (убирать нечего).
  */
 @Composable
-private fun EditorActionRow(
+fun EditorActionRow(
     icon: ImageVector,
     value: String?,
     action: String,

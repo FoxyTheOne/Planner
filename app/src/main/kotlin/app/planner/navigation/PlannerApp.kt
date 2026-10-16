@@ -38,6 +38,7 @@ import app.planner.R
 import app.planner.common.UiMessage
 import app.planner.common.resolve
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.feature.goals.GoalsScreen
 import app.planner.feature.lists.ListDetailScreen
 import app.planner.feature.lists.ListsOverviewScreen
 import app.planner.feature.settings.SettingsScreen
@@ -177,7 +178,9 @@ private fun BottomTabs(navController: NavHostController, destination: NavDestina
                             // - saveState / restoreState — запомнить, где человек был внутри вкладки
                             //   (например, в списке «Книги»), и вернуть туда же при возврате на вкладку;
                             // - launchSingleTop — не открывать второй экземпляр той же вкладки.
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -207,11 +210,17 @@ private fun BottomTabs(navController: NavHostController, destination: NavDestina
 private fun PlannerNavHost(navController: NavHostController, padding: PaddingValues) {
     NavHost(navController, startDestination = Tab.TODAY.route, modifier = Modifier.fillMaxSize()) {
         composable(Tab.TODAY.route) {
-            TodayScreen(onOpenSettings = { navController.navigate(Routes.SETTINGS) }, contentPadding = padding)
+            TodayScreen(
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                contentPadding = padding
+            )
         }
 
         composable(Tab.WEEK.route) {
-            WeekScreen(onOpenDay = { date -> navController.navigate(Routes.day(date)) }, contentPadding = padding)
+            WeekScreen(
+                onOpenDay = { date -> navController.navigate(Routes.day(date)) },
+                contentPadding = padding
+            )
         }
 
         // Экран дня: адрес "day/{epochDay}". В arguments объясняем навигации, что в {epochDay}
@@ -247,8 +256,14 @@ private fun PlannerNavHost(navController: NavHostController, padding: PaddingVal
             }
         }
 
-        composable(Tab.GOALS.route) { ComingSoon(R.string.nav_goals, R.string.coming_soon_goals, padding) }
-        composable(Tab.DIARY.route) { ComingSoon(R.string.nav_diary, R.string.coming_soon_diary, padding) }
+        composable(Tab.GOALS.route) { GoalsScreen(contentPadding = padding) }
+        composable(Tab.DIARY.route) {
+            ComingSoon(
+                R.string.nav_diary,
+                R.string.coming_soon_diary,
+                padding
+            )
+        }
 
         composable(Routes.SETTINGS) {
             SettingsScreen(onBack = navController::popBackStack, contentPadding = padding)
@@ -264,11 +279,22 @@ private fun PlannerNavHost(navController: NavHostController, padding: PaddingVal
 private fun NavDestination?.isInside(tab: Tab): Boolean =
     this?.hierarchy?.any { it.route == tab.route } == true
 
-/** Заглушка для разделов следующих этапов: цели и дневник. */
+/** Заглушка для разделов следующих этапов (сейчас — дневник). */
 @Composable
 private fun ComingSoon(title: Int, text: Int, padding: PaddingValues) {
-    Column(Modifier.fillMaxSize().padding(padding).padding(20.dp)) {
-        Text(stringResource(title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 16.dp))
-        Text(stringResource(text), color = PlannerTheme.paper.inkMuted, modifier = Modifier.padding(top = 12.dp))
+    Column(Modifier
+        .fillMaxSize()
+        .padding(padding)
+        .padding(20.dp)) {
+        Text(
+            stringResource(title),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+        Text(
+            stringResource(text),
+            color = PlannerTheme.paper.inkMuted,
+            modifier = Modifier.padding(top = 12.dp)
+        )
     }
 }

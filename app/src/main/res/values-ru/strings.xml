@@ -136,7 +136,6 @@
     <string name="support_link">Поддержать проект (Boosty)</string>
     <string name="backup_drive_soon">Копия на Google Диск появится в одном из следующих обновлений.</string>
 
-    <string name="coming_soon_goals">Большие цели, разбитые на шаги, появятся в следующем обновлении.</string>
     <string name="coming_soon_diary">Бережный дневник появится в одном из следующих обновлений.</string>
 
     <string name="cd_add_task">Добавить задачу</string>
@@ -218,4 +217,34 @@
     <string name="section_paused">на паузе</string>
     <string name="msg_paused">Повторение на паузе</string>
     <string name="msg_resumed">Повторение продолжается</string>
+    <!-- Цели -->
+    <string name="goals_empty">Большая цель — это много маленьких шагов. Запишите цель, а шаги добавите потом.</string>
+    <string name="action_new_goal">Цель</string>
+    <string name="goal_new">Новая цель</string>
+    <string name="goal_edit">Цель</string>
+    <string name="goal_title_hint">Чего хочется добиться?</string>
+    <string name="goal_why_hint">Зачем? Перечитаете, когда пропадёт запал</string>
+    <string name="goal_deadline_add">Добавить срок</string>
+    <string name="goal_deadline_until">До %1$s</string>
+    <string name="cd_clear_deadline">Убрать срок</string>
+    <string name="goal_progress">%1$d из %2$d</string>
+    <string name="goal_no_steps">Добавьте первый шаг</string>
+    <string name="goal_all_steps_done">Все шаги сделаны</string>
+    <string name="deadline_ahead">до %1$s · %2$s</string>
+    <string name="deadline_today">сегодня</string>
+    <plurals name="deadline_days_left">
+        <item quantity="one">ещё %d день</item>
+        <item quantity="few">ещё %d дня</item>
+        <item quantity="many">ещё %d дней</item>
+        <item quantity="other">ещё %d дня</item>
+    </plurals>
+    <plurals name="deadline_months_left">
+        <item quantity="one">ещё %d месяц</item>
+        <item quantity="few">ещё %d месяца</item>
+        <item quantity="many">ещё %d месяцев</item>
+        <item quantity="other">ещё %d месяца</item>
+    </plurals>
+    <string name="deadline_passed">срок был %1$s</string>
+    <string name="section_achieved">достигнутые</string>
+    <string name="goal_achieved_on">достигнута %1$s</string>
 </resources>

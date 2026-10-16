@@ -1,6 +1,7 @@
 package app.planner.common
 
 import androidx.compose.runtime.saveable.Saver
+import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Repeat
@@ -32,7 +33,7 @@ import java.time.LocalTime
  * `Saver<Task?, Any>`: сохраняем Task или null. Если save вернул null — сохранять нечего,
  * и после поворота значение будет начальным (null — шторка закрыта).
  *
- * Добавили поле в Task / Slot / TaskList — добавьте его и сюда, иначе после поворота
+ * Добавили поле в Task / Slot / TaskList / Goal — добавьте его и сюда, иначе после поворота
  * оно вернётся к значению по умолчанию.
  */
 
@@ -41,8 +42,22 @@ val TaskSaver: Saver<Task?, Any> = Saver(
     save = { task ->
         task?.let {
             arrayListOf(
-                it.id, it.title, it.note, it.date, it.time, it.partOfDay,
-                it.listId, it.status, it.isSample, it.createdAt, it.doneAt, it.ruleId, it.occurrenceDate,
+                it.id,
+                it.title,
+                it.note,
+                it.date,
+                it.time,
+                it.partOfDay,
+                it.listId,
+                it.status,
+                it.isSample,
+                it.createdAt,
+                it.doneAt,
+                it.ruleId,
+                it.occurrenceDate,
+                it.goalId,
+                it.stageId,
+                it.position,
             )
         }
     },
@@ -62,6 +77,9 @@ val TaskSaver: Saver<Task?, Any> = Saver(
             doneAt = v[10] as Instant?,
             ruleId = v[11] as Long?,
             occurrenceDate = v[12] as LocalDate?,
+            goalId = v[13] as Long?,
+            stageId = v[14] as Long?,
+            position = v[15] as Int,
         )
     },
 )
@@ -122,5 +140,36 @@ val RepeatSaver: Saver<Repeat?, Any> = Saver(
                 weekStart = v[4] as DayOfWeek,
             )
         }
+    },
+)
+
+/** Цель (для шторки «Новая цель» / «Цель»). Даты и Instant Bundle хранит сам. */
+val GoalSaver: Saver<Goal?, Any> = Saver(
+    save = { goal ->
+        goal?.let {
+            arrayListOf(
+                it.id,
+                it.title,
+                it.why,
+                it.note,
+                it.deadline,
+                it.position,
+                it.createdAt,
+                it.achievedOn
+            )
+        }
+    },
+    restore = { saved ->
+        val v = saved as List<*>
+        Goal(
+            id = v[0] as Long,
+            title = v[1] as String,
+            why = v[2] as String,
+            note = v[3] as String,
+            deadline = v[4] as LocalDate?,
+            position = v[5] as Int,
+            createdAt = v[6] as Instant,
+            achievedOn = v[7] as LocalDate?,
+        )
     },
 )

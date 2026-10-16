@@ -137,7 +137,6 @@
     <string name="support_link">Падтрымаць праект (Boosty)</string>
     <string name="backup_drive_soon">Копія на Google Дыск з\'явіцца ў адным з наступных абнаўленняў.</string>
 
-    <string name="coming_soon_goals">Вялікія мэты, разбітыя на крокі, з\'явяцца ў наступным абнаўленні.</string>
     <string name="coming_soon_diary">Беражлівы дзённік з\'явіцца ў адным з наступных абнаўленняў.</string>
 
     <string name="cd_add_task">Дадаць задачу</string>
@@ -219,4 +218,34 @@
     <string name="section_paused">на паўзе</string>
     <string name="msg_paused">Паўтарэнне на паўзе</string>
     <string name="msg_resumed">Паўтарэнне працягваецца</string>
+    <!-- Мэты -->
+    <string name="goals_empty">Вялікая мэта — гэта шмат маленькіх крокаў. Запішыце мэту, а крокі дадасце потым.</string>
+    <string name="action_new_goal">Мэта</string>
+    <string name="goal_new">Новая мэта</string>
+    <string name="goal_edit">Мэта</string>
+    <string name="goal_title_hint">Чаго хочацца дасягнуць?</string>
+    <string name="goal_why_hint">Навошта? Перачытаеце, калі знікне запал</string>
+    <string name="goal_deadline_add">Дадаць тэрмін</string>
+    <string name="goal_deadline_until">Да %1$s</string>
+    <string name="cd_clear_deadline">Прыбраць тэрмін</string>
+    <string name="goal_progress">%1$d з %2$d</string>
+    <string name="goal_no_steps">Дадайце першы крок</string>
+    <string name="goal_all_steps_done">Усе крокі зроблены</string>
+    <string name="deadline_ahead">да %1$s · %2$s</string>
+    <string name="deadline_today">сёння</string>
+    <plurals name="deadline_days_left">
+        <item quantity="one">яшчэ %d дзень</item>
+        <item quantity="few">яшчэ %d дні</item>
+        <item quantity="many">яшчэ %d дзён</item>
+        <item quantity="other">яшчэ %d дня</item>
+    </plurals>
+    <plurals name="deadline_months_left">
+        <item quantity="one">яшчэ %d месяц</item>
+        <item quantity="few">яшчэ %d месяцы</item>
+        <item quantity="many">яшчэ %d месяцаў</item>
+        <item quantity="other">яшчэ %d месяца</item>
+    </plurals>
+    <string name="deadline_passed">тэрмін быў %1$s</string>
+    <string name="section_achieved">дасягнутыя</string>
+    <string name="goal_achieved_on">дасягнута %1$s</string>
 </resources>

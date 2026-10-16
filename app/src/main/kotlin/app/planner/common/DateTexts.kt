@@ -15,14 +15,25 @@ object DateTexts {
 
     /** «Четверг» */
     fun weekday(date: LocalDate): String =
-        date.dayOfWeek.getDisplayName(TextStyle.FULL_STANDALONE, locale).replaceFirstChar { it.titlecase(locale) }
+        date.dayOfWeek.getDisplayName(TextStyle.FULL_STANDALONE, locale)
+            .replaceFirstChar { it.titlecase(locale) }
 
     /** «Чт» */
     fun weekdayShort(day: DayOfWeek): String =
-        day.getDisplayName(TextStyle.SHORT_STANDALONE, locale).replaceFirstChar { it.titlecase(locale) }
+        day.getDisplayName(TextStyle.SHORT_STANDALONE, locale)
+            .replaceFirstChar { it.titlecase(locale) }
 
     /** «24 сентября» */
-    fun dayMonth(date: LocalDate): String = DateTimeFormatter.ofPattern("d MMMM", locale).format(date)
+    fun dayMonth(date: LocalDate): String =
+        DateTimeFormatter.ofPattern("d MMMM", locale).format(date)
+
+    /**
+     * «31 декабря», а если дата не в этом году — «31 марта 2027».
+     * Для сроков целей: они бывают и через год, и «до 31 марта» без года сбивало бы с толку.
+     */
+    fun dayMonthYear(date: LocalDate, today: LocalDate): String =
+        if (date.year == today.year) dayMonth(date)
+        else DateTimeFormatter.ofPattern("d MMMM yyyy", locale).format(date)
 
     /** «Чт 24» */
     fun shortDay(date: LocalDate): String = "${weekdayShort(date.dayOfWeek)} ${date.dayOfMonth}"
