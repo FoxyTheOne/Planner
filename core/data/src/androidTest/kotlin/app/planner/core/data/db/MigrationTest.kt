@@ -59,9 +59,9 @@ class MigrationTest {
             close()
         }
 
-        // 2. Миграции 1 → 2 → … → 6 (AutoMigration из PlannerDatabase) + проверка схемы.
+        // 2. Миграции 1 → 2 → … → 7 (AutoMigration из PlannerDatabase) + проверка схемы.
         // Новая версия базы — меняем здесь число на неё, и тест проверит всю цепочку
-        helper.runMigrationsAndValidate(dbName, 6, true).close()
+        helper.runMigrationsAndValidate(dbName, 7, true).close()
 
         // 3. Открываем обычным кодом приложения
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -186,6 +186,31 @@ class MigrationTest {
             db.goalDao().deleteStage(stageId)
             assertEquals(null, db.taskDao().get(stepId)!!.stageId)
             assertEquals(goalId, db.taskDao().get(stepId)!!.goalId)
+        } finally {
+            db.close()
+        }
+    }
+
+    /** Миграция 6 → 7: у задач появилось место (position). У старых шагов оно 0 — порядок добавления. */
+    @Test
+    fun migrate6To7_oldStepsKeepOrderOfAdding() = runBlocking {
+        helper.createDatabase(dbName, 6).apply {
+            execSQL("INSERT INTO goals (id, title, why, note, position, createdAt) VALUES (1, 'Ремонт', '', '', 0, 0)")
+            execSQL(
+                "INSERT INTO tasks (id, title, note, status, isSample, createdAt, goalId) " +
+                    "VALUES (10, 'Снять плитку', '', 'OPEN', 0, 0, 1)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 7, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            val step = db.taskDao().get(10)!!
+            assertEquals(0, step.position)
+            assertEquals(1L, step.goalId)
         } finally {
             db.close()
         }

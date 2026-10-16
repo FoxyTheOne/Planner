@@ -40,6 +40,7 @@ import javax.inject.Singleton
  * - 5 — у правил `isHabit`. В старых файлах его нет — значит false, обычное дело.
  * - 6 — цели (`goals`) и их этапы (`stages`); у задач `goalId` и `stageId`, у правил `goalId`.
  *   В старых файлах этого нет — целей нет, и ни к одной цели ничего не привязано.
+ * - 7 — у задач `position` (порядок шагов цели). В старых файлах его нет — 0, порядок добавления.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -49,7 +50,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 6
+        const val FORMAT_VERSION = 7
     }
 
     private val json = backupJson
@@ -151,6 +152,7 @@ data class TaskDto(
     val occurrenceDate: String? = null,
     val goalId: Long? = null,
     val stageId: Long? = null,
+    val position: Int = 0,
 )
 
 private fun TaskListEntity.toDto() = TaskListDto(id, name, color.name, position, isInbox)
@@ -179,6 +181,7 @@ private fun TaskEntity.toDto() = TaskDto(
     occurrenceDate = occurrenceDate?.toString(),
     goalId = goalId,
     stageId = stageId,
+    position = position,
 )
 
 private fun TaskDto.toEntity() = TaskEntity(
@@ -197,6 +200,7 @@ private fun TaskDto.toEntity() = TaskEntity(
     occurrenceDate = occurrenceDate?.let(LocalDate::parse),
     goalId = goalId,
     stageId = stageId,
+    position = position,
 )
 
 /** Цель в файле. Её шаги — обычные задачи (TaskDto с goalId), этапы — отдельно (GoalStageDto). */

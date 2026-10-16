@@ -1,5 +1,6 @@
 package app.planner.core.data.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -80,6 +81,9 @@ data class TaskEntity(
     /** Шаг цели: id цели и этапа (см. Task). Колонки появились в версии базы 6. */
     val goalId: Long?,
     val stageId: Long?,
+    /** Место шага в этапе (см. Task.position). Колонка появилась в версии базы 7; у старых строк 0. */
+    @ColumnInfo(defaultValue = "0")
+    val position: Int = 0,
 )
 
 /** Строка таблицы `task_lists` — список «Когда-нибудь» в базе Room. */
@@ -97,13 +101,13 @@ data class TaskListEntity(
 fun TaskEntity.toDomain() = Task(
     id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
     listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
-    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId,
+    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId, position = position,
 )
 
 fun Task.toEntity() = TaskEntity(
     id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
     listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
-    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId,
+    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId, position = position,
 )
 
 fun TaskListEntity.toDomain() =

@@ -94,7 +94,7 @@ class BackupRoundTripTest {
                         id = 3, title = "Снять старую плитку", note = "", date = null,
                         time = null, partOfDay = null, listId = null, status = TaskStatus.OPEN,
                         isSample = false, createdAt = Instant.ofEpochMilli(4_000), doneAt = null,
-                        ruleId = null, occurrenceDate = null, goalId = 1, stageId = 1,
+                        ruleId = null, occurrenceDate = null, goalId = 1, stageId = 1, position = 2,
                     ),
                 ),
             )

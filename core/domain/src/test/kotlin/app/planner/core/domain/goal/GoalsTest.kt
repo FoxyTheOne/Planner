@@ -21,9 +21,15 @@ class GoalsTest {
     private val demolition = GoalStage(id = 10, goalId = 1, title = "Демонтаж", position = 0)
 
     /** Шаг; [order] — когда добавлен (чем больше, тем позже). */
-    private fun step(title: String, stage: GoalStage? = null, order: Long, status: TaskStatus = TaskStatus.OPEN) =
+    private fun step(
+        title: String,
+        stage: GoalStage? = null,
+        order: Long,
+        status: TaskStatus = TaskStatus.OPEN,
+        position: Int = 0,
+    ) =
         Task(
-            id = order, title = title, goalId = 1, stageId = stage?.id, status = status,
+            id = order, title = title, goalId = 1, stageId = stage?.id, status = status, position = position,
             createdAt = Instant.ofEpochSecond(order),
         )
 
@@ -42,6 +48,34 @@ class GoalsTest {
             listOf("Посчитать бюджет", "Снять старую плитку", "Вынести мусор", "Положить плитку"),
             ordered.map { it.title },
         )
+    }
+
+    @Test
+    fun `dragged position wins over the order of adding`() {
+        // «Купить плитку» добавили последней, но перетащили на первое место в этапе
+        val steps = listOf(
+            step("Положить плитку", tiles, order = 1, position = 1),
+            step("Затереть швы", tiles, order = 2, position = 2),
+            step("Купить плитку", tiles, order = 3, position = 0),
+        )
+
+        assertEquals(
+            listOf("Купить плитку", "Положить плитку", "Затереть швы"),
+            orderedSteps(listOf(tiles), steps).map { it.title },
+        )
+    }
+
+    @Test
+    fun `new step goes to the end of its stage`() {
+        val steps = listOf(
+            step("Снять плитку", demolition, order = 1, position = 0),
+            step("Вынести мусор", demolition, order = 2, position = 1),
+            step("Посчитать бюджет", order = 3, position = 0),
+        )
+
+        assertEquals(2, positionForNewStep(steps, demolition.id))
+        assertEquals(1, positionForNewStep(steps, stageId = null)) // среди шагов без этапа
+        assertEquals(0, positionForNewStep(steps, tiles.id)) // пустой этап — с нуля
     }
 
     @Test
