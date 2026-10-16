@@ -40,8 +40,15 @@ import java.time.LocalTime
             // Удалили список — правило не пропадает, а остаётся без списка (как задачи)
             onDelete = ForeignKey.SET_NULL, // что делать с ребёнком, если родителя удалили: NO_ACTION / RESTRICT -	список удалить не дадут, пока на него кто-то ссылается, CASCADE - правило удалится вместе со списком, SET_NULL - правило останется, а listId станет null («без списка»), SET_DEFAULT - listId станет значением по умолчанию
         ),
+        // Удалили цель — привязанная к ней привычка остаётся, просто ни к чему не привязана
+        ForeignKey(
+            entity = GoalEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["goalId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
-    indices = [Index("listId")], // Для колонки с внешним ключом индекс особенно важен
+    indices = [Index("listId"), Index("goalId")], // Для колонки с внешним ключом индекс особенно важен
 )
 data class RecurrenceRuleEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -77,6 +84,8 @@ data class RecurrenceRuleEntity(
      */
     @ColumnInfo(defaultValue = "0")
     val isHabit: Boolean = false,
+    /** Цель, которой помогает привычка (см. RecurrenceRule.goalId). Колонка появилась в версии базы 6. */
+    val goalId: Long? = null,
 )
 
 // Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей
@@ -102,6 +111,7 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
         partOfDay = partOfDay,
         listId = listId,
         isHabit = isHabit,
+        goalId = goalId,
         repeatType = "",
         weekdays = null,
         everyNDays = null,
@@ -157,7 +167,7 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
         pauses = json.decodeFromString<List<PauseJson>>(pauses).map {
             Pause(LocalDate.ofEpochDay(it.from), it.until?.let(LocalDate::ofEpochDay))
         },
-        time = time, partOfDay = partOfDay, listId = listId, isHabit = isHabit,
+        time = time, partOfDay = partOfDay, listId = listId, isHabit = isHabit, goalId = goalId,
     )
 }
 

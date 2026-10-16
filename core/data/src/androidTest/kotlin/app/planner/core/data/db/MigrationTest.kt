@@ -4,9 +4,12 @@ import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import app.planner.core.domain.model.Goal
+import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
+import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -15,6 +18,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.time.DayOfWeek
 import java.time.DayOfWeek.WEDNESDAY
+import java.time.Instant
 import java.time.LocalDate
 
 /**
@@ -55,9 +59,9 @@ class MigrationTest {
             close()
         }
 
-        // 2. Миграции 1 → 2 → 3 → 4 → 5 (AutoMigration из PlannerDatabase) + проверка схемы.
+        // 2. Миграции 1 → 2 → … → 6 (AutoMigration из PlannerDatabase) + проверка схемы.
         // Новая версия базы — меняем здесь число на неё, и тест проверит всю цепочку
-        helper.runMigrationsAndValidate(dbName, 5, true).close()
+        helper.runMigrationsAndValidate(dbName, 6, true).close()
 
         // 3. Открываем обычным кодом приложения
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -138,6 +142,50 @@ class MigrationTest {
             val rule = db.recurrenceRuleDao().get(1)!!.toDomain()
             assertEquals("Бассейн", rule.title)
             assertEquals(false, rule.isHabit)
+        } finally {
+            db.close()
+        }
+    }
+
+    /**
+     * Миграция 5 → 6: появились цели. Старые задачи и правила ни к какой цели не привязаны,
+     * а в новые таблицы можно положить цель, этап и шаг — и прочитать их обратно.
+     */
+    @Test
+    fun migrate5To6_addsGoals() = runBlocking {
+        val oct5 = LocalDate.of(2026, 10, 5).toEpochDay()
+        helper.createDatabase(dbName, 5).apply {
+            execSQL("INSERT INTO task_lists (id, name, color, position, isInbox) VALUES (1, '', 'SAGE', 0, 1)")
+            execSQL(
+                "INSERT INTO tasks (id, title, note, listId, status, isSample, createdAt) " +
+                    "VALUES (10, 'Купить лампу', '', 1, 'OPEN', 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, pauses, isHabit) " +
+                    "VALUES (1, 'Вода', $oct5, 'DAILY', '[]', 1)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 6, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            assertEquals(null, db.taskDao().get(10)!!.goalId) // старая задача — не шаг цели
+            assertEquals(null, db.recurrenceRuleDao().get(1)!!.toDomain().goalId)
+
+            val goal = Goal(title = "Ремонт", why = "Уют", createdAt = Instant.ofEpochMilli(0))
+            val goalId = db.goalDao().upsertGoal(goal.toEntity())
+            val stageId = db.goalDao().upsertStage(GoalStage(goalId = goalId, title = "Плитка").toEntity())
+            assertEquals(goal.copy(id = goalId), db.goalDao().getGoal(goalId)!!.toDomain())
+
+            // Удалили этап — шаг остаётся в цели без этапа; удалили цель — этапы уходят с ней
+            val step = Task(title = "Купить плитку", goalId = goalId, stageId = stageId, createdAt = Instant.ofEpochMilli(0))
+            val stepId = db.taskDao().addOrUpdate(step.toEntity())
+            db.goalDao().deleteStage(stageId)
+            assertEquals(null, db.taskDao().get(stepId)!!.stageId)
+            assertEquals(goalId, db.taskDao().get(stepId)!!.goalId)
         } finally {
             db.close()
         }

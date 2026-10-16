@@ -41,8 +41,26 @@ import java.time.LocalTime
             // Удалили правило — отмеченные дни остаются в истории как обычные задачи
             onDelete = ForeignKey.SET_NULL,
         ),
+        // Шаги цели. SET_NULL, а не CASCADE: база сама никогда не удаляет задачи «молча».
+        // Что делать с шагами удалённой цели, решает приложение — явно, с «Отменить»
+        ForeignKey(
+            entity = GoalEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["goalId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+        // Удалили этап — шаги остаются в своей цели, просто без этапа
+        ForeignKey(
+            entity = GoalStageEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["stageId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
-    indices = [Index("date"), Index("listId"), Index("status"), Index("ruleId", "occurrenceDate")],
+    indices = [
+        Index("date"), Index("listId"), Index("status"), Index("ruleId", "occurrenceDate"),
+        Index("goalId"), Index("stageId"),
+    ],
 )
 data class TaskEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -59,6 +77,9 @@ data class TaskEntity(
     /** День повторения: id правила и день правила, к которому относится задача (см. Task). */
     val ruleId: Long?,
     val occurrenceDate: LocalDate?,
+    /** Шаг цели: id цели и этапа (см. Task). Колонки появились в версии базы 6. */
+    val goalId: Long?,
+    val stageId: Long?,
 )
 
 /** Строка таблицы `task_lists` — список «Когда-нибудь» в базе Room. */
@@ -76,13 +97,13 @@ data class TaskListEntity(
 fun TaskEntity.toDomain() = Task(
     id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
     listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
-    ruleId = ruleId, occurrenceDate = occurrenceDate,
+    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId,
 )
 
 fun Task.toEntity() = TaskEntity(
     id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
     listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
-    ruleId = ruleId, occurrenceDate = occurrenceDate,
+    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId,
 )
 
 fun TaskListEntity.toDomain() =

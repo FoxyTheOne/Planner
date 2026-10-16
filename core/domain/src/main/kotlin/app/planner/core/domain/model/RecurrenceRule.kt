@@ -28,6 +28,8 @@ import java.time.LocalTime
  *     По привычкам считается мягкая статистика («за месяц — 18 раз») — без серий и «ты всё сломал».
  *   Как часто повторяется, паузы, циклы — у привычек всё то же самое. Поэтому это не отдельный
  *   класс, а один флажок у правила.
+ * @param goalId цель, которой помогает привычка («Испанский» ← «10 минут Duolingo»).
+ *   Видна на экране цели, но в процент цели не входит: процент — это шаги, а привычка не «закрывается».
  */
 data class RecurrenceRule(
     val id: Long = 0,
@@ -40,6 +42,7 @@ data class RecurrenceRule(
     val partOfDay: PartOfDay? = null,
     val listId: Long? = null,
     val isHabit: Boolean = false,
+    val goalId: Long? = null,
 )
 
 /**

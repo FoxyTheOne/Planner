@@ -60,7 +60,8 @@ interface TaskDao {
 
     // Все открытые задачи — для поиска в оглавлении списков (фильтр по тексту делаем в Kotlin:
     // SQLite умеет сравнивать без учёта регистра только латиницу, а у нас кириллица)
-    @Query("SELECT * FROM tasks WHERE status = 'OPEN' AND ruleId IS NULL ORDER BY createdAt DESC")
+    // Шаги целей (goalId) тоже не ищем: они живут в целях, а не в списках
+    @Query("SELECT * FROM tasks WHERE status = 'OPEN' AND ruleId IS NULL AND goalId IS NULL ORDER BY createdAt DESC")
     fun observeOpen(): Flow<List<TaskEntity>>
 
     // Сколько открытых задач в каждом списке — счётчики в оглавлении
@@ -100,7 +101,8 @@ interface TaskDao {
     @Query("UPDATE tasks SET listId = :toListId WHERE listId = :fromListId")
     suspend fun moveToList(fromListId: Long, toListId: Long)
 
-    @Query("UPDATE tasks SET listId = :toListId WHERE listId IS NULL")
+    // Шаги целей без списка — не «потерянные»: их место в цели, во «Входящие» их не переносим
+    @Query("UPDATE tasks SET listId = :toListId WHERE listId IS NULL AND goalId IS NULL")
     suspend fun moveOrphansToList(toListId: Long)
 }
 
@@ -161,5 +163,56 @@ interface RecurrenceRuleDao {
     suspend fun insertAll(rules: List<RecurrenceRuleEntity>)
 
     @Query("DELETE FROM recurrence_rules")
+    suspend fun deleteAll()
+}
+/**
+ * DAO целей и их этапов. Одна «пара» таблиц — один DAO: этап без цели не бывает,
+ * и работают с ними всегда вместе (экран цели, бэкап).
+ *
+ * Шаги целей — это задачи, они в [TaskDao].
+ */
+@Dao
+interface GoalDao {
+    // Сначала цели в работе, потом достигнутые (achievedOn IS NOT NULL даёт 0 или 1 — как с time IS NULL)
+    @Query("SELECT * FROM goals ORDER BY achievedOn IS NOT NULL, position, id")
+    fun observeGoals(): Flow<List<GoalEntity>>
+
+    @Query("SELECT * FROM goals WHERE id = :id")
+    fun observeGoal(id: Long): Flow<GoalEntity?>
+
+    @Query("SELECT * FROM goals WHERE id = :id")
+    suspend fun getGoal(id: Long): GoalEntity?
+
+    @Upsert
+    suspend fun upsertGoal(goal: GoalEntity): Long
+
+    @Query("DELETE FROM goals WHERE id = :id")
+    suspend fun deleteGoal(id: Long)
+
+    @Query("SELECT * FROM goal_stages WHERE goalId = :goalId ORDER BY position, id")
+    fun observeStages(goalId: Long): Flow<List<GoalStageEntity>>
+
+    @Upsert
+    suspend fun upsertStage(stage: GoalStageEntity): Long
+
+    @Query("DELETE FROM goal_stages WHERE id = :id")
+    suspend fun deleteStage(id: Long)
+
+    // --- Для резервной копии ---
+
+    @Query("SELECT * FROM goals")
+    suspend fun getAllGoals(): List<GoalEntity>
+
+    @Query("SELECT * FROM goal_stages")
+    suspend fun getAllStages(): List<GoalStageEntity>
+
+    @Insert
+    suspend fun insertGoals(goals: List<GoalEntity>)
+
+    @Insert
+    suspend fun insertStages(stages: List<GoalStageEntity>)
+
+    // Этапы удалятся сами вместе с целями (CASCADE)
+    @Query("DELETE FROM goals")
     suspend fun deleteAll()
 }

@@ -74,7 +74,9 @@ class RoomTaskRepository @Inject constructor(
     override suspend fun addOrUpdate(task: Task): Long {
         // Каждая задача живёт в каком-нибудь списке: без списка — во «Входящих».
         // Тогда задача, созданная прямо в «Сегодня», не потеряется, если её вернуть без даты.
-        val withList = if (task.listId == null) task.copy(listId = lists.inboxId()) else task
+        // Шаг цели живёт в своей цели — ему список не нужен
+        val withList =
+            if (task.listId == null && !task.isGoalStep) task.copy(listId = lists.inboxId()) else task
         // @Upsert вставляет новую строку или обновляет существующую (по id) и возвращает Long:
         // - если строка ВСТАВЛЕНА — её номер в таблице (rowId). У нас id — автоматический первичный
         //   ключ, поэтому rowId = это и есть новый id, который база только что выдала задаче;

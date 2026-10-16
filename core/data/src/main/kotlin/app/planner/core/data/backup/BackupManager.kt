@@ -1,6 +1,8 @@
 package app.planner.core.data.backup
 
 import androidx.room.withTransaction
+import app.planner.core.data.db.GoalEntity
+import app.planner.core.data.db.GoalStageEntity
 import app.planner.core.data.db.PlannerDatabase
 import app.planner.core.data.db.TaskEntity
 import app.planner.core.data.db.TaskListEntity
@@ -36,6 +38,8 @@ import javax.inject.Singleton
  * - 4 — у цикла `weekStart` (с какого дня начинается его неделя) и `anchorWeekStart` вместо
  *   `anchorMonday`. В старых файлах weekStart нет — значит MONDAY, а дата берётся из anchorMonday.
  * - 5 — у правил `isHabit`. В старых файлах его нет — значит false, обычное дело.
+ * - 6 — цели (`goals`) и их этапы (`stages`); у задач `goalId` и `stageId`, у правил `goalId`.
+ *   В старых файлах этого нет — целей нет, и ни к одной цели ничего не привязано.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -45,7 +49,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 5
+        const val FORMAT_VERSION = 6
     }
 
     private val json = backupJson
@@ -59,6 +63,8 @@ class BackupManager @Inject constructor(
                 tasks = db.taskDao().getAll().map { it.toDto() },
                 // Правила: строка таблицы → доменная модель → то, как правило записано в файле
                 rules = db.recurrenceRuleDao().getAll().map { it.toDomain().toDto() },
+                goals = db.goalDao().getAllGoals().map { it.toDto() },
+                stages = db.goalDao().getAllStages().map { it.toDto() },
             )
         }
         output.bufferedWriter().use {
@@ -79,9 +85,13 @@ class BackupManager @Inject constructor(
     suspend fun restore(snapshot: BackupSnapshot) = db.withTransaction {
         db.taskDao().deleteAll()
         db.recurrenceRuleDao().deleteAll()
+        db.goalDao().deleteAll() // этапы удалятся вместе с целями (CASCADE)
         db.taskListDao().deleteAll()
         // Сначала списки: задачи и правила ссылаются на них (внешний ключ listId)
         db.taskListDao().insertAll(snapshot.lists.map { it.toEntity() })
+        // Цели и этапы — тоже раньше задач и правил: шаги и привычки ссылаются на них (goalId, stageId)
+        db.goalDao().insertGoals(snapshot.goals.map { it.toEntity() })
+        db.goalDao().insertStages(snapshot.stages.map { it.toEntity() })
         // Правила раньше задач: отмеченные дни повторений ссылаются на правило (ruleId)
         db.recurrenceRuleDao().insertAll(snapshot.rules.map { it.toDomain().toEntity() })
         db.taskDao().insertAll(snapshot.tasks.map { it.toEntity() })
@@ -110,6 +120,9 @@ data class BackupSnapshot(
     val tasks: List<TaskDto>,
     // = emptyList(): в копиях формата 1 правил нет — тогда читаем пустой список
     val rules: List<RuleDto> = emptyList(),
+    // Целей нет в копиях форматов 1–5
+    val goals: List<GoalDto> = emptyList(),
+    val stages: List<GoalStageDto> = emptyList(),
 )
 
 @Serializable
@@ -136,6 +149,8 @@ data class TaskDto(
     val doneAt: String? = null,
     val ruleId: Long? = null,
     val occurrenceDate: String? = null,
+    val goalId: Long? = null,
+    val stageId: Long? = null,
 )
 
 private fun TaskListEntity.toDto() = TaskListDto(id, name, color.name, position, isInbox)
@@ -162,6 +177,8 @@ private fun TaskEntity.toDto() = TaskDto(
     doneAt = doneAt?.toString(),
     ruleId = ruleId,
     occurrenceDate = occurrenceDate?.toString(),
+    goalId = goalId,
+    stageId = stageId,
 )
 
 private fun TaskDto.toEntity() = TaskEntity(
@@ -178,7 +195,52 @@ private fun TaskDto.toEntity() = TaskEntity(
     doneAt = doneAt?.let(Instant::parse),
     ruleId = ruleId,
     occurrenceDate = occurrenceDate?.let(LocalDate::parse),
+    goalId = goalId,
+    stageId = stageId,
 )
+
+/** Цель в файле. Её шаги — обычные задачи (TaskDto с goalId), этапы — отдельно (GoalStageDto). */
+@Serializable
+data class GoalDto(
+    val id: Long,
+    val title: String,
+    val why: String = "",
+    val note: String = "",
+    val deadline: String? = null,
+    val position: Int = 0,
+    val createdAt: String,
+    val achievedOn: String? = null,
+)
+
+@Serializable
+data class GoalStageDto(val id: Long, val goalId: Long, val title: String, val position: Int = 0)
+
+private fun GoalEntity.toDto() = GoalDto(
+    id = id,
+    title = title,
+    why = why,
+    note = note,
+    deadline = deadline?.toString(),
+    position = position,
+    createdAt = createdAt.toString(),
+    achievedOn = achievedOn?.toString(),
+)
+
+private fun GoalDto.toEntity() = GoalEntity(
+    id = id,
+    title = title,
+    why = why,
+    note = note,
+    deadline = deadline?.let(LocalDate::parse),
+    position = position,
+    createdAt = Instant.parse(createdAt),
+    achievedOn = achievedOn?.let(LocalDate::parse),
+)
+
+private fun GoalStageEntity.toDto() = GoalStageDto(id, goalId, title, position)
+
+private fun GoalStageDto.toEntity() =
+    GoalStageEntity(id = id, goalId = goalId, title = title, position = position)
 
 /**
  * Правило повторения в файле. Вариант повторения ([RepeatDto]) записан так же, как в базе:
@@ -196,6 +258,7 @@ data class RuleDto(
     val repeat: RepeatDto,
     val pauses: List<PauseDto> = emptyList(),
     val isHabit: Boolean = false,
+    val goalId: Long? = null,
 )
 
 /**
@@ -242,6 +305,7 @@ internal fun RecurrenceRule.toDto() = RuleDto(
     },
     pauses = pauses.map { PauseDto(it.from.toString(), it.until?.toString()) },
     isHabit = isHabit,
+    goalId = goalId,
 )
 
 internal fun RuleDto.toDomain() = RecurrenceRule(
@@ -269,4 +333,5 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
     partOfDay = partOfDay?.let { runCatching { PartOfDay.valueOf(it) }.getOrNull() },
     listId = listId,
     isHabit = isHabit,
+    goalId = goalId,
 )

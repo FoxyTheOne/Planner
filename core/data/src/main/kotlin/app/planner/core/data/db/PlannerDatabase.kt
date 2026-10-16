@@ -36,20 +36,26 @@ import androidx.room.migration.AutoMigrationSpec
  * - 3 — у задач колонки ruleId и occurrenceDate: отмеченный день повторения хранится задачей;
  * - 4 — у цикла своё начало недели: cycleAnchorMonday переименована в cycleAnchorWeekStart,
  *   добавлена cycleWeekStart (у старых циклов пустая — значит, с понедельника, как и было);
- * - 5 — у правил колонка isHabit (у старых правил 0: обычное дело, как и было).
+ * - 5 — у правил колонка isHabit (у старых правил 0: обычное дело, как и было);
+ * - 6 — цели: таблицы goals и goal_stages; у задач колонки goalId и stageId (шаг цели и его этап),
+ *   у правил goalId (привычка помогает цели). У старых строк они пустые — к целям ничего не привязано.
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
  */
 @Database(
-    entities = [TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class],
-    version = 5,
+    entities = [
+        TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class,
+        GoalEntity::class, GoalStageEntity::class,
+    ],
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4, spec = PlannerDatabase.Migration3To4::class),
         AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6),
     ],
 )
 @TypeConverters(Converters::class)
@@ -57,6 +63,7 @@ abstract class PlannerDatabase : RoomDatabase() {
     abstract fun taskDao(): TaskDao
     abstract fun taskListDao(): TaskListDao
     abstract fun recurrenceRuleDao(): RecurrenceRuleDao
+    abstract fun goalDao(): GoalDao
 
     /**
      * Подсказка для миграции 3 → 4: колонку не удалили и создали заново, а переименовали —

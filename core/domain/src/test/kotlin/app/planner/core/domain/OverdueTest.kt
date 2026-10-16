@@ -55,4 +55,13 @@ class OverdueTest {
         val own = Overdue.returnedToList(Task(title = "y", date = today.minusDays(9), listId = 5), inboxId = 1)
         assertEquals(5L, own.listId)
     }
+
+    @Test
+    fun `забытый шаг цели возвращается в цель, а не во Входящие`() {
+        val step = Task(title = "Купить плитку", date = today.minusDays(9), goalId = 3)
+        val returned = Overdue.returnedToList(step, inboxId = 1)
+        assertNull(returned.date)
+        assertNull(returned.listId)
+        assertEquals(3L, returned.goalId)
+    }
 }

@@ -55,12 +55,15 @@ object Overdue {
                     today
                 ) > returnAfterDays
 
-    /** Та же задача, но без даты и времени — в своём списке, а если списка нет — во «Входящих». */
+    /**
+     * Та же задача, но без даты и времени — в своём списке, а если списка нет — во «Входящих».
+     * Шаг цели возвращается в свою цель: списка у него нет и не должно появиться.
+     */
     fun returnedToList(task: Task, inboxId: Long): Task =
         task.copy(
             date = null,
             time = null,
             partOfDay = null,
-            listId = task.listId ?: inboxId,
+            listId = if (task.isGoalStep) null else task.listId ?: inboxId,
         )
 }

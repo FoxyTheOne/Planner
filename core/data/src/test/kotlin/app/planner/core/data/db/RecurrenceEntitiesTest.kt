@@ -33,6 +33,7 @@ class RecurrenceEntitiesTest {
         time = LocalTime.of(9, 30),
         partOfDay = PartOfDay.MORNING,
         listId = 3,
+        goalId = 2,
     )
 
     private fun assertRoundTrip(rule: RecurrenceRule) = assertEquals(rule, rule.toEntity().toDomain())

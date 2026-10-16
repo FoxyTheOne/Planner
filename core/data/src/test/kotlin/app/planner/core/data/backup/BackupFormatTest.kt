@@ -110,6 +110,22 @@ class BackupFormatTest {
     }
 
     @Test
+    fun `backup of format 5 has no goals and nothing is linked to them`() {
+        val v5 = """
+            {"formatVersion":5,"exportedAt":"2026-10-12T10:00:00Z","lists":[],
+             "tasks":[{"id":5,"title":"Купить лампу","createdAt":"2026-10-01T09:00:00Z"}],
+             "rules":[{"id":1,"title":"Вода","startDate":"2026-10-05","repeat":{"type":"DAILY"},"isHabit":true}]}
+        """.trimIndent()
+
+        val snapshot = backupJson.decodeFromString(BackupSnapshot.serializer(), v5)
+
+        assertTrue(snapshot.goals.isEmpty())
+        assertTrue(snapshot.stages.isEmpty())
+        assertEquals(null, snapshot.tasks.single().goalId)
+        assertEquals(null, snapshot.rules.single().toDomain().goalId)
+    }
+
+    @Test
     fun `weekdays are written as names in the file`() {
         val rule = RecurrenceRule(
             title = "Бассейн", repeat = Repeat.OnWeekdays(setOf(WEDNESDAY, MONDAY)), startDate = LocalDate.of(2026, 10, 5),
