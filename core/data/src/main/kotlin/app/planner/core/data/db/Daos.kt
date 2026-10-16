@@ -46,9 +46,12 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE ruleId IS NOT NULL AND occurrenceDate BETWEEN :from AND :to")
     fun observeOccurrenceTasks(from: LocalDate, to: LocalDate): Flow<List<TaskEntity>>
 
-    // Открытые (ещё не сделанные) дни одного правила — их обновляют, когда правило поменяли
-    @Query("SELECT * FROM tasks WHERE ruleId = :ruleId AND status = 'OPEN'")
-    suspend fun getOpenOfRule(ruleId: Long): List<TaskEntity>
+    // Все дни одного правила, ставшие задачами (сделанные, перенесённые, пропущенные)
+    @Query("SELECT * FROM tasks WHERE ruleId = :ruleId")
+    suspend fun getOfRule(ruleId: Long): List<TaskEntity>
+
+    @Query("DELETE FROM tasks WHERE ruleId = :ruleId")
+    suspend fun deleteOfRule(ruleId: Long)
 
     // Задачи одного списка: сначала то, что ещё ждёт своего часа, запланированные — внизу, по дате
     // Дни повторений (ruleId) в списках не показываем: это не дела «когда-нибудь», а дни правила

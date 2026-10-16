@@ -80,27 +80,6 @@ object Recurrence {
             .filterNot { occ -> instances.any { it.ruleId == occ.rule.id && it.occurrenceDate == date } }
 
     /**
-     * Привычки на [date] — и ещё не отмеченные, и уже отмеченные (в отличие от [occurrencesOn],
-     * где отмеченный день исчезает: там вместо него на экране стоит сама задача).
-     * Правила, которые не привычки, пропускаются.
-     *
-     * @param instances задачи дней повторений; из них берётся отметка привычки на этот день.
-     */
-    fun habitsOn(
-        rules: List<RecurrenceRule>,
-        date: LocalDate,
-        instances: List<Task> = emptyList(),
-    ): List<HabitDay> =
-        rules.filter { it.isHabit }.mapNotNull { rule ->
-            // ?.let — «если не null, сделай с ним»: в этот день по правилу ничего нет → null → пропуск
-            occurrence(rule, date)?.let { occ ->
-                HabitDay(
-                    occ,
-                    instances.firstOrNull { it.ruleId == rule.id && it.occurrenceDate == date })
-            }
-        }
-
-    /**
      * Всё, что выпадает с [from] по [to] по всем правилам, — для «Недели».
      * [instances] — как в [occurrencesOn]: уже отмеченные дни здесь не повторяются.
      */

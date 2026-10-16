@@ -25,8 +25,11 @@ interface ITaskRepository {
      */
     fun observeOccurrenceTasks(from: LocalDate, to: LocalDate): Flow<List<Task>>
 
-    /** Открытые дни правила [ruleId], ставшие задачами (перенесённые). Сделанные сюда не входят. */
-    suspend fun getOpenOccurrenceTasks(ruleId: Long): List<Task>
+    /** Все дни правила [ruleId], ставшие задачами: сделанные, перенесённые, пропущенные. */
+    suspend fun getOccurrenceTasks(ruleId: Long): List<Task>
+
+    /** Удалить все дни правила [ruleId], ставшие задачами (отметки привычки, когда её удаляют). */
+    suspend fun deleteOccurrenceTasks(ruleId: Long)
 
     /** Хвосты: открытые задачи с датой раньше [today]. Дни повторений хвостами не бывают. */
     fun observeOverdue(today: LocalDate): Flow<List<Task>>

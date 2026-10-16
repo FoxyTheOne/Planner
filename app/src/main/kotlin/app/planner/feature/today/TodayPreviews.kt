@@ -8,6 +8,7 @@ import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.overdue.OverdueGroup
+import app.planner.core.domain.recurrence.HabitDay
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.preview.SampleData
 
@@ -43,7 +44,7 @@ private fun TodayPreview() {
             // Внизу — повторение на паузе (отпуск на неделю)
             paused = listOf(poolRule.copy(pauses = listOf(Pause(today.minusDays(1), today.plusDays(5))))),
             // Привычки: «Вода» уже отмечена (у неё есть задача-отметка), остальные — нет
-            habits = Recurrence.habitsOn(
+            habits = HabitDay.on(
                 habitRules, today,
                 instances = listOf(Recurrence.toTask(Recurrence.occurrence(habitRules[0], today)!!, TaskStatus.DONE)),
             ),

@@ -11,8 +11,8 @@ import org.junit.Test
 import java.time.DayOfWeek.MONDAY
 import java.time.LocalDate
 
-/** Мягкая статистика привычек: что считается «сделано» и за какой период. */
-class HabitHistoryTest {
+/** Привычки: какие «таблетки» сегодня и мягкая статистика — что считается «сделано» и за какой период. */
+class HabitsTest {
 
     private val today = LocalDate.of(2026, 10, 15)
 
@@ -22,6 +22,20 @@ class HabitHistoryTest {
     /** Отметка привычки на день [date] — как её сохраняет completeOccurrence. */
     private fun doneOn(rule: RecurrenceRule, date: LocalDate, status: TaskStatus = TaskStatus.DONE) =
         Recurrence.toTask(Recurrence.occurrence(rule, date)!!, status)
+
+    @Test
+    fun `habits of the day include done ones and skip plain rules`() {
+        val water = water()
+        val reading = water.copy(id = 2, title = "Читать")
+        val gym = water.copy(id = 3, repeat = Repeat.OnWeekdays(setOf(MONDAY))) // сегодня четверг — не её день
+        val pool = water.copy(id = 4, title = "Бассейн", isHabit = false) // дело, не привычка
+
+        val habits = HabitDay.on(listOf(water, reading, gym, pool), today, listOf(doneOn(water, today)))
+
+        assertEquals(listOf("Вода", "Читать"), habits.map { it.rule.title })
+        assertTrue(habits[0].isDone) // отмеченная привычка не пропала, а показана отмеченной
+        assertFalse(habits[1].isDone)
+    }
 
     @Test
     fun `counts done days of the last 30 days only`() {

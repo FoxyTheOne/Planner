@@ -118,7 +118,7 @@ class TodayViewModel @Inject constructor(
             combine(
                 recurrenceRepository.observeRules(),
                 // С запасом на 30 дней назад — для статистики привычек. Для сегодня и завтра лишние
-                // дни не мешают: occurrencesOn и habitsOn сами берут отметки только своего дня
+                // дни не мешают: occurrencesOn и HabitDay.on сами берут отметки только своего дня
                 tasks.observeOccurrenceTasks(
                     today.minusDays(HabitHistory.DAYS - 1L),
                     today.plusDays(1)
@@ -129,7 +129,7 @@ class TodayViewModel @Inject constructor(
                 RepeatsOfDay(
                     occurrences = Recurrence.occurrencesOn(plans, today, instances = done),
                     tomorrow = Recurrence.occurrencesOn(plans, today.plusDays(1), instances = done),
-                    habits = Recurrence.habitsOn(habits, today, instances = done),
+                    habits = HabitDay.on(habits, today, instances = done),
                     // associate — список → словарь: каждому правилу (по id) его история
                     habitHistory = habits.associate { it.id to HabitHistory.of(it, done, today) },
                     paused = rules.filter { Recurrence.activePause(it, today) != null },

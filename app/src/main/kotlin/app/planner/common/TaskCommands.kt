@@ -1,6 +1,7 @@
 package app.planner.common
 
 import app.planner.R
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
@@ -104,7 +105,8 @@ class TaskCommands @Inject constructor(
                 // Правило поменяли — его перенесённые, ещё не сделанные дни получают новое название и список
                 // (дата и время остаются: это перенос). Сделанные дни не трогаем — это история
                 if (existing != null) {
-                    tasks.getOpenOccurrenceTasks(rule.id)
+                    tasks.getOccurrenceTasks(rule.id)
+                        .filter { it.status == TaskStatus.OPEN }
                         .forEach { tasks.addOrUpdate(Recurrence.syncInstance(it, rule)) }
                 }
                 // Обычная задача из базы стала повторяющейся — сама по себе она больше не нужна
@@ -112,7 +114,7 @@ class TaskCommands @Inject constructor(
             }
 
             ruleDraftId != null -> {
-                rules.getRule(ruleDraftId)?.let { rules.delete(it) }
+                rules.getRule(ruleDraftId)?.let { removeRule(it) }
                 tasks.addOrUpdate(
                     saved.copy(
                         ruleId = null,
@@ -208,19 +210,37 @@ class TaskCommands @Inject constructor(
         )
     }
 
-    /**
-     * Удалить правило повторения. Уже отмеченные дни остаются в истории обычными задачами
-     * (внешний ключ SET_NULL). «Отменить» возвращает правило; связь отмеченных дней с ним
-     * при этом не восстанавливается — это редкий случай, и данные не теряются.
-     */
+    /** Удалить правило повторения кнопкой «Удалить» — с «Отменить», которое вернёт всё как было. */
     private suspend fun deleteRule(ruleId: Long) {
         val rule = rules.getRule(ruleId) ?: return
-        rules.delete(rule)
+        val days = removeRule(rule)
         messages.post(
             UiMessage(
                 UiText.Res(R.string.msg_repeat_deleted),
-                undo = { rules.save(rule) })
+                undo = {
+                    rules.save(rule) // то же id, поэтому дни снова на него ссылаются
+                    days.forEach { tasks.addOrUpdate(it) }
+                },
+            )
         )
+    }
+
+    /**
+     * Убрать правило из базы. Что будет с его днями, ставшими задачами:
+     * - у дела отмеченные дни остаются в истории обычными задачами (внешний ключ SET_NULL
+     *   обнуляет им ruleId): «в среду полила цветы» — это правда, и её видно в «Неделе»;
+     * - у привычки отметки удаляются. Сами по себе они ничего не значат, а без правила стали бы
+     *   обычными сделанными задачами «Вода» — по одной в каждом прошедшем дне «Недели».
+     *
+     * Возвращает дни такими, какими они были ДО удаления (с ruleId), — чтобы «Отменить» мог
+     * их вернуть. Записать их обратно (@Upsert по id) — и связь с правилом восстановится.
+     */
+    private suspend fun removeRule(rule: RecurrenceRule): List<Task> {
+        val days = tasks.getOccurrenceTasks(rule.id)
+        // Сначала отметки, потом правило: после удаления правила у них уже не будет ruleId
+        if (rule.isHabit) tasks.deleteOccurrenceTasks(rule.id)
+        rules.delete(rule)
+        return days
     }
 
     /** Поставить правило на паузу с сегодняшнего дня по [until] (null — пока не нажмут «Продолжить»). */

@@ -23,6 +23,29 @@ import java.time.LocalDate
 data class HabitDay(val occurrence: Occurrence, val task: Task?) {
     val rule: RecurrenceRule get() = occurrence.rule
     val isDone: Boolean get() = task?.isDone == true
+
+    companion object {
+        /**
+         * Привычки на [date] — и ещё не отмеченные, и уже отмеченные (в отличие от
+         * [Recurrence.occurrencesOn], где отмеченный день исчезает: там вместо него на экране стоит
+         * сама задача). Правила, которые не привычки, пропускаются.
+         *
+         * @param instances задачи дней повторений; из них берётся отметка привычки на этот день.
+         */
+        fun on(
+            rules: List<RecurrenceRule>,
+            date: LocalDate,
+            instances: List<Task> = emptyList()
+        ): List<HabitDay> =
+            rules.filter { it.isHabit }.mapNotNull { rule ->
+                // ?.let — «если не null, сделай с ним»: в этот день по правилу ничего нет → null → пропуск
+                Recurrence.occurrence(rule, date)?.let { occ ->
+                    HabitDay(
+                        occ,
+                        instances.firstOrNull { it.ruleId == rule.id && it.occurrenceDate == date })
+                }
+            }
+    }
 }
 
 /**
