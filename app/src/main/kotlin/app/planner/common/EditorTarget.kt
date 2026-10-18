@@ -20,6 +20,7 @@ import java.time.LocalDate
  * @param pause пауза, которая идёт сейчас; null — не на паузе (или это не повторение).
  * @param pauses все паузы правила — редактору цикла, чтобы правильно показать, какая неделя идёт сейчас.
  * @param isHabit повторение показывается привычкой («таблеткой»), а не строкой плана.
+ * @param habitGoalId какой цели помогает привычка; null — ни к какой не привязана.
  */
 data class EditorTarget(
     val task: Task,
@@ -27,6 +28,7 @@ data class EditorTarget(
     val pause: Pause? = null,
     val pauses: List<Pause> = emptyList(),
     val isHabit: Boolean = false,
+    val habitGoalId: Long? = null,
 ) {
     companion object {
         /** Открыть правило повторения: черновик из правила, его повторение, текущая пауза. */
@@ -36,6 +38,7 @@ data class EditorTarget(
             pause = Recurrence.activePause(rule, today),
             pauses = rule.pauses,
             isHabit = rule.isHabit,
+            habitGoalId = rule.goalId,
         )
     }
 }
@@ -54,12 +57,15 @@ data class EditorTarget(
  * @param newListName название нового списка, если его решили создать прямо в редакторе; иначе null.
  * @param repeat повторение; null — «не повторять».
  * @param isHabit показывать повторение привычкой. Без повторения не имеет смысла и всегда false.
+ * @param habitGoalId цель, которой помогает привычка. Только у привычки, иначе null.
+ * (Не путать с task.goalId: тот — у шага цели, а это — у правила-привычки.)
  */
 data class EditorResult(
     val task: Task,
     val newListName: String? = null,
     val repeat: Repeat? = null,
     val isHabit: Boolean = false,
+    val habitGoalId: Long? = null,
 )
 
 /**
@@ -77,6 +83,7 @@ val EditorTargetSaver: Saver<EditorTarget?, Any> = Saver(
                 // Паузы — парами дат «с, по» (обе — LocalDate, Bundle их хранить умеет)
                 ArrayList(it.pauses.flatMap { p -> listOf(p.from, p.until) }),
                 it.isHabit,
+                it.habitGoalId,
             )
         }
     },
@@ -93,6 +100,7 @@ val EditorTargetSaver: Saver<EditorTarget?, Any> = Saver(
                 )
             },
             isHabit = v[5] as Boolean,
+            habitGoalId = v[6] as Long?,
         )
     },
 )

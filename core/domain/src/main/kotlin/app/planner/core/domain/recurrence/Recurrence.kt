@@ -102,6 +102,8 @@ object Recurrence {
      * - [existing] — если правило уже было (его редактируют): сохраняем его id и паузы;
      * - [isHabit] — привычка или дело. У задачи-черновика такого поля нет, поэтому оно передаётся
      *   отдельно. Не передали — остаётся как было у правила (новое правило — дело).
+     * - [goalId] — какой цели помогает привычка. Тоже отдельно и тоже «как было», если не передали.
+     *   Связь с целью бывает только у привычки: выключили «Привычка» — связь пропадает.
      */
     fun ruleFromDraft(
         draft: Task,
@@ -110,6 +112,7 @@ object Recurrence {
         existing: RecurrenceRule? = null,
         // Значение по умолчанию может опираться на параметры левее: existing уже известен
         isHabit: Boolean = existing?.isHabit ?: false,
+        goalId: Long? = existing?.goalId,
     ): RecurrenceRule = RecurrenceRule(
         id = existing?.id ?: 0,
         title = draft.title,
@@ -121,6 +124,7 @@ object Recurrence {
         partOfDay = draft.partOfDay,
         listId = draft.listId,
         isHabit = isHabit,
+        goalId = goalId.takeIf { isHabit },
     )
 
     /**

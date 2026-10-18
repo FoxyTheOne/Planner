@@ -194,8 +194,8 @@ class TodayViewModel @Inject constructor(
             overdue = Overdue.grouped(overdue, today),
             showOverdueBanner = overdue.isNotEmpty() && settings.overdueBannerHiddenOn != today,
             lists = lists,
-            // Шаги целей подписываются названием своей цели: id цели → название
-            goalTitles = goals.associate { it.id to it.title },
+            // Цели: по ним подписываются шаги целей и выбирается «Помогает цели» у привычки
+            goals = goals,
             paused = repeats.paused,
             habits = repeats.habits,
             habitHistory = repeats.habitHistory,

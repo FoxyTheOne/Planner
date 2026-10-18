@@ -4,7 +4,10 @@ import app.planner.core.domain.goal.GoalOverview
 import app.planner.core.domain.goal.StepGroup
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.model.TaskList
+import app.planner.core.domain.recurrence.HabitHistory
 import java.time.LocalDate
 
 /**
@@ -22,8 +25,18 @@ data class GoalUiState(
     val groups: List<StepGroup> = emptyList(),
     val stages: List<GoalStage> = emptyList(),
     val steps: List<Task> = emptyList(),
+    /** Привычки, которые помогают цели: видны на экране цели, но в процент не входят. */
+    val habits: List<LinkedHabit> = emptyList(),
+    /** Списки — редактору привычки (у привычки, как у любого повторения, может быть список). */
+    val lists: List<TaskList> = emptyList(),
     val loaded: Boolean = false,
 )
+
+/**
+ * Привычка, привязанная к цели, и её мягкая статистика за 30 дней («за 30 дней — 18 раз»).
+ * В процент цели не входит: процент — это шаги, а привычка не «закрывается» — её просто делают.
+ */
+data class LinkedHabit(val rule: RecurrenceRule, val history: HabitHistory)
 
 /**
  * Что можно сделать с целью целиком (а не с её шагами).

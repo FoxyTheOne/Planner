@@ -20,16 +20,20 @@ import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.repository.IGoalRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
+import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +55,7 @@ class GoalViewModel @Inject constructor(
     private val goals: IGoalRepository,
     private val tasks: ITaskRepository,
     private val rules: IRecurrenceRepository,
+    private val listRepository: ITaskListRepository,
     private val commands: TaskCommands,
     private val messages: MessageBus,
     todayClock: TodayClock,
@@ -58,26 +63,51 @@ class GoalViewModel @Inject constructor(
 
     private val goalId: Long = checkNotNull(savedStateHandle.get<Long>(Routes.ARG_GOAL_ID))
 
-    val state: StateFlow<GoalUiState> = combine(
-        goals.observeGoal(goalId),
-        goals.observeStages(goalId),
-        tasks.observeGoalSteps(goalId),
-        todayClock.todayFlow,
-    ) { goal, stages, steps, today ->
-        GoalUiState(
-            today = today,
-            goal = goal,
-            overview = goal?.let { GoalOverview.of(it, stages, steps, today) },
-            groups = stepGroups(stages, steps),
-            stages = stages,
-            steps = steps,
-            loaded = true,
-        )
+    /*
+     * Как в «Сегодня»: дата — снаружи (flatMapLatest), всё остальное — внутри.
+     * Статистике привычек нужны отметки «за последние 30 дней», а это запрос с датами —
+     * в полночь его надо пересоздать с новыми датами. flatMapLatest так и делает: пришёл новый
+     * день — старый combine (со вчерашним запросом) отменяется, создаётся новый.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val state: StateFlow<GoalUiState> = todayClock.todayFlow.flatMapLatest { today ->
+        combine(
+            goals.observeGoal(goalId),
+            goals.observeStages(goalId),
+            tasks.observeGoalSteps(goalId),
+            linkedHabits(today),
+            listRepository.observeLists(),
+        ) { goal, stages, steps, habits, lists ->
+            GoalUiState(
+                today = today,
+                goal = goal,
+                overview = goal?.let { GoalOverview.of(it, stages, steps, today) },
+                groups = stepGroups(stages, steps),
+                stages = stages,
+                steps = steps,
+                habits = habits,
+                lists = lists,
+                loaded = true,
+            )
+        }
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         GoalUiState(todayClock.today())
     )
+
+    /**
+     * Привычки, которые помогают этой цели, и мягкая статистика каждой за 30 дней — та же,
+     * что в редакторе привычки (HabitHistory). Отметки берём «с запасом» на весь период.
+     */
+    private fun linkedHabits(today: LocalDate) = combine(
+        rules.observeRules(),
+        tasks.observeOccurrenceTasks(today.minusDays(HabitHistory.DAYS - 1L), today),
+    ) { allRules, done ->
+        allRules
+            .filter { it.isHabit && it.goalId == goalId }
+            .map { LinkedHabit(it, HabitHistory.of(it, done, today)) }
+    }
 
     /**
      * Добавить шаг в конец этапа [stageId] (null — к шагам без этапа).
@@ -114,7 +144,11 @@ class GoalViewModel @Inject constructor(
     fun achieve() = viewModelScope.launch {
         val goal = state.value.goal ?: return@launch
         goals.save(goal.copy(achievedOn = state.value.today))
-        messages.post(UiMessage(UiText.Res(R.string.msg_goal_achieved), undo = { goals.save(goal) }))
+        messages.post(
+            UiMessage(
+                UiText.Res(R.string.msg_goal_achieved),
+                undo = { goals.save(goal) })
+        )
     }
 
     /** Вернуть достигнутую цель в работу — например, отметили по ошибке или появились новые шаги. */
@@ -166,6 +200,15 @@ class GoalViewModel @Inject constructor(
     fun schedule(step: Task, slot: Slot) = viewModelScope.launch { commands.schedule(step, slot) }
     fun saveStep(result: EditorResult) = viewModelScope.launch { commands.save(result) }
     fun deleteStep(step: Task) = viewModelScope.launch { commands.delete(step) }
+
+    // Привычки цели правятся тем же редактором и теми же командами, что в «Сегодня»:
+    // сохранить правило, удалить его (с «Отменить»), поставить на паузу и продолжить
+    fun saveHabit(result: EditorResult) = viewModelScope.launch { commands.save(result) }
+    fun deleteHabit(draft: Task) = viewModelScope.launch { commands.delete(draft) }
+    fun pauseHabit(ruleId: Long, until: LocalDate?) =
+        viewModelScope.launch { commands.pauseRule(ruleId, until) }
+
+    fun resumeHabit(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
 
     /**
      * Сохранить порядок после перетаскивания (или «Выше» / «Ниже» в TalkBack).

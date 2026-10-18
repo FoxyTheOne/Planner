@@ -144,6 +144,18 @@ class RecurrenceTest {
     }
 
     @Test
+    fun `editing a habit keeps its goal, turning habit off drops it`() {
+        val duolingo = rule(Repeat.Daily).copy(id = 6, isHabit = true, goalId = 2)
+        val draft = Recurrence.draftFromRule(duolingo).copy(title = "Duolingo, 15 минут")
+
+        // Правка без смены «привычка / цель» — связь с целью на месте
+        assertEquals(2L, Recurrence.ruleFromDraft(draft, Repeat.Daily, today = monday, existing = duolingo).goalId)
+        // Выключили «Привычка» — это дело, а у дела связи с целью нет
+        val plain = Recurrence.ruleFromDraft(draft, Repeat.Daily, today = monday, existing = duolingo, isHabit = false)
+        assertEquals(null, plain.goalId)
+    }
+
+    @Test
     fun `editing a habit keeps it a habit`() {
         val water = rule(Repeat.Daily).copy(id = 4, isHabit = true)
         val draft = Recurrence.draftFromRule(water).copy(title = "Вода, 6 стаканов")

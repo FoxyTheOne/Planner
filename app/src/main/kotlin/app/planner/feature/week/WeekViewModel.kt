@@ -86,7 +86,7 @@ class WeekViewModel @Inject constructor(
                             dayItems(tasksByDay[day].orEmpty(), occurrencesByDay[day].orEmpty())
                         },
                         lists = lists,
-                        goalTitles = goals.associate { it.id to it.title },
+                        goals = goals,
                         unscheduled = unscheduled,
                         overdue = overdue,
                     )

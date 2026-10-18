@@ -12,6 +12,7 @@ import app.planner.core.designsystem.preview.PlannerScreenPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.goal.GoalOverview
 import app.planner.core.domain.goal.stepGroups
+import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.preview.SampleData
 
 /*
@@ -84,6 +85,13 @@ private fun GoalPreview() {
             groups = stepGroups(stages, steps),
             stages = stages,
             steps = steps,
+            // Привычка, которая помогает цели, — со строкой статистики под названием
+            habits = listOf(
+                LinkedHabit(
+                    habitRules[0].copy(title = "Проветривать ванную", goalId = repairGoal.id),
+                    HabitHistory.of(habitRules[0], emptyList(), today),
+                ),
+            ),
             loaded = true,
         )
     }
@@ -100,6 +108,8 @@ private fun GoalPreview() {
             onAddStage = {},
             onEditStage = {},
             onReorder = {},
+            onOpenHabit = {},
+            onNewHabit = {},
             onGoalAction = {},
         )
     }
@@ -136,6 +146,8 @@ private fun GoalDeadlinePassedPreview() {
             onAddStage = {},
             onEditStage = {},
             onReorder = {},
+            onOpenHabit = {},
+            onNewHabit = {},
             onGoalAction = {},
         )
     }

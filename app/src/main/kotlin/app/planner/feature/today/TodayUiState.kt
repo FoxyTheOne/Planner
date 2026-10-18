@@ -1,6 +1,7 @@
 package app.planner.feature.today
 
 import app.planner.common.DayItem
+import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -32,8 +33,8 @@ data class TodayUiState(
     val overdue: Map<OverdueGroup, List<Task>> = emptyMap(),
     val showOverdueBanner: Boolean = false,
     val lists: List<TaskList> = emptyList(),
-    /** Названия целей по id — подпись под шагом цели («Купить плитку» → «Ремонт в ванной»). */
-    val goalTitles: Map<Long, String> = emptyMap(),
+    /** Все цели — для подписи под шагом цели и для «Помогает цели» в редакторе привычки. */
+    val goals: List<Goal> = emptyList(),
     /** Повторения, которые сегодня на паузе: их не видно в разделах, но открыть, чтобы продолжить, нужно. */
     val paused: List<RecurrenceRule> = emptyList(),
     /**
@@ -44,6 +45,9 @@ data class TodayUiState(
     /** Мягкая статистика каждой привычки (по id правила): показывается в редакторе привычки. */
     val habitHistory: Map<Long, HabitHistory> = emptyMap(),
 ) {
+    /** Названия целей по id — подпись под шагом цели («Купить плитку» → «шаг к цели «Ремонт в ванной»»). */
+    val goalTitles: Map<Long, String> get() = goals.associate { it.id to it.title }
+
     val overdueCount: Int get() = overdue.values.sumOf { it.size }
     val isEmpty: Boolean get() = sections.values.all { it.isEmpty() }
 }

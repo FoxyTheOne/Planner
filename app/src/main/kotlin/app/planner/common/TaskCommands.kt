@@ -81,7 +81,7 @@ class TaskCommands @Inject constructor(
      *
      * Редактор один для задач и повторений, поэтому вариантов три:
      * - выбрано повторение (repeat) — сохраняем ПРАВИЛО (новое или правку старого), а не задачу.
-     *   Привычка это или дело — тоже из редактора (isHabit);
+     *   Привычка это или дело и какой цели она помогает — тоже из редактора (isHabit, habitGoalId);
      * - открыли повторение, а выбрали «Не повторять» — правило удаляем, остаётся одна обычная задача;
      * - обычная задача — как раньше.
      *
@@ -91,7 +91,7 @@ class TaskCommands @Inject constructor(
      */
     suspend fun save(result: EditorResult): Long? {
         // Разложить объект на переменные: дальше код читается так же, как с отдельными параметрами
-        val (task, newListName, repeat, isHabit) = result
+        val (task, newListName, repeat, isHabit, habitGoalId) = result
         // Правило «какой цвет и где встаёт новый список» — в CreateListUseCase (domain)
         val listId = if (newListName.isNullOrBlank()) task.listId else createList(newListName)
         val saved = task.copy(listId = listId)
@@ -100,7 +100,14 @@ class TaskCommands @Inject constructor(
             repeat != null -> {
                 val existing = ruleDraftId?.let { rules.getRule(it) }
                 val rule =
-                    Recurrence.ruleFromDraft(saved, repeat, todayClock.today(), existing, isHabit)
+                    Recurrence.ruleFromDraft(
+                        saved,
+                        repeat,
+                        todayClock.today(),
+                        existing,
+                        isHabit,
+                        habitGoalId
+                    )
                 rules.save(rule)
                 // Правило поменяли — его перенесённые, ещё не сделанные дни получают новое название и список
                 // (дата и время остаются: это перенос). Сделанные дни не трогаем — это история

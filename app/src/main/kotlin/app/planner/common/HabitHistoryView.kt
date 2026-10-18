@@ -75,9 +75,12 @@ fun HabitHistoryView(history: HabitHistory, modifier: Modifier = Modifier) {
     }
 }
 
-/** «За 30 дней — 18 раз», «С 10 октября — 2 раза» или «Отметок пока нет». */
+/**
+ * «За 30 дней — 18 раз», «С 10 октября — 2 раза» или «Отметок пока нет».
+ * Общая: её показывают и редактор привычки, и раздел «Привычки» на экране цели.
+ */
 @Composable
-private fun habitHistoryText(history: HabitHistory): String {
+fun habitHistoryText(history: HabitHistory): String {
     val count = history.doneCount
     return when {
         count == 0 -> stringResource(R.string.habit_stats_none)

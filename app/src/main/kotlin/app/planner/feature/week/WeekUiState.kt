@@ -1,6 +1,7 @@
 package app.planner.feature.week
 
 import app.planner.common.DayItem
+import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import java.time.LocalDate
@@ -13,9 +14,12 @@ data class WeekUiState(
     /** Строки каждого дня: задачи и ещё не отмеченные дни повторений, по времени. */
     val itemsByDay: Map<LocalDate, List<DayItem>> = emptyMap(),
     val lists: List<TaskList> = emptyList(),
-    /** Названия целей по id — подпись под шагом цели в дне недели и в шторке «Из списков». */
-    val goalTitles: Map<Long, String> = emptyMap(),
+    /** Все цели — для подписи под шагом цели и для «Помогает цели» в редакторе привычки. */
+    val goals: List<Goal> = emptyList(),
     /** Кандидаты для шторки «Из списков» и лотка планирования. */
     val unscheduled: List<Task> = emptyList(),
     val overdue: List<Task> = emptyList(),
-)
+) {
+    /** Названия целей по id — подпись под шагом цели в дне недели и в шторке «Из списков». */
+    val goalTitles: Map<Long, String> get() = goals.associate { it.id to it.title }
+}

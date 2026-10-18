@@ -104,6 +104,7 @@ fun DayScreen(
             onDelete = viewModel::delete,
             onPause = viewModel::pauseRule,
             onResume = viewModel::resumeRule,
+            goals = state.goals,
         )
     }
 }

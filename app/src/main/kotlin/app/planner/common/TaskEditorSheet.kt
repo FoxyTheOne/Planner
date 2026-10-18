@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Repeat
@@ -58,6 +59,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import app.planner.R
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
@@ -85,6 +87,8 @@ import java.time.LocalDate
  * а под переключателем — её мягкая статистика за 30 дней ([habitHistory], если её передали).
  *
  * @param onSave получает всё, что ввели, одним объектом [EditorResult].
+ * @param goals все цели — для строки «Помогает цели» у привычки; [initialHabitGoalId] — с какой целью
+ *   привычка уже связана (null — ни с какой).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,6 +106,8 @@ fun TaskEditorSheet(
     rulePauses: List<Pause> = emptyList(),
     initialHabit: Boolean = false,
     habitHistory: HabitHistory? = null,
+    goals: List<Goal> = emptyList(),
+    initialHabitGoalId: Long? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -120,6 +126,8 @@ fun TaskEditorSheet(
             rulePauses = rulePauses,
             initialHabit = initialHabit,
             habitHistory = habitHistory,
+            goals = goals,
+            initialHabitGoalId = initialHabitGoalId,
         )
     }
 }
@@ -139,6 +147,7 @@ fun TaskEditorSheet(
  *   (черновик правила, см. Task.isRuleDraft): у обычной задачи и у дня повторения паузы нет.
  * @param habitHistory статистика, если открыта привычка. Её считает ViewModel экрана, а не шторка:
  *   нужны отметки из базы, а шторка с базой не работает.
+ * @param goals все цели — для строки «Помогает цели» у привычки (выбрать можно из тех, что в работе).
  */
 @Composable
 fun TaskEditorSheet(
@@ -151,6 +160,7 @@ fun TaskEditorSheet(
     onPause: (ruleId: Long, until: LocalDate?) -> Unit,
     onResume: (ruleId: Long) -> Unit,
     habitHistory: HabitHistory? = null,
+    goals: List<Goal> = emptyList(),
 ) {
     // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
     val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
@@ -169,6 +179,8 @@ fun TaskEditorSheet(
         rulePauses = target.pauses,
         initialHabit = target.isHabit,
         habitHistory = habitHistory,
+        goals = goals,
+        initialHabitGoalId = target.habitGoalId,
     )
 }
 
@@ -192,6 +204,8 @@ fun TaskEditorSheetBody(
     rulePauses: List<Pause> = emptyList(),
     initialHabit: Boolean = false,
     habitHistory: HabitHistory? = null,
+    goals: List<Goal> = emptyList(),
+    initialHabitGoalId: Long? = null,
 ) {
     // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
     val isNew = initial.id == 0L && !initial.isRuleDraft
@@ -221,6 +235,7 @@ fun TaskEditorSheetBody(
     var repeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf(initialRepeat) }
     var showRepeat by rememberSaveable { mutableStateOf(false) }
     var isHabit by rememberSaveable { mutableStateOf(initialHabit) }
+    var habitGoalId by rememberSaveable { mutableStateOf(initialHabitGoalId) }
     var showPause by rememberSaveable { mutableStateOf(false) }
     // FocusRequester — «пульт» для поля ввода: позволяет из кода поставить в него курсор.
     // Его сохранять не нужно (и нельзя): после поворота поле создаётся заново, и пульт — тоже
@@ -248,6 +263,8 @@ fun TaskEditorSheetBody(
                 repeat = repeat,
                 // Переключатель мог остаться включённым, а повторение потом убрали ✕ — тогда это просто задача
                 isHabit = isHabit && repeat != null,
+                // Цель — только у привычки: выключили «Привычка» или убрали повторение — связь не сохраняем
+                habitGoalId = habitGoalId.takeIf { isHabit && repeat != null },
             ),
         )
     }
@@ -401,6 +418,13 @@ fun TaskEditorSheetBody(
             // Привычка — только у повторения: у разовой задачи «таблетки» не бывает
             if (repeat != null) {
                 HabitSwitchRow(checked = isHabit, onCheckedChange = { isHabit = it })
+                // «Помогает цели» — только у привычки, и только если есть цели (или связь уже есть)
+                if (isHabit && (goals.any { !it.isAchieved } || habitGoalId != null)) {
+                    HabitGoalRow(
+                        goals = goals,
+                        goalId = habitGoalId,
+                        onChange = { habitGoalId = it })
+                }
                 // Статистика есть только у уже сохранённой привычки; выключили переключатель — прячем
                 if (isHabit && habitHistory != null) {
                     HabitHistoryView(
@@ -575,6 +599,40 @@ private fun HabitSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit)
             )
         }
         Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+/**
+ * «⚑ Помогает цели: Испанский» — с какой целью связана привычка. Нажатие открывает меню
+ * целей, которые сейчас в работе; ✕ — убрать связь.
+ *
+ * Та же [EditorActionRow], что у даты и повторения: пока цели нет — действие «Связать с целью»
+ * цветом кнопок, выбрали — название цели и ✕. Меню (DropdownMenu) появляется под строкой.
+ *
+ * @param goals все цели: название ищем среди всех (вдруг привычка связана с уже достигнутой),
+ *   а выбрать можно только те, что в работе.
+ */
+@Composable
+private fun HabitGoalRow(goals: List<Goal>, goalId: Long?, onChange: (Long?) -> Unit) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val title = goals.firstOrNull { it.id == goalId }?.title
+    Box {
+        EditorActionRow(
+            icon = Icons.Outlined.Flag,
+            value = title?.let { stringResource(R.string.habit_goal, it) },
+            action = stringResource(R.string.habit_goal_add),
+            onClick = { menuOpen = true },
+            onClear = { onChange(null) },
+            clearDescription = stringResource(R.string.cd_clear_habit_goal),
+        )
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            goals.filter { !it.isAchieved }.forEach { goal ->
+                DropdownMenuItem(
+                    text = { Text(goal.title) },
+                    onClick = { onChange(goal.id); menuOpen = false },
+                )
+            }
+        }
     }
 }
 

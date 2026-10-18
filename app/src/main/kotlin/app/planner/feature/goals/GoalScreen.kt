@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -62,11 +63,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
 import app.planner.common.DateTexts
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.common.GoalSaver
 import app.planner.common.PlannerDatePickerDialog
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
+import app.planner.common.habitHistoryText
+import app.planner.common.pausedText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.component.SectionLabel
@@ -76,9 +81,13 @@ import app.planner.core.domain.goal.DeadlineState
 import app.planner.core.domain.goal.StepGroup
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
+import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.recurrence.Recurrence
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import java.time.LocalDate
 
 /**
  * Экран одной цели: «Зачем», срок и прогресс, а ниже — шаги по этапам.
@@ -106,6 +115,12 @@ fun GoalScreen(
     // Какой этап открыт в окне — по id: число rememberSaveable хранит сам, без отдельного Saver
     var editingStageId by rememberSaveable { mutableStateOf<Long?>(null) }
     var pickingDeadline by rememberSaveable { mutableStateOf(false) }
+    // Привычка цели в редакторе — тот же EditorTarget, что в «Сегодня»; null — редактор закрыт
+    var editingHabit by rememberSaveable(stateSaver = EditorTargetSaver) {
+        mutableStateOf<EditorTarget?>(
+            null
+        )
+    }
 
     // Цели больше нет (удалили) — возвращаемся к списку целей, как экран списка
     val goal = state.goal
@@ -126,6 +141,17 @@ fun GoalScreen(
         onAddStage = { addingStage = true },
         onEditStage = { editingStageId = it.id },
         onReorder = viewModel::reorder,
+        onOpenHabit = { editingHabit = EditorTarget.forRule(it, state.today) },
+        // Новая привычка этой цели: «каждый день», переключатель «Привычка» включён, цель выбрана —
+        // остаётся написать название
+        onNewHabit = {
+            editingHabit = EditorTarget(
+                task = Task(title = ""),
+                repeat = Repeat.Daily,
+                isHabit = true,
+                habitGoalId = state.goal?.id,
+            )
+        },
         // when по sealed interface: компилятор проверит, что разобраны все действия с целью
         onGoalAction = { action ->
             when (action) {
@@ -137,6 +163,22 @@ fun GoalScreen(
             }
         },
     )
+
+    editingHabit?.let { target ->
+        TaskEditorSheet(
+            target = target,
+            lists = state.lists,
+            today = state.today,
+            onDismiss = { editingHabit = null },
+            onSave = viewModel::saveHabit,
+            onDelete = viewModel::deleteHabit,
+            onPause = viewModel::pauseHabit,
+            onResume = viewModel::resumeHabit,
+            habitHistory = state.habits.firstOrNull { it.rule.id == target.task.ruleId }?.history,
+            // Здесь можно связать только с этой целью (или отвязать); перевязать к другой — из «Сегодня»
+            goals = listOfNotNull(state.goal),
+        )
+    }
 
     if (pickingDeadline) {
         PlannerDatePickerDialog(
@@ -206,6 +248,8 @@ fun GoalContent(
     onAddStage: () -> Unit,
     onEditStage: (GoalStage) -> Unit,
     onReorder: (List<StepGroup>) -> Unit,
+    onOpenHabit: (RecurrenceRule) -> Unit,
+    onNewHabit: () -> Unit,
     onGoalAction: (GoalAction) -> Unit,
 ) {
     val paper = PlannerTheme.paper
@@ -337,6 +381,54 @@ fun GoalContent(
                     Modifier.padding(top = 16.dp)
                 )
             }
+
+            // --- Привычки, которые помогают цели. Ниже шагов и отдельно от них: в процент не входят ---
+            item(key = "habits_label") {
+                SectionLabel(
+                    stringResource(R.string.section_goal_habits),
+                    Modifier.padding(top = 16.dp)
+                )
+            }
+            items(state.habits, key = { "habit_${it.rule.id}" }) { habit ->
+                LinkedHabitRow(habit, state.today, onClick = { onOpenHabit(habit.rule) })
+            }
+            item(key = "add_habit") {
+                AddRow(
+                    stringResource(R.string.habit_new),
+                    onClick = onNewHabit
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Привычка цели: название и под ним — мягкая статистика «за 30 дней — 18 раз»
+ * (или «на паузе до …», если она сейчас на паузе). Тап открывает привычку в редакторе.
+ * Отмечают привычку по-прежнему «таблеткой» в «Сегодня» — здесь только посмотреть, как она идёт.
+ */
+@Composable
+private fun LinkedHabitRow(habit: LinkedHabit, today: LocalDate, onClick: () -> Unit) {
+    val paper = PlannerTheme.paper
+    val pause = Recurrence.activePause(habit.rule, today)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        // Та же ширина 40dp, что у квадратика шага: названия стоят ровно под шагами
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.SelfImprovement, null, tint = paper.inkMuted)
+        }
+        Column(Modifier.padding(start = 10.dp)) {
+            Text(habit.rule.title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                if (pause != null) pausedText(pause) else habitHistoryText(habit.history),
+                color = paper.inkMuted,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
     }
 }
