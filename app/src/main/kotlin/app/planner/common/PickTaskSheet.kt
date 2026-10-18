@@ -47,6 +47,11 @@ import java.time.LocalDate
 /**
  * Шторка из недели: место в плане уже выбрано, осталось выбрать, чем его занять —
  * новой задачей или готовой из списков. Одним тапом задача встаёт в слот.
+ *
+ * Во вкладке «Из списков» есть и шаги целей без даты: запланировать шаг на неделю — как раз то,
+ * ради чего цели разбивают на шаги. Они собраны под заголовками своих целей, после списков.
+ *
+ * @param goalTitles названия целей по id — для заголовков над шагами.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,16 +60,21 @@ fun PickTaskSheet(
     today: LocalDate,
     candidates: List<Task>,
     lists: List<TaskList>,
+    goalTitles: Map<Long, String>,
     onDismiss: () -> Unit,
     onPick: (Task) -> Unit,
     onCreate: (String) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
         PickTaskSheetBody(
             slot = slot,
             today = today,
             candidates = candidates,
             lists = lists,
+            goalTitles = goalTitles,
             onPick = onPick,
             onCreate = onCreate,
         )
@@ -83,6 +93,7 @@ fun PickTaskSheetBody(
     today: LocalDate,
     candidates: List<Task>,
     lists: List<TaskList>,
+    goalTitles: Map<Long, String> = emptyMap(),
     onPick: (Task) -> Unit,
     onCreate: (String) -> Unit,
 ) {
@@ -101,9 +112,19 @@ fun PickTaskSheetBody(
             style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.padding(horizontal = 20.dp),
         )
-        PrimaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.padding(top = 8.dp)) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.pick_tab_new)) })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.pick_tab_lists)) })
+        PrimaryTabRow(
+            selectedTabIndex = tab,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            Tab(
+                selected = tab == 0,
+                onClick = { tab = 0 },
+                text = { Text(stringResource(R.string.pick_tab_new)) })
+            Tab(
+                selected = tab == 1,
+                onClick = { tab = 1 },
+                text = { Text(stringResource(R.string.pick_tab_lists)) })
         }
 
         if (tab == 0) {
@@ -112,14 +133,23 @@ fun PickTaskSheetBody(
                     value = newTitle,
                     onValueChange = { newTitle = it },
                     placeholder = { Text(stringResource(R.string.task_title_hint)) },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { if (newTitle.isNotBlank()) onCreate(newTitle.trim()) }),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (newTitle.isNotBlank()) onCreate(
+                            newTitle.trim()
+                        )
+                    }),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Button(
                     onClick = { onCreate(newTitle.trim()) },
                     enabled = newTitle.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
                 ) { Text(stringResource(R.string.action_add)) }
             }
         } else {
@@ -129,9 +159,16 @@ fun PickTaskSheetBody(
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 placeholder = { Text(stringResource(R.string.pick_search)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
             )
-            val filtered = candidates.filter { query.isBlank() || it.title.contains(query.trim(), ignoreCase = true) }
+            val filtered = candidates.filter {
+                query.isBlank() || it.title.contains(
+                    query.trim(),
+                    ignoreCase = true
+                )
+            }
             if (filtered.isEmpty()) {
                 Text(
                     stringResource(if (candidates.isEmpty()) R.string.pick_empty else R.string.pick_nothing_found),
@@ -139,13 +176,33 @@ fun PickTaskSheetBody(
                     modifier = Modifier.padding(20.dp),
                 )
             } else {
-                val byList = filtered.groupBy { it.listId }
+                // Задачи — под своим списком, шаги целей — под своей целью (у шага списка нет:
+                // без этого он попал бы под «Без списка»). Ключ группы — строка, чтобы id списка
+                // и id цели не путались: «list_3» и «goal_3» — разные группы
+                val groups = filtered
+                    .groupBy { task -> task.goalId?.let { "goal_$it" } ?: "list_${task.listId}" }
+                    .entries
+                    .sortedBy { it.key.startsWith("goal_") } // сначала списки, потом цели
                 val listsById = lists.associateBy { it.id }
-                LazyColumn(Modifier.heightIn(max = 420.dp).padding(horizontal = 20.dp)) {
-                    byList.forEach { (listId, tasks) ->
-                        item(key = "h$listId") {
-                            val list = listId?.let(listsById::get)
-                            SectionLabel(list?.let { listName(it) } ?: stringResource(R.string.list_inbox))
+                LazyColumn(Modifier
+                    .heightIn(max = 420.dp)
+                    .padding(horizontal = 20.dp)) {
+                    groups.forEach { (key, tasks) ->
+                        item(key = "h$key") {
+                            val first = tasks.first()
+                            val goalTitle = first.goalId?.let(goalTitles::get)
+                            val list = first.listId?.let(listsById::get)
+                            SectionLabel(
+                                when {
+                                    goalTitle != null -> stringResource(
+                                        R.string.pick_goal_section,
+                                        goalTitle
+                                    )
+
+                                    list != null -> listName(list)
+                                    else -> stringResource(R.string.list_inbox)
+                                },
+                            )
                         }
                         items(tasks, key = { it.id }) { task ->
                             Column {

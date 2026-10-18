@@ -66,16 +66,19 @@ fun dayItems(tasks: List<Task>, occurrences: List<Occurrence>): List<DayItem> =
         .sortedWith(compareBy(nullsLast()) { it.time })
 
 /**
- * Строка дня для «Недели» и «Дня»: задача или день повторения — оба через [TaskRow].
+ * Строка дня для «Сегодня», «Недели» и «Дня»: задача или день повторения — оба через [TaskRow].
  * У дня повторения справа значок ↻, у цикла под названием — дела этого дня.
- * («Сегодня» рисует задачи сам — со свайпами, а дни повторений — этой же функцией.)
+ * У шага цели под названием — «шаг к цели «…»»: видно, ради чего это дело.
+ * («Сегодня» оборачивает строку в свайп «на завтра / запланировать», а рисует её этой же функцией.)
  *
+ * @param goalTitles названия целей по id — для подписи под шагом цели.
  * @param onEditRule тап по неотмеченному дню повторения — открыть само правило в редакторе.
  */
 @Composable
 fun DayItemRow(
     item: DayItem,
     lists: List<TaskList>,
+    goalTitles: Map<Long, String>,
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
     onEdit: (Task) -> Unit,
@@ -95,12 +98,20 @@ fun DayItemRow(
                 time = task.time?.let(DateTexts::time),
                 // У дня повторения — значок ↻ и дела этого дня (они лежат в заметке),
                 // а у перенесённого ещё и «вместо ср 7»: видно, откуда он взялся
-                subtitle = if (task.isOccurrence) occurrenceSubtitle(task) else null,
+                subtitle = when {
+                    task.isOccurrence -> occurrenceSubtitle(task)
+                    // Шаг цели: название цели берём по goalId. Цель не нашлась (её как раз удаляют) — без подписи
+                    task.isGoalStep -> task.goalId?.let(goalTitles::get)
+                        ?.let { stringResource(R.string.goal_step_subtitle, it) }
+
+                    else -> null
+                },
                 repeating = task.isOccurrence,
                 labelColor = labelColorOf(task.listId, lists),
                 toggleDescription = description,
             )
         }
+
         is DayItem.RepeatItem -> {
             val rule = item.occurrence.rule
             TaskRow(

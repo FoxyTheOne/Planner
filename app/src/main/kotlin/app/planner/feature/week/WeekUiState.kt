@@ -13,6 +13,8 @@ data class WeekUiState(
     /** Строки каждого дня: задачи и ещё не отмеченные дни повторений, по времени. */
     val itemsByDay: Map<LocalDate, List<DayItem>> = emptyMap(),
     val lists: List<TaskList> = emptyList(),
+    /** Названия целей по id — подпись под шагом цели в дне недели и в шторке «Из списков». */
+    val goalTitles: Map<Long, String> = emptyMap(),
     /** Кандидаты для шторки «Из списков» и лотка планирования. */
     val unscheduled: List<Task> = emptyList(),
     val overdue: List<Task> = emptyList(),

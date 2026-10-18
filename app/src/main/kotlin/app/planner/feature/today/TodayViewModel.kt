@@ -7,6 +7,7 @@ import app.planner.common.EditorResult
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.common.dayItems
+import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.RecurrenceRule
@@ -19,6 +20,7 @@ import app.planner.core.domain.recurrence.HabitDay
 import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.repository.IGoalRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskListRepository
@@ -70,6 +72,7 @@ class TodayViewModel @Inject constructor(
     private val tasks: ITaskRepository,
     recurrenceRepository: IRecurrenceRepository,
     listRepository: ITaskListRepository,
+    goalRepository: IGoalRepository,
     private val settingsRepository: ISettingsRepository,
     private val commands: TaskCommands,
     todayClock: TodayClock,
@@ -84,8 +87,9 @@ class TodayViewModel @Inject constructor(
      *     }
      *     .stateIn(…)                  StateFlow<TodayUiState>  последнее состояние, читается сразу
      *
-     * 1. combine следит за ПЯТЬЮ потоками (задачи, хвосты, настройки, списки, повторения).
-     *    Пятый — сам маленький combine: правила + уже отмеченные дни → что ещё осталось отметить.
+     * 1. combine следит за ПЯТЬЮ потоками (задачи, хвосты, настройки, списки с целями, повторения).
+     *    Два из них — сами маленькие combine: «списки + цели» (пара) и «правила + уже отмеченные дни →
+     *    что ещё осталось отметить».
      *    Изменился любой — берёт последние значения всех пяти и вызывает лямбду.
      *    Последняя строка лямбды — её результат: TodayUiState из buildState.
      *    combine выпускает его в свой выходной поток как новое значение.
@@ -113,7 +117,9 @@ class TodayViewModel @Inject constructor(
             ), // задачи именно этого дня (и завтрашнего)
             tasks.observeOverdue(today),
             settingsRepository.settings,
-            listRepository.observeLists(),
+            // Списки и цели — одним потоком: у combine всего пять «мест», а нужны и те и другие.
+            // ::Pair — «склей два значения в пару»; ниже пару разбираем обратно: (lists, goals)
+            combine(listRepository.observeLists(), goalRepository.observeGoals(), ::Pair),
             // Повторения на сегодня (тоже combine): какие дни ещё не отмечены и какие правила на паузе
             combine(
                 recurrenceRepository.observeRules(),
@@ -135,13 +141,14 @@ class TodayViewModel @Inject constructor(
                     paused = rules.filter { Recurrence.activePause(it, today) != null },
                 )
             },
-        ) { twoDays, overdue, settings, lists, repeats ->
+        ) { twoDays, overdue, settings, (lists, goals), repeats ->
             buildState(
                 today,
                 twoDays,
                 overdue,
                 settings,
                 lists,
+                goals,
                 repeats
             ) // ← результат уходит в поток combine
         }
@@ -157,6 +164,7 @@ class TodayViewModel @Inject constructor(
         overdue: List<Task>,
         settings: PlannerSettings,
         lists: List<TaskList>,
+        goals: List<Goal>,
         repeats: RepeatsOfDay,
     ): TodayUiState {
         val occurrences = repeats.occurrences
@@ -186,6 +194,8 @@ class TodayViewModel @Inject constructor(
             overdue = Overdue.grouped(overdue, today),
             showOverdueBanner = overdue.isNotEmpty() && settings.overdueBannerHiddenOn != today,
             lists = lists,
+            // Шаги целей подписываются названием своей цели: id цели → название
+            goalTitles = goals.associate { it.id to it.title },
             paused = repeats.paused,
             habits = repeats.habits,
             habitHistory = repeats.habitHistory,

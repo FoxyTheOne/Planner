@@ -2,8 +2,8 @@ package app.planner.feature.week
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.planner.common.EditorResult
 import app.planner.common.DateTexts
+import app.planner.common.EditorResult
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.common.dayItems
@@ -11,6 +11,7 @@ import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.repository.IGoalRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
@@ -40,6 +41,7 @@ class WeekViewModel @Inject constructor(
     private val tasks: ITaskRepository,
     recurrenceRepository: IRecurrenceRepository,
     listRepository: ITaskListRepository,
+    goalRepository: IGoalRepository,
     private val commands: TaskCommands,
     private val todayClock: TodayClock,
 ) : ViewModel() {
@@ -54,7 +56,8 @@ class WeekViewModel @Inject constructor(
                 val end = start.plusDays(6)
                 combine(
                     tasks.observeTasksBetween(start, end),
-                    listRepository.observeLists(),
+                    // Списки и цели одной парой, как в «Сегодня»: у combine всего пять мест
+                    combine(listRepository.observeLists(), goalRepository.observeGoals(), ::Pair),
                     tasks.observeUnscheduled(),
                     tasks.observeOverdue(today),
                     // Дни повторений на эту неделю, ещё не отмеченные (как в «Сегодня», только на 7 дней).
@@ -69,7 +72,7 @@ class WeekViewModel @Inject constructor(
                         Recurrence.occurrencesBetween(plans, start, end, instances = done) to
                                 habits.map { it.id }.toSet()
                     },
-                ) { weekTasks, lists, unscheduled, overdue, (occurrences, habitIds) ->
+                ) { weekTasks, (lists, goals), unscheduled, overdue, (occurrences, habitIds) ->
                     val days = (0L..6L).map(start::plusDays)
                     // Отмеченные привычки — задачи с ruleId; убираем их по id правил-привычек
                     val tasksByDay =
@@ -83,6 +86,7 @@ class WeekViewModel @Inject constructor(
                             dayItems(tasksByDay[day].orEmpty(), occurrencesByDay[day].orEmpty())
                         },
                         lists = lists,
+                        goalTitles = goals.associate { it.id to it.title },
                         unscheduled = unscheduled,
                         overdue = overdue,
                     )

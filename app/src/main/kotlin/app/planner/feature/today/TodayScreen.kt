@@ -223,6 +223,7 @@ fun TodayContent(
                             DayItemRow(
                                 item = item,
                                 lists = state.lists,
+                                goalTitles = state.goalTitles,
                                 onToggle = onToggle,
                                 onCompleteOccurrence = onCompleteOccurrence,
                                 onEditRule = onEditRule,

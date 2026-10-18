@@ -88,6 +88,7 @@ fun DayScreen(
             today = state.today,
             candidates = state.unscheduled,
             lists = state.lists,
+            goalTitles = state.goalTitles,
             onDismiss = { pickSlot = null },
             onPick = { viewModel.schedule(it, slot); pickSlot = null },
             onCreate = { viewModel.createIn(slot, it); pickSlot = null },
@@ -180,6 +181,7 @@ fun DayContent(
                     DayItemRow(
                         item,
                         state.lists,
+                        state.goalTitles,
                         onToggle,
                         onCompleteOccurrence,
                         onEdit,
@@ -208,6 +210,7 @@ fun DayContent(
                             DayItemRow(
                                 item,
                                 state.lists,
+                                state.goalTitles,
                                 onToggle,
                                 onCompleteOccurrence,
                                 onEdit,

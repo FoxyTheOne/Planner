@@ -132,6 +132,7 @@ fun WeekScreen(
             today = state.today,
             candidates = state.unscheduled,
             lists = state.lists,
+            goalTitles = state.goalTitles,
             onDismiss = { pickSlot = null },
             onPick = { viewModel.schedule(it, slot); pickSlot = null },
             onCreate = { viewModel.createIn(slot, it); pickSlot = null },
@@ -175,9 +176,11 @@ fun WeekContent(
     onDrop: (taskId: Long, day: LocalDate) -> Unit,
     onSelectFromTray: (Task) -> Unit,
 ) {
-    Column(Modifier
-        .fillMaxSize()
-        .padding(contentPadding)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(contentPadding)
+    ) {
         WeekHeader(
             weekStart = state.weekStart,
             planning = planning,
@@ -380,7 +383,15 @@ private fun DayBlock(
             )
         }
         items.forEach { item ->
-            DayItemRow(item, state.lists, onToggle, onCompleteOccurrence, onEdit, onEditRule)
+            DayItemRow(
+                item,
+                state.lists,
+                state.goalTitles,
+                onToggle,
+                onCompleteOccurrence,
+                onEdit,
+                onEditRule
+            )
         }
     }
 }

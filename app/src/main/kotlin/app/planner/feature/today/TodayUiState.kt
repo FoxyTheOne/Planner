@@ -32,6 +32,8 @@ data class TodayUiState(
     val overdue: Map<OverdueGroup, List<Task>> = emptyMap(),
     val showOverdueBanner: Boolean = false,
     val lists: List<TaskList> = emptyList(),
+    /** Названия целей по id — подпись под шагом цели («Купить плитку» → «Ремонт в ванной»). */
+    val goalTitles: Map<Long, String> = emptyMap(),
     /** Повторения, которые сегодня на паузе: их не видно в разделах, но открыть, чтобы продолжить, нужно. */
     val paused: List<RecurrenceRule> = emptyList(),
     /**
