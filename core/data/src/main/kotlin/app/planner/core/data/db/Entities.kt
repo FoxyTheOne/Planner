@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.PartOfDay
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.model.TaskStatus
@@ -84,6 +85,14 @@ data class TaskEntity(
     /** Место шага в этапе (см. Task.position). Колонка появилась в версии базы 7; у старых строк 0. */
     @ColumnInfo(defaultValue = "0")
     val position: Int = 0,
+    /**
+     * Напоминание (см. Reminder) — в двух колонках, заполнена не больше одной:
+     * - reminderMinutesBefore — «за N минут до времени задачи» (0 — в момент);
+     * - reminderAt — «в этот час в день задачи» (у задач без времени).
+     * Обе пустые — напоминания нет. Колонки появились в версии базы 8; у старых строк пустые.
+     */
+    val reminderMinutesBefore: Int? = null,
+    val reminderAt: LocalTime? = null,
 )
 
 /** Строка таблицы `task_lists` — список «Когда-нибудь» в базе Room. */
@@ -99,15 +108,46 @@ data class TaskListEntity(
 // Функции-расширения: вызываются как методы (`entity.toDomain()`), хотя объявлены вне класса
 
 fun TaskEntity.toDomain() = Task(
-    id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
-    listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
-    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId, position = position,
+    id = id,
+    title = title,
+    note = note,
+    date = date,
+    time = time,
+    partOfDay = partOfDay,
+    listId = listId,
+    status = status,
+    isSample = isSample,
+    createdAt = createdAt,
+    doneAt = doneAt,
+    ruleId = ruleId,
+    occurrenceDate = occurrenceDate,
+    goalId = goalId,
+    stageId = stageId,
+    position = position,
+    // Какая колонка заполнена, такой и вид напоминания; обе пустые — напоминания нет
+    reminder = reminderMinutesBefore?.let { Reminder.BeforeTime(it) }
+        ?: reminderAt?.let { Reminder.AtTime(it) },
 )
 
 fun Task.toEntity() = TaskEntity(
-    id = id, title = title, note = note, date = date, time = time, partOfDay = partOfDay,
-    listId = listId, status = status, isSample = isSample, createdAt = createdAt, doneAt = doneAt,
-    ruleId = ruleId, occurrenceDate = occurrenceDate, goalId = goalId, stageId = stageId, position = position,
+    id = id,
+    title = title,
+    note = note,
+    date = date,
+    time = time,
+    partOfDay = partOfDay,
+    listId = listId,
+    status = status,
+    isSample = isSample,
+    createdAt = createdAt,
+    doneAt = doneAt,
+    ruleId = ruleId,
+    occurrenceDate = occurrenceDate,
+    goalId = goalId,
+    stageId = stageId,
+    position = position,
+    reminderMinutesBefore = (reminder as? Reminder.BeforeTime)?.minutes,
+    reminderAt = (reminder as? Reminder.AtTime)?.time,
 )
 
 fun TaskListEntity.toDomain() =

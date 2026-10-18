@@ -7,6 +7,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.Pause
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
@@ -59,9 +60,9 @@ class MigrationTest {
             close()
         }
 
-        // 2. Миграции 1 → 2 → … → 7 (AutoMigration из PlannerDatabase) + проверка схемы.
+        // 2. Миграции 1 → 2 → … → 8 (AutoMigration из PlannerDatabase) + проверка схемы.
         // Новая версия базы — меняем здесь число на неё, и тест проверит всю цепочку
-        helper.runMigrationsAndValidate(dbName, 7, true).close()
+        helper.runMigrationsAndValidate(dbName, 8, true).close()
 
         // 3. Открываем обычным кодом приложения
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -211,6 +212,32 @@ class MigrationTest {
             val step = db.taskDao().get(10)!!
             assertEquals(0, step.position)
             assertEquals(1L, step.goalId)
+        } finally {
+            db.close()
+        }
+    }
+
+    /** Миграция 7 → 8: у задач появилось напоминание. У старых задач его нет. */
+    @Test
+    fun migrate7To8_oldTasksHaveNoReminder() = runBlocking {
+        helper.createDatabase(dbName, 7).apply {
+            execSQL(
+                "INSERT INTO tasks (id, title, note, status, isSample, createdAt, position) " +
+                    "VALUES (10, 'Врач', '', 'OPEN', 0, 0, 0)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 8, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            assertEquals(null, db.taskDao().get(10)!!.toDomain().reminder)
+            // А новое напоминание записывается и читается обратно
+            val withReminder = db.taskDao().get(10)!!.toDomain().copy(reminder = Reminder.BeforeTime(15))
+            db.taskDao().addOrUpdate(withReminder.toEntity())
+            assertEquals(Reminder.BeforeTime(15), db.taskDao().get(10)!!.toDomain().reminder)
         } finally {
             db.close()
         }

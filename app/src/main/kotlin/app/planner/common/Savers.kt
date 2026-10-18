@@ -4,6 +4,7 @@ import androidx.compose.runtime.saveable.Saver
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.PartOfDay
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -58,6 +59,9 @@ val TaskSaver: Saver<Task?, Any> = Saver(
                 it.goalId,
                 it.stageId,
                 it.position,
+                // Напоминание — двумя простыми значениями, как в базе: минуты «до» или час «в»
+                (it.reminder as? Reminder.BeforeTime)?.minutes,
+                (it.reminder as? Reminder.AtTime)?.time,
             )
         }
     },
@@ -80,6 +84,8 @@ val TaskSaver: Saver<Task?, Any> = Saver(
             goalId = v[13] as Long?,
             stageId = v[14] as Long?,
             position = v[15] as Int,
+            reminder = (v[16] as Int?)?.let { Reminder.BeforeTime(it) }
+                ?: (v[17] as LocalTime?)?.let { Reminder.AtTime(it) },
         )
     },
 )

@@ -51,6 +51,7 @@ class BackupRoundTripTest {
                         time = null, partOfDay = null, listId = 1, status = TaskStatus.OPEN,
                         isSample = false, createdAt = Instant.ofEpochMilli(1_000), doneAt = null,
                         ruleId = null, occurrenceDate = null, goalId = null, stageId = null,
+                        reminderMinutesBefore = 30, // у «лампы» напоминание — оно тоже должно пережить копию
                     ),
                 ),
             )

@@ -41,6 +41,8 @@ import javax.inject.Singleton
  * - 6 — цели (`goals`) и их этапы (`stages`); у задач `goalId` и `stageId`, у правил `goalId`.
  *   В старых файлах этого нет — целей нет, и ни к одной цели ничего не привязано.
  * - 7 — у задач `position` (порядок шагов цели). В старых файлах его нет — 0, порядок добавления.
+ * - 8 — у задач напоминание: `reminderMinutesBefore` или `reminderAt` (время текстом, «09:00»).
+ *   В старых файлах их нет — значит, напоминаний нет.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -50,7 +52,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 7
+        const val FORMAT_VERSION = 8
     }
 
     private val json = backupJson
@@ -153,6 +155,8 @@ data class TaskDto(
     val goalId: Long? = null,
     val stageId: Long? = null,
     val position: Int = 0,
+    val reminderMinutesBefore: Int? = null,
+    val reminderAt: String? = null,
 )
 
 private fun TaskListEntity.toDto() = TaskListDto(id, name, color.name, position, isInbox)
@@ -182,6 +186,8 @@ private fun TaskEntity.toDto() = TaskDto(
     goalId = goalId,
     stageId = stageId,
     position = position,
+    reminderMinutesBefore = reminderMinutesBefore,
+    reminderAt = reminderAt?.toString(),
 )
 
 private fun TaskDto.toEntity() = TaskEntity(
@@ -201,6 +207,8 @@ private fun TaskDto.toEntity() = TaskEntity(
     goalId = goalId,
     stageId = stageId,
     position = position,
+    reminderMinutesBefore = reminderMinutesBefore,
+    reminderAt = reminderAt?.let(LocalTime::parse),
 )
 
 /** Цель в файле. Её шаги — обычные задачи (TaskDto с goalId), этапы — отдельно (GoalStageDto). */

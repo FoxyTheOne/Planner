@@ -56,6 +56,8 @@ data class Task(
      * У обычных задач пока не используется — пригодится, если захочется порядок и в списках.
      */
     val position: Int = 0,
+    /** Напоминание о задаче; null — без напоминания (так у большинства задач). См. [Reminder]. */
+    val reminder: Reminder? = null,
     /** Пример из онбординга — такие задачи помечены и легко удаляются. */
     val isSample: Boolean = false,
     val createdAt: Instant = Instant.now(),
