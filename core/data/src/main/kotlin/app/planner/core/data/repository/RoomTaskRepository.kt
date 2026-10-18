@@ -57,6 +57,8 @@ class RoomTaskRepository @Inject constructor(
     override fun observeAllGoalSteps(): Flow<List<Task>> =
         taskDao.observeGoalSteps().map { it.map { e -> e.toDomain() } }
 
+    override suspend fun deleteGoalSteps(goalId: Long) = taskDao.deleteByGoal(goalId)
+
     override fun observeOverdue(today: LocalDate): Flow<List<Task>> =
         taskDao.observeOverdue(today).map { it.map { e -> e.toDomain() } }
 

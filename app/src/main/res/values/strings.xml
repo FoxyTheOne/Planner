@@ -256,4 +256,14 @@
     <string name="msg_stage_deleted">Stage deleted, its steps stay in the goal</string>
     <string name="action_move_up">Move up</string>
     <string name="action_move_down">Move down</string>
+    <string name="cd_goal_menu">More actions</string>
+    <string name="goal_mark_achieved">Mark as achieved</string>
+    <string name="goal_reopen">Back to in progress</string>
+    <string name="goal_delete">Delete goal</string>
+    <string name="goal_all_steps_done_ask">All steps are done — is the goal achieved?</string>
+    <string name="deadline_new">New deadline</string>
+    <string name="deadline_none">No deadline</string>
+    <string name="msg_goal_achieved">Goal achieved! It is in the archive now</string>
+    <string name="msg_goal_deleted">Goal deleted with its steps</string>
+    <string name="goals_all_achieved">Everything is achieved. Time for a new goal?</string>
 </resources>

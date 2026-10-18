@@ -113,6 +113,15 @@ fun GoalsContent(
                     Text(stringResource(R.string.goals_empty), color = PlannerTheme.paper.inkMuted)
                 }
             }
+            // Всё достигнуто — иначе на экране было бы только свёрнутое «достигнутые · 3»
+            if (state.allAchieved) {
+                item {
+                    Text(
+                        stringResource(R.string.goals_all_achieved),
+                        color = PlannerTheme.paper.inkMuted
+                    )
+                }
+            }
 
             items(state.active, key = { it.goal.id }) { overview ->
                 GoalCard(overview, state.today, onClick = { onOpenGoal(overview.goal) })

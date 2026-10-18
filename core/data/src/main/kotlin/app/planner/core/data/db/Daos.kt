@@ -60,6 +60,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE goalId IS NOT NULL ORDER BY createdAt")
     fun observeGoalSteps(): Flow<List<TaskEntity>>
 
+    @Query("DELETE FROM tasks WHERE goalId = :goalId")
+    suspend fun deleteByGoal(goalId: Long)
+
     // Задачи одного списка: сначала то, что ещё ждёт своего часа, запланированные — внизу, по дате
     // Дни повторений (ruleId) в списках не показываем: это не дела «когда-нибудь», а дни правила
     @Query("SELECT * FROM tasks WHERE listId = :listId AND status = 'OPEN' AND ruleId IS NULL ORDER BY date IS NOT NULL, date, createdAt")
@@ -172,6 +175,7 @@ interface RecurrenceRuleDao {
     @Query("DELETE FROM recurrence_rules")
     suspend fun deleteAll()
 }
+
 /**
  * DAO целей и их этапов. Одна «пара» таблиц — один DAO: этап без цели не бывает,
  * и работают с ними всегда вместе (экран цели, бэкап).

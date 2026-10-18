@@ -56,9 +56,11 @@ private fun GoalsEmptyPreview() {
 @Composable
 private fun GoalEditorPreview() {
     PlannerTheme {
-        Box(Modifier
-            .background(PlannerTheme.paper.highlight)
-            .padding(top = 16.dp)) {
+        Box(
+            Modifier
+                .background(PlannerTheme.paper.highlight)
+                .padding(top = 16.dp)
+        ) {
             GoalEditorSheetBody(
                 initial = SampleData.repairGoal,
                 today = SampleData.today,
@@ -98,6 +100,43 @@ private fun GoalPreview() {
             onAddStage = {},
             onEditStage = {},
             onReorder = {},
+            onGoalAction = {},
+        )
+    }
+}
+
+/** Срок прошёл: «срок был …» и мягкие варианты «Новый срок · Без срока · Отметить достигнутой». */
+@PlannerScreenPreviews
+@Composable
+private fun GoalDeadlinePassedPreview() {
+    val state = with(SampleData) {
+        val goal = spanishGoal.copy(
+            deadline = today.minusDays(3),
+            why = "Чтобы летом поговорить с хозяйкой квартиры"
+        )
+        GoalUiState(
+            today = today,
+            goal = goal,
+            overview = GoalOverview.of(goal, emptyList(), spanishSteps, today),
+            groups = stepGroups(emptyList(), spanishSteps),
+            steps = spanishSteps,
+            loaded = true,
+        )
+    }
+    PlannerTheme {
+        GoalContent(
+            state = state,
+            contentPadding = PaddingValues(),
+            onBack = {},
+            onEditGoal = {},
+            onToggle = {},
+            onEditStep = {},
+            onSchedule = {},
+            onAddStep = { _, _ -> },
+            onAddStage = {},
+            onEditStage = {},
+            onReorder = {},
+            onGoalAction = {},
         )
     }
 }

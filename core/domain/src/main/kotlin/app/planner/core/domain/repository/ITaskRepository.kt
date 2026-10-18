@@ -37,6 +37,9 @@ interface ITaskRepository {
     /** Шаги всех целей — для карточек на экране «Цели» (прогресс и следующий шаг). */
     fun observeAllGoalSteps(): Flow<List<Task>>
 
+    /** Удалить все шаги цели — когда удаляют саму цель. */
+    suspend fun deleteGoalSteps(goalId: Long)
+
     /** Хвосты: открытые задачи с датой раньше [today]. Дни повторений хвостами не бывают. */
     fun observeOverdue(today: LocalDate): Flow<List<Task>>
 

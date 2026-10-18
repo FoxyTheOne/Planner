@@ -18,4 +18,7 @@ data class GoalsUiState(
     val loaded: Boolean = false,
 ) {
     val isEmpty: Boolean get() = loaded && active.isEmpty() && achieved.isEmpty()
+
+    /** Все цели достигнуты, в работе ни одной — экран мягко предлагает завести новую. */
+    val allAchieved: Boolean get() = loaded && active.isEmpty() && achieved.isNotEmpty()
 }

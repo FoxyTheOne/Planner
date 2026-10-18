@@ -21,14 +21,19 @@ import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.repository.IGoalRepository
+import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.navigation.Routes
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import javax.inject.Inject
 
 /**
@@ -45,6 +50,7 @@ class GoalViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val goals: IGoalRepository,
     private val tasks: ITaskRepository,
+    private val rules: IRecurrenceRepository,
     private val commands: TaskCommands,
     private val messages: MessageBus,
     todayClock: TodayClock,
@@ -103,6 +109,58 @@ class GoalViewModel @Inject constructor(
     }
 
     fun saveGoal(goal: Goal) = viewModelScope.launch { goals.save(goal) }
+
+    /** Отметить цель достигнутой: она уходит в архив. «Отменить» — вернуть как было. */
+    fun achieve() = viewModelScope.launch {
+        val goal = state.value.goal ?: return@launch
+        goals.save(goal.copy(achievedOn = state.value.today))
+        messages.post(UiMessage(UiText.Res(R.string.msg_goal_achieved), undo = { goals.save(goal) }))
+    }
+
+    /** Вернуть достигнутую цель в работу — например, отметили по ошибке или появились новые шаги. */
+    fun reopen() = viewModelScope.launch {
+        state.value.goal?.let { goals.save(it.copy(achievedOn = null)) }
+    }
+
+    /** Новый срок или «Без срока» (null) — из строки «срок был …», когда срок прошёл. */
+    fun setDeadline(deadline: LocalDate?) = viewModelScope.launch {
+        state.value.goal?.let { goals.save(it.copy(deadline = deadline)) }
+    }
+
+    /**
+     * Удалить цель вместе с шагами. Этапы удалит сама база (CASCADE), а у привычек, которые
+     * помогали этой цели, база обнулит goalId (SET_NULL).
+     *
+     * «Отменить» возвращает всё как было: цель с тем же id, её этапы и шаги, а привычкам —
+     * связь с целью. Поэтому всё это запоминаем ДО удаления.
+     *
+     * NonCancellable — «эту работу не прерывать». Как только цель удалена, экран видит, что
+     * цели больше нет, и уходит назад, а вместе с экраном закрывается и эта ViewModel (и её корутины).
+     * Без NonCancellable корутину могло бы оборвать между удалением и сообщением —
+     * цель удалена, а «Отменить» человек так и не увидел.
+     */
+    fun deleteGoal() = viewModelScope.launch {
+        val goal = state.value.goal ?: return@launch
+        val stages = state.value.stages
+        val steps = state.value.steps
+        withContext(NonCancellable) {
+            val habits = rules.observeRules().first().filter { it.goalId == goal.id }
+            tasks.deleteGoalSteps(goal.id)
+            goals.delete(goal)
+            messages.post(
+                UiMessage(
+                    UiText.Res(R.string.msg_goal_deleted),
+                    undo = {
+                        // Порядок важен: сначала цель, потом то, что на неё ссылается
+                        goals.save(goal)
+                        stages.forEach { goals.saveStage(it) }
+                        tasks.saveAll(steps)
+                        habits.forEach { rules.save(it) }
+                    },
+                ),
+            )
+        }
+    }
 
     fun toggle(step: Task) = viewModelScope.launch { commands.toggleDone(step) }
     fun schedule(step: Task, slot: Slot) = viewModelScope.launch { commands.schedule(step, slot) }

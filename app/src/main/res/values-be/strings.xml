@@ -260,4 +260,14 @@
     <string name="msg_stage_deleted">Этап выдалены, яго крокі засталіся ў мэце</string>
     <string name="action_move_up">Вышэй</string>
     <string name="action_move_down">Ніжэй</string>
+    <string name="cd_goal_menu">Іншыя дзеянні</string>
+    <string name="goal_mark_achieved">Адзначыць дасягнутай</string>
+    <string name="goal_reopen">Вярнуць у працу</string>
+    <string name="goal_delete">Выдаліць мэту</string>
+    <string name="goal_all_steps_done_ask">Усе крокі зроблены — мэта дасягнута?</string>
+    <string name="deadline_new">Новы тэрмін</string>
+    <string name="deadline_none">Без тэрміну</string>
+    <string name="msg_goal_achieved">Мэта дасягнута! Цяпер яна ў архіве</string>
+    <string name="msg_goal_deleted">Мэта выдалена разам з крокамі</string>
+    <string name="goals_all_achieved">Усё дасягнута. Можа, час для новай мэты?</string>
 </resources>

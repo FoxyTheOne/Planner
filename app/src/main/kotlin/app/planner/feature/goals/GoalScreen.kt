@@ -2,8 +2,10 @@ package app.planner.feature.goals
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -24,7 +26,10 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -58,13 +63,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.GoalSaver
+import app.planner.common.PlannerDatePickerDialog
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
 import app.planner.core.designsystem.component.DashedRule
+import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.goal.DeadlineState
 import app.planner.core.domain.goal.StepGroup
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
@@ -97,6 +105,7 @@ fun GoalScreen(
     var addingStage by rememberSaveable { mutableStateOf(false) }
     // Какой этап открыт в окне — по id: число rememberSaveable хранит сам, без отдельного Saver
     var editingStageId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var pickingDeadline by rememberSaveable { mutableStateOf(false) }
 
     // Цели больше нет (удалили) — возвращаемся к списку целей, как экран списка
     val goal = state.goal
@@ -117,7 +126,26 @@ fun GoalScreen(
         onAddStage = { addingStage = true },
         onEditStage = { editingStageId = it.id },
         onReorder = viewModel::reorder,
+        // when по sealed interface: компилятор проверит, что разобраны все действия с целью
+        onGoalAction = { action ->
+            when (action) {
+                GoalAction.Achieve -> viewModel.achieve()
+                GoalAction.Reopen -> viewModel.reopen()
+                GoalAction.NewDeadline -> pickingDeadline = true
+                GoalAction.NoDeadline -> viewModel.setDeadline(null)
+                GoalAction.Delete -> viewModel.deleteGoal()
+            }
+        },
     )
+
+    if (pickingDeadline) {
+        PlannerDatePickerDialog(
+            // Новый срок обычно позже старого — календарь открывается через месяц от сегодня
+            initial = state.today.plusMonths(1),
+            onPick = { viewModel.setDeadline(it); pickingDeadline = false },
+            onDismiss = { pickingDeadline = false },
+        )
+    }
 
     editingGoal?.let { g ->
         GoalEditorSheet(
@@ -178,6 +206,7 @@ fun GoalContent(
     onAddStage: () -> Unit,
     onEditStage: (GoalStage) -> Unit,
     onReorder: (List<StepGroup>) -> Unit,
+    onGoalAction: (GoalAction) -> Unit,
 ) {
     val paper = PlannerTheme.paper
     val goal = state.goal
@@ -209,6 +238,7 @@ fun GoalContent(
                         tint = paper.inkMuted
                     )
                 }
+                GoalMenu(achieved = goal.isAchieved, onGoalAction = onGoalAction)
             }
         }
 
@@ -243,7 +273,7 @@ fun GoalContent(
                 .consumeWindowInsets(contentPadding)
                 .imePadding(),
         ) {
-            item(key = "header") { GoalHeader(state) }
+            item(key = "header") { GoalHeader(state, onGoalAction) }
 
             if (state.loaded && state.steps.isEmpty()) {
                 item(key = "hint") {
@@ -311,17 +341,63 @@ fun GoalContent(
     }
 }
 
-/** «Зачем» курсивом, строка срока и полоска прогресса. */
+/**
+ * «Зачем» курсивом, строка срока и полоска прогресса. Ниже — то, о чём цель мягко «спрашивает»:
+ * - цель достигнута — «достигнута 18 октября» и «Вернуть в работу»;
+ * - срок прошёл — «срок был …» и три выхода: новый срок, без срока, достигнута. Ничего не блокирует
+ *   и не торопит: можно не выбирать вовсе, строка просто остаётся;
+ * - все шаги сделаны — «Все шаги сделаны — цель достигнута?» Сама цель в архив не уходит:
+ *   может, человек хочет добавить ещё шаги. Решает он.
+ */
 @Composable
-private fun GoalHeader(state: GoalUiState) {
+private fun GoalHeader(state: GoalUiState, onGoalAction: (GoalAction) -> Unit) {
     val goal = state.goal ?: return
+    val paper = PlannerTheme.paper
     Column(Modifier.padding(end = 8.dp)) {
         if (goal.why.isNotBlank()) {
             // «Зачем» — то, ради чего всё это. Курсивом, как заметка на полях
-            Text(goal.why, color = PlannerTheme.paper.inkMuted, fontStyle = FontStyle.Italic)
+            Text(goal.why, color = paper.inkMuted, fontStyle = FontStyle.Italic)
+        }
+        val achievedOn = goal.achievedOn
+        if (achievedOn != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(
+                        R.string.goal_achieved_on,
+                        DateTexts.dayMonthYear(achievedOn, state.today)
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { onGoalAction(GoalAction.Reopen) }) {
+                    Text(stringResource(R.string.goal_reopen))
+                }
+            }
         }
         state.overview?.let { overview ->
             DeadlineLine(goal, overview.deadline, state.today)
+            val allDone = overview.progress.total > 0 && overview.nextStep == null
+            when {
+                goal.isAchieved -> Unit
+                overview.deadline == DeadlineState.Passed -> GoalChoices(
+                    stringResource(R.string.deadline_new) to { onGoalAction(GoalAction.NewDeadline) },
+                    stringResource(R.string.deadline_none) to { onGoalAction(GoalAction.NoDeadline) },
+                    stringResource(R.string.goal_mark_achieved) to { onGoalAction(GoalAction.Achieve) },
+                )
+
+                allDone -> {
+                    Text(
+                        stringResource(R.string.goal_all_steps_done_ask),
+                        color = paper.inkMuted,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                    GoalChoices(stringResource(R.string.goal_mark_achieved) to {
+                        onGoalAction(
+                            GoalAction.Achieve
+                        )
+                    })
+                }
+            }
             val progress = overview.progress
             if (progress.total > 0) {
                 Row(
@@ -337,6 +413,55 @@ private fun GoalHeader(state: GoalUiState) {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Ряд «таблеток»-вариантов: «Новый срок · Без срока · Достигнута». Те же PaperChip, что в шторке
+ * «Запланировать». `vararg` — сколько угодно пар «подпись → действие» через запятую.
+ * FlowRow переносит таблетки на новую строку, если на узком экране они не помещаются в одну.
+ */
+@Composable
+private fun GoalChoices(vararg choices: Pair<String, () -> Unit>) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(top = 8.dp),
+    ) {
+        // (text, action) — «разобрать пару»: первое значение в text, второе в action
+        choices.forEach { (text, action) -> PaperChip(text, selected = false, onClick = action) }
+    }
+}
+
+/**
+ * Меню «⋮» в шапке цели: отметить достигнутой (или вернуть в работу) и удалить.
+ * Удаление — без окна «Вы уверены?»: вместо него Snackbar с «Отменить», как везде в приложении.
+ */
+@Composable
+private fun GoalMenu(achieved: Boolean, onGoalAction: (GoalAction) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(
+                Icons.Outlined.MoreVert,
+                stringResource(R.string.cd_goal_menu),
+                tint = PlannerTheme.paper.inkMuted
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(if (achieved) R.string.goal_reopen else R.string.goal_mark_achieved)) },
+                onClick = {
+                    open = false
+                    onGoalAction(if (achieved) GoalAction.Reopen else GoalAction.Achieve)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.goal_delete)) },
+                leadingIcon = { Icon(Icons.Outlined.Delete, null) },
+                onClick = { open = false; onGoalAction(GoalAction.Delete) },
+            )
         }
     }
 }

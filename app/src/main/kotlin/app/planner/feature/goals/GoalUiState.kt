@@ -24,3 +24,28 @@ data class GoalUiState(
     val steps: List<Task> = emptyList(),
     val loaded: Boolean = false,
 )
+
+/**
+ * Что можно сделать с целью целиком (а не с её шагами).
+ *
+ * Экран сообщает о таких нажатиях одной функцией `onGoalAction(GoalAction.Achieve)`, а не пятью
+ * отдельными параметрами onAchieve, onReopen, onDelete… — у экрана цели их и так много.
+ * `sealed interface` — снова «закрытый набор вариантов»: `when (action)` обязан разобрать их все,
+ * и если добавить новое действие, компилятор покажет, где его ещё не обрабатывают.
+ */
+sealed interface GoalAction {
+    /** Отметить достигнутой — цель уходит в архив. */
+    data object Achieve : GoalAction
+
+    /** Вернуть достигнутую цель в работу. */
+    data object Reopen : GoalAction
+
+    /** Срок прошёл — выбрать новый (откроется календарь). */
+    data object NewDeadline : GoalAction
+
+    /** Срок прошёл — убрать его совсем. */
+    data object NoDeadline : GoalAction
+
+    /** Удалить цель вместе с шагами (с «Отменить»). */
+    data object Delete : GoalAction
+}

@@ -259,4 +259,14 @@
     <string name="msg_stage_deleted">Этап удалён, его шаги остались в цели</string>
     <string name="action_move_up">Выше</string>
     <string name="action_move_down">Ниже</string>
+    <string name="cd_goal_menu">Другие действия</string>
+    <string name="goal_mark_achieved">Отметить достигнутой</string>
+    <string name="goal_reopen">Вернуть в работу</string>
+    <string name="goal_delete">Удалить цель</string>
+    <string name="goal_all_steps_done_ask">Все шаги сделаны — цель достигнута?</string>
+    <string name="deadline_new">Новый срок</string>
+    <string name="deadline_none">Без срока</string>
+    <string name="msg_goal_achieved">Цель достигнута! Теперь она в архиве</string>
+    <string name="msg_goal_deleted">Цель удалена вместе с шагами</string>
+    <string name="goals_all_achieved">Всё достигнуто. Может, время для новой цели?</string>
 </resources>
