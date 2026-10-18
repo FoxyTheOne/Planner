@@ -96,6 +96,8 @@ private fun GoalPreview() {
             onSchedule = {},
             onAddStep = { _, _ -> },
             onAddStage = {},
+            onEditStage = {},
+            onReorder = {},
         )
     }
 }

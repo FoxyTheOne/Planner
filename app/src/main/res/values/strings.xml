@@ -251,4 +251,9 @@
     <string name="stage_add">Add a stage</string>
     <string name="stage_new">New stage</string>
     <string name="stage_name_hint">For example, Preparation</string>
+    <string name="stage_edit">Stage</string>
+    <string name="stage_delete">Delete stage</string>
+    <string name="msg_stage_deleted">Stage deleted, its steps stay in the goal</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
 </resources>

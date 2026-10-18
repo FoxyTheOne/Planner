@@ -79,6 +79,32 @@ class GoalsTest {
     }
 
     @Test
+    fun `after dragging only moved steps are saved, with places counted anew`() {
+        val budget = step("Посчитать бюджет", order = 1, position = 0)
+        val remove = step("Снять плитку", demolition, order = 2, position = 0)
+        val rubble = step("Вынести мусор", demolition, order = 3, position = 1)
+        val buy = step("Купить плитку", tiles, order = 4, position = 0)
+
+        // «Купить плитку» перетащили в «Демонтаж», между двумя его шагами
+        val changed = rearrangedSteps(
+            listOf(
+                StepGroup(null, listOf(budget)),
+                StepGroup(demolition, listOf(remove, buy, rubble)),
+                StepGroup(tiles, emptyList()),
+            ),
+        )
+
+        // «Бюджет» и «Снять плитку» остались где были — их не перезаписываем
+        assertEquals(
+            listOf(
+                buy.copy(stageId = demolition.id, position = 1),
+                rubble.copy(position = 2),
+            ),
+            changed,
+        )
+    }
+
+    @Test
     fun `next position is after the last one`() {
         assertEquals(0, nextPosition(emptyList()))
         assertEquals(3, nextPosition(listOf(0, 2, 1)))

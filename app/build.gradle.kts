@@ -11,6 +11,11 @@ plugins {
 // Новый язык: добавить сюда + создать папку values-xx со strings.xml.
 val appLocales = listOf("en", "ru", "be")
 
+// Тот же список, записанный как массив Java для BuildConfig: {"en", "ru", "be"}.
+// Собираем здесь, а не внутри defaultConfig { }: внутри этого блока Android Studio ждёт только
+// настройки defaultConfig и подчёркивает обычные функции списка (joinToString) как «подозрительные»
+val appLocalesJavaArray = appLocales.joinToString(prefix = "{", postfix = "}") { "\"$it\"" }
+
 android {
     namespace = "app.planner"
     compileSdk = 36
@@ -35,7 +40,8 @@ android {
         buildConfigField(
             "String[]",
             "LOCALES",
-            appLocales.joinToString(prefix = "{", postfix = "}") { "\"$it\"" })
+            appLocalesJavaArray,
+        )
     }
 
     // Google Play и RuStore отличаются только магазинными мелочами (кнопка «Поддержать»)
@@ -98,6 +104,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.reorderable)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

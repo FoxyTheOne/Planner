@@ -94,6 +94,9 @@ class RoomTaskRepository @Inject constructor(
 
     override suspend fun delete(task: Task) = taskDao.delete(task.toEntity())
 
+    // @Upsert со списком Room выполняет в одной транзакции — подписчики получат одно обновление
+    override suspend fun saveAll(tasks: List<Task>) = taskDao.upsertAll(tasks.map { it.toEntity() })
+
     override suspend fun setDone(id: Long, done: Boolean) {
         val task = taskDao.get(id) ?: return
         taskDao.addOrUpdate(

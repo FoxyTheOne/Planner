@@ -126,6 +126,23 @@ fun stepGroups(stages: List<GoalStage>, steps: List<Task>): List<StepGroup> {
 }
 
 /**
+ * После перетаскивания: [groups] — шаги в новом порядке, разложенные по этапам так, как их
+ * видит человек на экране. Возвращает только те шаги, у которых поменялся этап или место, —
+ * их и нужно записать в базу. Остальные не трогаем: зачем лишняя запись.
+ *
+ * Место считается заново с нуля в каждом этапе: 0, 1, 2… Так места всегда идут подряд,
+ * и не важно, какими они были раньше (после удаления этапа, например, могли совпадать).
+ */
+fun rearrangedSteps(groups: List<StepGroup>): List<Task> =
+    groups.flatMap { group ->
+        // mapIndexed — как map, но вместе с номером элемента: он и станет местом шага
+        group.steps.mapIndexedNotNull { index, step ->
+            val moved = step.copy(stageId = group.stage?.id, position = index)
+            moved.takeIf { it != step } // takeIf — «этот же объект, если условие верно, иначе null»
+        }
+    }
+
+/**
  * Всё, что нужно карточке цели: сколько сделано, следующий шаг и срок.
  *
  * @param nextStep первый ещё не сделанный шаг (в порядке [orderedSteps]); null — шагов нет

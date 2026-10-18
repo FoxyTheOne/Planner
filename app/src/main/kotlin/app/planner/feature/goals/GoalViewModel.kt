@@ -3,12 +3,18 @@ package app.planner.feature.goals
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.planner.R
 import app.planner.common.EditorResult
+import app.planner.common.MessageBus
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
+import app.planner.common.UiMessage
+import app.planner.common.UiText
 import app.planner.core.domain.goal.GoalOverview
+import app.planner.core.domain.goal.StepGroup
 import app.planner.core.domain.goal.nextPosition
 import app.planner.core.domain.goal.positionForNewStep
+import app.planner.core.domain.goal.rearrangedSteps
 import app.planner.core.domain.goal.stepGroups
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
@@ -38,8 +44,9 @@ import javax.inject.Inject
 class GoalViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val goals: IGoalRepository,
-    tasks: ITaskRepository,
+    private val tasks: ITaskRepository,
     private val commands: TaskCommands,
+    private val messages: MessageBus,
     todayClock: TodayClock,
 ) : ViewModel() {
 
@@ -101,4 +108,34 @@ class GoalViewModel @Inject constructor(
     fun schedule(step: Task, slot: Slot) = viewModelScope.launch { commands.schedule(step, slot) }
     fun saveStep(result: EditorResult) = viewModelScope.launch { commands.save(result) }
     fun deleteStep(step: Task) = viewModelScope.launch { commands.delete(step) }
+
+    /**
+     * Сохранить порядок после перетаскивания (или «Выше» / «Ниже» в TalkBack).
+     * [groups] — шаги так, как они стоят на экране; что поменялось, считает rearrangedSteps,
+     * и записывается всё одной записью — список не мигает промежуточными состояниями.
+     */
+    fun reorder(groups: List<StepGroup>) = viewModelScope.launch {
+        val changed = rearrangedSteps(groups)
+        if (changed.isNotEmpty()) tasks.saveAll(changed)
+    }
+
+    fun renameStage(stage: GoalStage) = viewModelScope.launch { goals.saveStage(stage) }
+
+    /**
+     * Удалить этап. Его шаги не пропадают: база сама уберёт им этап (SET_NULL), и они станут
+     * шагами без этапа. «Отменить» возвращает этап с тем же id и снова кладёт в него его шаги.
+     */
+    fun deleteStage(stage: GoalStage) = viewModelScope.launch {
+        val itsSteps = state.value.steps.filter { it.stageId == stage.id }
+        goals.deleteStage(stage)
+        messages.post(
+            UiMessage(
+                UiText.Res(R.string.msg_stage_deleted),
+                undo = {
+                    goals.saveStage(stage)
+                    tasks.saveAll(itsSteps)
+                },
+            ),
+        )
+    }
 }

@@ -1,5 +1,6 @@
 package app.planner.feature.goals
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +13,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -21,12 +22,14 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,7 +43,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -59,7 +67,10 @@ import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.goal.StepGroup
 import app.planner.core.domain.model.Goal
+import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.Task
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * Экран одной цели: «Зачем», срок и прогресс, а ниже — шаги по этапам.
@@ -84,6 +95,8 @@ fun GoalScreen(
     var editingStep by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     var addingStage by rememberSaveable { mutableStateOf(false) }
+    // Какой этап открыт в окне — по id: число rememberSaveable хранит сам, без отдельного Saver
+    var editingStageId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     // Цели больше нет (удалили) — возвращаемся к списку целей, как экран списка
     val goal = state.goal
@@ -102,6 +115,8 @@ fun GoalScreen(
         onSchedule = { scheduling = it },
         onAddStep = viewModel::addStep,
         onAddStage = { addingStage = true },
+        onEditStage = { editingStageId = it.id },
+        onReorder = viewModel::reorder,
     )
 
     editingGoal?.let { g ->
@@ -137,6 +152,16 @@ fun GoalScreen(
             onSave = { viewModel.addStage(it); addingStage = false },
         )
     }
+    // Окно этапа ищет сам этап по id в свежих данных: переименовали — в окне новое название,
+    // этапа больше нет — firstOrNull вернёт null, и окно просто не покажется
+    state.stages.firstOrNull { it.id == editingStageId }?.let { stage ->
+        StageDialog(
+            initial = stage.title,
+            onDismiss = { editingStageId = null },
+            onSave = { viewModel.renameStage(stage.copy(title = it)); editingStageId = null },
+            onDelete = { viewModel.deleteStage(stage); editingStageId = null },
+        )
+    }
 }
 
 /** Рисующая часть экрана цели: только разметка, без ViewModel и шторок (для превью, см. `GoalsPreviews.kt`). */
@@ -151,6 +176,8 @@ fun GoalContent(
     onSchedule: (Task) -> Unit,
     onAddStep: (title: String, stageId: Long?) -> Unit,
     onAddStage: () -> Unit,
+    onEditStage: (GoalStage) -> Unit,
+    onReorder: (List<StepGroup>) -> Unit,
 ) {
     val paper = PlannerTheme.paper
     val goal = state.goal
@@ -190,7 +217,27 @@ fun GoalContent(
         // сам прокручивает его так, чтобы поле с курсором было видно над клавиатурой.
         // consumeWindowInsets(contentPadding) — «нижнюю панель мы уже учли», иначе к высоте
         // клавиатуры прибавилась бы ещё и высота панели вкладок, и между ними была бы дыра
+        // ПЕРЕТАСКИВАНИЕ ШАГОВ (библиотека Reorderable)
+        // rows — строки экрана (см. GoalRows.kt). Пока шаг тащат, порядок меняется только здесь,
+        // в памяти экрана; в базу он записывается один раз — когда шаг отпустили (onReorder).
+        // remember(state.groups): пришли новые данные из базы — строки собираются заново из них
+        var rows by remember(state.groups) { mutableStateOf(goalRows(state.groups)) }
+        val lazyListState = rememberLazyListState()
+        // Лёгкая вибрация: «взяли», «сдвинулся на строку», «отпустили» — пальцем чувствуешь, что происходит
+        val haptic = LocalHapticFeedback.current
+        val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+            // from / to — элементы LazyColumn; их key — те же ключи, что у строк (GoalRow.key)
+            rows = rows.moved(fromKey = from.key as String, toKey = to.key as String)
+            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+        }
+
+        fun commit(newRows: List<GoalRow>) {
+            rows = newRows
+            onReorder(stepGroupsOf(newRows))
+        }
+
         LazyColumn(
+            state = lazyListState,
             contentPadding = PaddingValues(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 32.dp),
             modifier = Modifier
                 .consumeWindowInsets(contentPadding)
@@ -208,14 +255,49 @@ fun GoalContent(
                 }
             }
 
-            state.groups.forEach { group ->
-                stepGroup(
-                    group,
-                    onToggle,
-                    onEditStep,
-                    onSchedule,
-                    onAddStep
-                )
+            // Каждая строка — ReorderableItem: шаги тащат, а мимо заголовков и «+ Добавить шаг»
+            // их можно протащить (поэтому эти строки тоже «участвуют», хотя сами не двигаются)
+            items(rows, key = { it.key }) { row ->
+                ReorderableItem(reorderState, key = row.key) { isDragging ->
+                    when (row) {
+                        is GoalRow.StageHeader -> StageHeaderRow(
+                            row.stage,
+                            onClick = { onEditStage(row.stage) })
+
+                        is GoalRow.AddStep -> StepAddRow(onAdd = { onAddStep(it, row.stageId) })
+                        is GoalRow.Step -> {
+                            // Взятый шаг чуть приподнимается: тень и бумажный фон под ним
+                            val elevation by animateDpAsState(if (isDragging) 6.dp else 0.dp)
+                            Surface(shadowElevation = elevation, color = paper.paper) {
+                                Column(
+                                    // longPressDraggableHandle — тащить после долгого нажатия в любом
+                                    // месте строки. Обычный тап по-прежнему открывает шаг, квадратик — отмечает
+                                    Modifier.longPressDraggableHandle(
+                                        onDragStarted = {
+                                            haptic.performHapticFeedback(
+                                                HapticFeedbackType.LongPress
+                                            )
+                                        },
+                                        onDragStopped = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                                            commit(rows)
+                                        },
+                                    ),
+                                ) {
+                                    StepRow(
+                                        step = row.step,
+                                        onToggle = onToggle,
+                                        onEdit = onEditStep,
+                                        onSchedule = onSchedule,
+                                        onMoveUp = { commit(rows.movedUp(row.key)) },
+                                        onMoveDown = { commit(rows.movedDown(row.key)) },
+                                    )
+                                    DashedRule()
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             item(key = "add_stage") {
@@ -260,49 +342,35 @@ private fun GoalHeader(state: GoalUiState) {
 }
 
 /**
- * Один этап: подпись (у шагов без этапа её нет), шаги и строка «+ Добавить шаг».
- *
- * Это не @Composable, а функция-расширение LazyListScope — «кусок списка»: она добавляет в
- * LazyColumn несколько элементов (item, items). Так все шаги остаются отдельными элементами
- * одного списка и прокручиваются лениво, а не рисуются разом одной большой колонкой.
- */
-private fun LazyListScope.stepGroup(
-    group: StepGroup,
-    onToggle: (Task) -> Unit,
-    onEditStep: (Task) -> Unit,
-    onSchedule: (Task) -> Unit,
-    onAddStep: (title: String, stageId: Long?) -> Unit,
-) {
-    val stage = group.stage
-    // Ключи с приставкой: у этапа и шага id могут совпасть (оба 1)
-    if (stage != null) {
-        item(key = "stage_${stage.id}") { SectionLabel(stage.title, Modifier.padding(top = 8.dp)) }
-    }
-    items(group.steps, key = { "step_${it.id}" }) { step ->
-        Column(Modifier.animateItem()) {
-            StepRow(step, onToggle, onEditStep, onSchedule)
-            DashedRule()
-        }
-    }
-    item(key = "add_step_${stage?.id}") { StepAddRow(onAdd = { onAddStep(it, stage?.id) }) }
-}
-
-/**
  * Строка шага — тот же [TaskRow], что в списках. Запланированный шаг серый и с плашкой даты;
  * у сделанного нет кнопки «Запланировать» — планировать уже нечего.
+ *
+ * Для TalkBack у строки два своих действия — «Выше» и «Ниже» (customActions): перетаскивать
+ * пальцем, не видя экрана, неудобно, а так шаг двигают из меню действий TalkBack.
  */
 @Composable
 private fun StepRow(
     step: Task,
     onToggle: (Task) -> Unit,
     onEdit: (Task) -> Unit,
-    onSchedule: (Task) -> Unit
+    onSchedule: (Task) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
 ) {
+    val upLabel = stringResource(R.string.action_move_up)
+    val downLabel = stringResource(R.string.action_move_down)
     TaskRow(
         title = step.title,
         done = step.isDone,
         onToggle = { onToggle(step) },
         onClick = { onEdit(step) },
+        // Действие возвращает true — «выполнено»: так TalkBack понимает, что нажатие сработало
+        modifier = Modifier.semantics {
+            customActions = listOf(
+                CustomAccessibilityAction(upLabel) { onMoveUp(); true },
+                CustomAccessibilityAction(downLabel) { onMoveDown(); true },
+            )
+        },
         dimmed = step.isScheduled && !step.isDone,
         trailingBadge = step.date?.takeIf { !step.isDone }?.let(DateTexts::shortDay),
         toggleDescription = stringResource(R.string.cd_mark_done),
@@ -382,34 +450,75 @@ private fun AddRow(text: String, onClick: () -> Unit, modifier: Modifier = Modif
     }
 }
 
-/** Окно «Новый этап»: одно поле с названием. */
+/**
+ * Заголовок этапа. Тап открывает окно этапа — переименовать или удалить.
+ * Это тот же [SectionLabel], что «утро» / «вечер» в «Сегодня», только нажимаемый.
+ */
 @Composable
-private fun StageDialog(onDismiss: () -> Unit, onSave: (String) -> Unit) {
-    var title by rememberSaveable { mutableStateOf("") }
+private fun StageHeaderRow(stage: GoalStage, onClick: () -> Unit) {
+    SectionLabel(
+        stage.title,
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(top = 8.dp),
+    )
+}
+
+/**
+ * Окно этапа: одно поле с названием.
+ * - Новый этап ([initial] пустой, [onDelete] = null) — «Новый этап» и кнопка «Добавить».
+ * - Существующий — «Этап», «Сохранить» и «Удалить этап». Шаги удалённого этапа остаются в цели.
+ */
+@Composable
+private fun StageDialog(
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+    initial: String = "",
+    onDelete: (() -> Unit)? = null,
+) {
+    val isNew = onDelete == null
+    var title by rememberSaveable { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.stage_new)) },
+        title = { Text(stringResource(if (isNew) R.string.stage_new else R.string.stage_edit)) },
         text = {
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                placeholder = { Text(stringResource(R.string.stage_name_hint)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(onDone = { if (title.isNotBlank()) onSave(title.trim()) }),
-                modifier = Modifier.focusRequester(focus),
-            )
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    placeholder = { Text(stringResource(R.string.stage_name_hint)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Sentences,
+                        imeAction = ImeAction.Done,
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        if (title.isNotBlank()) onSave(
+                            title.trim()
+                        )
+                    }),
+                    modifier = Modifier.focusRequester(focus),
+                )
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete, modifier = Modifier.padding(top = 8.dp)) {
+                        Icon(Icons.Outlined.Delete, null)
+                        Text(
+                            stringResource(R.string.stage_delete),
+                            modifier = Modifier.padding(start = 6.dp)
+                        )
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(onClick = { onSave(title.trim()) }, enabled = title.isNotBlank()) {
-                Text(stringResource(R.string.action_add))
+                Text(stringResource(if (isNew) R.string.action_add else R.string.action_save))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    // Новый этап — сразу курсор в поле; у существующего не открываем клавиатуру зря (может, его удаляют)
+    if (isNew) LaunchedEffect(Unit) { focus.requestFocus() }
 }

@@ -254,4 +254,9 @@
     <string name="stage_add">Добавить этап</string>
     <string name="stage_new">Новый этап</string>
     <string name="stage_name_hint">Например, Подготовка</string>
+    <string name="stage_edit">Этап</string>
+    <string name="stage_delete">Удалить этап</string>
+    <string name="msg_stage_deleted">Этап удалён, его шаги остались в цели</string>
+    <string name="action_move_up">Выше</string>
+    <string name="action_move_down">Ниже</string>
 </resources>
