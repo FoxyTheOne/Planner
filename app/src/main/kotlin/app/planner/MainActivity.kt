@@ -83,7 +83,12 @@ class MainActivity : ComponentActivity() {
                 systemColors = current.systemColors,
             ) {
                 // Сообщения и «Отменить» отдаём каркасу приложения из этой же ViewModel
-                PlannerApp(messages = viewModel.messages, onUndo = viewModel::runUndo)
+                PlannerApp(
+                    messages = viewModel.messages,
+                    onUndo = viewModel::runUndo,
+                    reminderQuestions = viewModel.reminderQuestions,
+                    onReminderAnswer = viewModel::answerReminder,
+                )
             }
         }
     }

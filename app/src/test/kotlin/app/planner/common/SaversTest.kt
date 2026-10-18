@@ -53,6 +53,12 @@ class SaversTest {
     }
 
     @Test
+    fun `reminder survives, both kinds`() {
+        assertEquals(Reminder.BeforeTime(30), roundTrip(ReminderSaver, Reminder.BeforeTime(30)))
+        assertEquals(Reminder.AtTime(LocalTime.of(9, 0)), roundTrip(ReminderSaver, Reminder.AtTime(LocalTime.of(9, 0))))
+    }
+
+    @Test
     fun `goal survives with every field`() {
         val goal = Goal(
             id = 1, title = "Ремонт", why = "Уют", note = "Плитка 30×60", deadline = day,

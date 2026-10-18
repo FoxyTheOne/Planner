@@ -2,14 +2,18 @@ package app.planner.common
 
 import app.planner.R
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.reminder.Reminders
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.core.domain.usecase.CreateListUseCase
+import app.planner.reminders.ReminderQuestion
+import app.planner.reminders.ReminderQuestions
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import javax.inject.Inject
@@ -38,6 +42,7 @@ class TaskCommands @Inject constructor(
     private val rules: IRecurrenceRepository,
     private val createList: CreateListUseCase,
     private val messages: MessageBus,
+    private val reminderQuestions: ReminderQuestions,
     private val todayClock: TodayClock,
 ) {
     suspend fun toggleDone(task: Task) {
@@ -130,7 +135,12 @@ class TaskCommands @Inject constructor(
                 )
             }
 
-            else -> tasks.addOrUpdate(saved)
+            else -> {
+                // Какой задача была до правки — чтобы понять, не поменялось ли время дня (см. askAboutReminder)
+                val before = task.id.takeIf { it != 0L }?.let { tasks.getTask(it) }
+                tasks.addOrUpdate(saved)
+                before?.let { askAboutReminder(it, saved) }
+            }
         }
         return listId
     }
@@ -139,6 +149,34 @@ class TaskCommands @Inject constructor(
         if (task.isOccurrenceDraft) return moveOccurrence(task, slot, scheduledText(slot))
         tasks.schedule(task.id, slot)
         messages.post(UiMessage(scheduledText(slot), undo = { tasks.addOrUpdate(task) }))
+        askAboutReminder(
+            task,
+            task.copy(date = slot.date, partOfDay = slot.partOfDay, time = slot.time)
+        )
+    }
+
+    /**
+     * После переноса спросить про напоминание, если нужно (когда — решает домен: Reminders.askAfterMove).
+     * Задача к этому моменту уже перенесена, а напоминание — пока «как было»: если окно просто закрыть,
+     * оно так и останется. Сам вопрос показывает каркас приложения (см. ReminderQuestions).
+     */
+    private fun askAboutReminder(before: Task, after: Task) {
+        if (!Reminders.askAfterMove(before, after)) return
+        // askAfterMove уже проверил, что напоминание — «в такой-то час», поэтому приведение безопасно
+        val at = (after.reminder as Reminder.AtTime).time
+        reminderQuestions.ask(
+            ReminderQuestion(
+                after.id,
+                after.title,
+                reminderTime = at,
+                taskTime = after.time
+            )
+        )
+    }
+
+    /** Ответ на вопрос про напоминание: новое напоминание или null — «убрать напоминание». */
+    suspend fun setReminder(taskId: Long, reminder: Reminder?) {
+        tasks.getTask(taskId)?.let { tasks.addOrUpdate(it.copy(reminder = reminder)) }
     }
 
     suspend fun moveToTomorrow(task: Task) {

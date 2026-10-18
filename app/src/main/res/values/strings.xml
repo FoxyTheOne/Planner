@@ -281,4 +281,26 @@
     <!-- Напоминания -->
     <string name="channel_reminders">Reminders</string>
     <string name="channel_reminders_desc">Reminders about tasks at the time you chose</string>
+    <string name="reminder_add">Remind me</string>
+    <string name="reminder_value">Remind: %1$s</string>
+    <string name="reminder_at_start">when it starts</string>
+    <string name="reminder_day_before">a day before</string>
+    <string name="reminder_at">at %1$s</string>
+    <string name="reminder_other_time">Another time…</string>
+    <plurals name="reminder_minutes_before">
+        <item quantity="one">%d minute before</item>
+        <item quantity="other">%d minutes before</item>
+    </plurals>
+    <plurals name="reminder_hours_before">
+        <item quantity="one">an hour before</item>
+        <item quantity="other">%d hours before</item>
+    </plurals>
+    <string name="cd_clear_reminder">Don’t remind</string>
+    <string name="reminder_notifications_off">Notifications are off — the reminder won’t come</string>
+    <string name="reminder_notifications_enable">Turn on</string>
+    <string name="reminder_question_title">Reminder</string>
+    <string name="reminder_question_text">“%1$s” was moved, and its reminder is still set for %2$s. What should happen to it?</string>
+    <string name="reminder_keep">Keep at %1$s</string>
+    <string name="reminder_half_hour_before">30 minutes before it starts</string>
+    <string name="reminder_remove">Remove reminder</string>
 </resources>

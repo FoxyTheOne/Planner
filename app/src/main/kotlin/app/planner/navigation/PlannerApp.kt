@@ -38,6 +38,7 @@ import app.planner.R
 import app.planner.common.UiMessage
 import app.planner.common.resolve
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Reminder
 import app.planner.feature.goals.GoalScreen
 import app.planner.feature.goals.GoalsScreen
 import app.planner.feature.lists.ListDetailScreen
@@ -46,6 +47,8 @@ import app.planner.feature.settings.SettingsScreen
 import app.planner.feature.today.TodayScreen
 import app.planner.feature.week.DayScreen
 import app.planner.feature.week.WeekScreen
+import app.planner.reminders.ReminderQuestion
+import app.planner.reminders.ReminderQuestionDialog
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -71,11 +74,14 @@ import java.time.LocalDate
  *
  * @param messages сообщения для Snackbar («Перенесено на завтра · Отменить») со всех экранов.
  * @param onUndo что сделать, когда в Snackbar нажали «Отменить».
+ * @param reminderQuestions вопросы «задачу перенесли — что с напоминанием?»; [onReminderAnswer] — ответ на них.
  */
 @Composable
 fun PlannerApp(
     messages: SharedFlow<UiMessage>,
     onUndo: (suspend () -> Unit) -> Unit,
+    reminderQuestions: SharedFlow<ReminderQuestion>,
+    onReminderAnswer: (taskId: Long, reminder: Reminder?) -> Unit,
 ) {
     // rememberNavController создаёт «пульт» навигации один раз и помнит его между перерисовками
     val navController = rememberNavController()
@@ -84,6 +90,8 @@ fun PlannerApp(
     // а SnackbarMessages кладёт в него новые сообщения
     val snackbar = remember { SnackbarHostState() }
     SnackbarMessages(messages = messages, snackbar = snackbar, onUndo = onUndo)
+    // Окно «задачу перенесли — что с напоминанием?» — тоже одно на всё приложение
+    ReminderQuestionDialog(questions = reminderQuestions, onAnswer = onReminderAnswer)
 
     // Какой экран сейчас открыт. currentBackStackEntryAsState — «подписка»: при каждом переходе
     // эта переменная меняется, и Compose перерисовывает панель вкладок (подсветка, видимость)

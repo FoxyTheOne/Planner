@@ -284,4 +284,30 @@
     <!-- Напоминания -->
     <string name="channel_reminders">Напоминания</string>
     <string name="channel_reminders_desc">Напоминания о делах в выбранное время</string>
+    <string name="reminder_add">Напомнить</string>
+    <string name="reminder_value">Напомнить: %1$s</string>
+    <string name="reminder_at_start">в момент начала</string>
+    <string name="reminder_day_before">за день</string>
+    <string name="reminder_at">в %1$s</string>
+    <string name="reminder_other_time">Другое время…</string>
+    <plurals name="reminder_minutes_before">
+        <item quantity="one">за %d минуту</item>
+        <item quantity="few">за %d минуты</item>
+        <item quantity="many">за %d минут</item>
+        <item quantity="other">за %d минуты</item>
+    </plurals>
+    <plurals name="reminder_hours_before">
+        <item quantity="one">за час</item>
+        <item quantity="few">за %d часа</item>
+        <item quantity="many">за %d часов</item>
+        <item quantity="other">за %d часа</item>
+    </plurals>
+    <string name="cd_clear_reminder">Не напоминать</string>
+    <string name="reminder_notifications_off">Уведомления выключены — напоминание не придёт</string>
+    <string name="reminder_notifications_enable">Включить</string>
+    <string name="reminder_question_title">Напоминание</string>
+    <string name="reminder_question_text">«%1$s» перенесли, а напоминание стоит на %2$s. Что с ним сделать?</string>
+    <string name="reminder_keep">Оставить в %1$s</string>
+    <string name="reminder_half_hour_before">За 30 минут до начала</string>
+    <string name="reminder_remove">Убрать напоминание</string>
 </resources>

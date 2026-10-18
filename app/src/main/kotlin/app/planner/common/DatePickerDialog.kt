@@ -1,16 +1,25 @@
 package app.planner.common
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import app.planner.R
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneOffset
 
 /**
@@ -45,4 +54,41 @@ fun PlannerDatePickerDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     ) { DatePicker(state = state) }
+}
+
+/**
+ * Окно выбора времени: часы и минуты, в 24-часовом формате. Используется в «Запланировать»
+ * (точное время задачи) и в напоминании («напомнить в другое время»).
+ *
+ * У Material 3 нет готового «диалога времени» — есть только сам циферблат TimePicker.
+ * Поэтому кладём его в тот же DatePickerDialog: это просто окно с кнопками «ОК» и «Отмена».
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PlannerTimePickerDialog(
+    initial: LocalTime,
+    onPick: (LocalTime) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val state = rememberTimePickerState(
+        initialHour = initial.hour,
+        initialMinute = initial.minute,
+        is24Hour = true
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = { onPick(LocalTime.of(state.hour, state.minute)) }) {
+                Text(stringResource(R.string.action_ok))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.Center,
+        ) { TimePicker(state = state) }
+    }
 }

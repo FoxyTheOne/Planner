@@ -4,10 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.common.DailyMaintenance
 import app.planner.common.MessageBus
+import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.common.UiMessage
 import app.planner.core.domain.model.PlannerSettings
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.repository.ISettingsRepository
+import app.planner.reminders.ReminderQuestion
+import app.planner.reminders.ReminderQuestions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +28,8 @@ import javax.inject.Inject
  * 2. **Ежедневная уборка** ([DailyMaintenance]) — при запуске и в полночь.
  * 3. **Сообщения внизу экрана** ([messages]) — «Перенесено на завтра · Отменить»
  *    с любого экрана показываются в одном общем месте (см. `PlannerApp`).
+ * 4. **Вопросы про напоминания** ([reminderQuestions]) — «задачу перенесли, что сделать с напоминанием?»;
+ *    так же одно окно на всё приложение, ответ записывает [answerReminder].
  *
  * Эта ViewModel живёт столько же, сколько окно приложения, и переживает поворот экрана.
  */
@@ -31,6 +37,8 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     settingsRepository: ISettingsRepository,
     messageBus: MessageBus,
+    reminderQuestions: ReminderQuestions,
+    private val commands: TaskCommands,
     maintenance: DailyMaintenance,
     todayClock: TodayClock,
 ) : ViewModel() {
@@ -46,6 +54,9 @@ class MainViewModel @Inject constructor(
 
     /** Поток сообщений для Snackbar. Экраны кладут их в [MessageBus], показывает их `PlannerApp`. */
     val messages: SharedFlow<UiMessage> = messageBus.messages
+
+    /** Вопросы «что сделать с напоминанием» после переноса задачи; показывает их `PlannerApp`. */
+    val reminderQuestions: SharedFlow<ReminderQuestion> = reminderQuestions.questions
 
     init {
         // init выполняется один раз, когда ViewModel создана (при открытии приложения).
@@ -71,5 +82,10 @@ class MainViewModel @Inject constructor(
      */
     fun runUndo(undo: suspend () -> Unit) {
         viewModelScope.launch { undo() }
+    }
+
+    /** Ответ на вопрос про напоминание: новое напоминание или null — «убрать напоминание». */
+    fun answerReminder(taskId: Long, reminder: Reminder?) {
+        viewModelScope.launch { commands.setReminder(taskId, reminder) }
     }
 }

@@ -15,7 +15,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Button
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -23,9 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -176,9 +173,11 @@ fun ScheduleSheetBody(
         ) { Text(stringResource(R.string.action_done)) }
         // Для дня повторения: «в этот раз не делаем» — ничего никуда не переносим, день помечается пропущенным
         if (onSkip != null) {
-            TextButton(onClick = onSkip, modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp)) {
+            TextButton(
+                onClick = onSkip, modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+            ) {
                 Text(stringResource(R.string.action_skip_once))
             }
         }
@@ -193,36 +192,11 @@ fun ScheduleSheetBody(
     }
 
     if (showTimePicker) {
-        val initialTime = time ?: LocalTime.of(9, 0)
-        val state = rememberTimePickerState(
-            initialHour = initialTime.hour,
-            initialMinute = initialTime.minute,
-            is24Hour = true
+        PlannerTimePickerDialog(
+            initial = time ?: LocalTime.of(9, 0),
+            onPick = { time = it; part = null; showTimePicker = false },
+            onDismiss = { showTimePicker = false },
         )
-        DatePickerDialog(
-            onDismissRequest = { showTimePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    time = LocalTime.of(state.hour, state.minute)
-                    part = null
-                    showTimePicker = false
-                }) { Text(stringResource(R.string.action_ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showTimePicker = false
-                }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        ) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                TimePicker(state = state)
-            }
-        }
     }
 }
 

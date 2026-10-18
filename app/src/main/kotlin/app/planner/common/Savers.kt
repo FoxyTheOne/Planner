@@ -179,3 +179,23 @@ val GoalSaver: Saver<Goal?, Any> = Saver(
         )
     },
 )
+
+/**
+ * Напоминание (для редактора задачи). Двумя значениями, как в базе: минуты «до» или час «в»;
+ * оба null — напоминания нет.
+ */
+val ReminderSaver: Saver<Reminder?, Any> = Saver(
+    save = { reminder ->
+        reminder?.let {
+            arrayListOf(
+                (it as? Reminder.BeforeTime)?.minutes,
+                (it as? Reminder.AtTime)?.time
+            )
+        }
+    },
+    restore = { saved ->
+        val v = saved as List<*>
+        (v[0] as Int?)?.let { Reminder.BeforeTime(it) }
+            ?: (v[1] as LocalTime?)?.let { Reminder.AtTime(it) }
+    },
+)

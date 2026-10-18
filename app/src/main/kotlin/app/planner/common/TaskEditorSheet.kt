@@ -66,6 +66,7 @@ import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.recurrence.HabitHistory
+import app.planner.core.domain.reminder.Reminders
 import java.time.LocalDate
 
 /**
@@ -236,6 +237,9 @@ fun TaskEditorSheetBody(
     var showRepeat by rememberSaveable { mutableStateOf(false) }
     var isHabit by rememberSaveable { mutableStateOf(initialHabit) }
     var habitGoalId by rememberSaveable { mutableStateOf(initialHabitGoalId) }
+    // Напоминание, как его выбрали. Если потом поменяли дату или время, «подходящее» считает
+    // Reminders.fitting: например, убрали время — «за 30 минут» больше не от чего считать
+    var reminder by rememberSaveable(stateSaver = ReminderSaver) { mutableStateOf(initial.reminder) }
     var showPause by rememberSaveable { mutableStateOf(false) }
     // FocusRequester — «пульт» для поля ввода: позволяет из кода поставить в него курсор.
     // Его сохранять не нужно (и нельзя): после поворота поле создаётся заново, и пульт — тоже
@@ -258,6 +262,9 @@ fun TaskEditorSheetBody(
                     date = slot?.date,
                     partOfDay = slot?.partOfDay,
                     time = slot?.time,
+                    // Напоминания у повторений будут в следующем блоке — пока только у задач
+                    reminder = Reminders.fitting(reminder, slot?.date, slot?.time)
+                        .takeIf { repeat == null },
                 ),
                 newListName = newListName?.trim(),
                 repeat = repeat,
@@ -403,6 +410,14 @@ fun TaskEditorSheetBody(
             clearDescription = stringResource(R.string.cd_clear_date),
             modifier = Modifier.padding(top = 12.dp),
         )
+        // --- Напомнить: только у задачи с датой (без даты напоминать не о чем) и пока не у повторений ---
+        if (current != null && repeat == null) {
+            ReminderRow(
+                reminder = Reminders.fitting(reminder, current.date, current.time),
+                timed = current.time != null,
+                onChange = { reminder = it },
+            )
+        }
         // У дня повторения (отмечен, перенесён) своего повторения нет — оно у правила.
         // Иначе «Сделать повторяющейся» создало бы новое правило из одного дня старого.
         // У шага цели тоже нет: шаг делают один раз (а то, что повторяется, — это привычка цели)
