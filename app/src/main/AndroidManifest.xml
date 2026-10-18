@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Напоминания: показывать уведомления (с Android 13 — с разрешения человека) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Будильники на точное время (с Android 12 — по разрешению; без него напоминания неточные) -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Узнать о перезагрузке телефона, чтобы снова поставить будильники -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
         android:name=".PlannerApplication"
         android:allowBackup="true"
@@ -21,6 +28,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Его будит будильник напоминания. exported="false": снаружи приложения его вызвать нельзя -->
+        <receiver
+            android:name=".reminders.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Переставить будильники после перезагрузки, смены времени или часового пояса, обновления -->
+        <receiver
+            android:name=".reminders.RescheduleReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

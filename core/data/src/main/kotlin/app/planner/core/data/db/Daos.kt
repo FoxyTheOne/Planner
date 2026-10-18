@@ -63,6 +63,15 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE goalId = :goalId")
     suspend fun deleteByGoal(goalId: Long)
 
+    // Задачи, о которых надо напоминать: открытые, с датой и с напоминанием (любого из двух видов)
+    @Query(
+        """
+        SELECT * FROM tasks WHERE status = 'OPEN' AND date IS NOT NULL
+        AND (reminderMinutesBefore IS NOT NULL OR reminderAt IS NOT NULL)
+        """,
+    )
+    fun observeWithReminders(): Flow<List<TaskEntity>>
+
     // Задачи одного списка: сначала то, что ещё ждёт своего часа, запланированные — внизу, по дате
     // Дни повторений (ruleId) в списках не показываем: это не дела «когда-нибудь», а дни правила
     @Query("SELECT * FROM tasks WHERE listId = :listId AND status = 'OPEN' AND ruleId IS NULL ORDER BY date IS NOT NULL, date, createdAt")

@@ -40,6 +40,12 @@ interface ITaskRepository {
     /** Удалить все шаги цели — когда удаляют саму цель. */
     suspend fun deleteGoalSteps(goalId: Long)
 
+    /**
+     * Открытые задачи с датой и напоминанием — то, о чём нужно напоминать.
+     * Обновляется само: поставили, убрали, отметили — будильники пересчитываются.
+     */
+    fun observeTasksWithReminders(): Flow<List<Task>>
+
     /** Хвосты: открытые задачи с датой раньше [today]. Дни повторений хвостами не бывают. */
     fun observeOverdue(today: LocalDate): Flow<List<Task>>
 

@@ -281,4 +281,7 @@
     <string name="section_goal_notes">заметки</string>
     <string name="goal_note_add">Добавить заметку</string>
     <string name="goal_note_hint">Заметки: ссылки, мерки, всё, что нужно под рукой</string>
+    <!-- Напоминания -->
+    <string name="channel_reminders">Напоминания</string>
+    <string name="channel_reminders_desc">Напоминания о делах в выбранное время</string>
 </resources>

@@ -282,4 +282,7 @@
     <string name="section_goal_notes">нататкі</string>
     <string name="goal_note_add">Дадаць нататку</string>
     <string name="goal_note_hint">Нататкі: спасылкі, меркі, усё, што трэба пад рукой</string>
+    <!-- Напаміны -->
+    <string name="channel_reminders">Напаміны</string>
+    <string name="channel_reminders_desc">Напаміны пра справы ў абраны час</string>
 </resources>
