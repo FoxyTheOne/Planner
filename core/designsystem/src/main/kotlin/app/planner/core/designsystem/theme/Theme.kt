@@ -2,6 +2,7 @@ package app.planner.core.designsystem.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -65,6 +66,13 @@ fun PlannerTheme(
         else -> paper.toLightScheme()
     }
     CompositionLocalProvider(LocalPaperColors provides paper) {
-        MaterialTheme(colorScheme = scheme, typography = PlannerTypography, content = content)
+        MaterialTheme(colorScheme = scheme, typography = PlannerTypography) {
+            // «Цвет содержимого» — им рисуются Text и Icon, если цвет не указан явно.
+            // Сам MaterialTheme его не задаёт: по умолчанию он ЧЁРНЫЙ. В приложении его выставляет
+            // Scaffold (рамка вокруг экранов), а в превью, диалогах и везде вне Scaffold текст без
+            // цвета был бы чёрным — и в тёмной теме почти не виден. Поэтому задаём его здесь, сразу
+            // для всего приложения: цвет «чернил» текущей темы (в тёмных темах — светлый, кремовый)
+            CompositionLocalProvider(LocalContentColor provides scheme.onBackground, content = content)
+        }
     }
 }
