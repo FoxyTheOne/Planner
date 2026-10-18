@@ -98,14 +98,14 @@ fun DayItemRow(
                 time = task.time?.let(DateTexts::time),
                 // У дня повторения — значок ↻ и дела этого дня (они лежат в заметке),
                 // а у перенесённого ещё и «вместо ср 7»: видно, откуда он взялся
-                subtitle = when {
-                    task.isOccurrence -> occurrenceSubtitle(task)
-                    // Шаг цели: название цели берём по goalId. Цель не нашлась (её как раз удаляют) — без подписи
-                    task.isGoalStep -> task.goalId?.let(goalTitles::get)
-                        ?.let { stringResource(R.string.goal_step_subtitle, it) }
-
-                    else -> null
-                },
+                // У дня повторения — дела цикла и «вместо ср 7» (см. occurrenceSubtitle).
+                // У обычной задачи — начало заметки, а у шага цели ещё и его цель, через точку:
+                // «взять паспорт · шаг к цели «Ремонт»». Цель не нашлась (её как раз удаляют) — без неё
+                subtitle = if (task.isOccurrence) occurrenceSubtitle(task) else listOfNotNull(
+                    task.notePreview,
+                    task.goalId?.let(goalTitles::get)
+                        ?.let { stringResource(R.string.goal_step_subtitle, it) },
+                ).joinToString(" · ").ifEmpty { null },
                 repeating = task.isOccurrence,
                 labelColor = labelColorOf(task.listId, lists),
                 toggleDescription = description,
@@ -148,3 +148,13 @@ private fun occurrenceSubtitle(task: Task): String? {
 @Composable
 fun labelColorOf(listId: Long?, lists: List<TaskList>) =
     lists.firstOrNull { it.id == listId && !it.isInbox }?.let { PlannerTheme.paper.label(it.color) }
+
+/**
+ * Начало заметки задачи — для серой подписи под названием в плане, списке и цели («каб. 214»).
+ * Берём первую непустую строку: заметка может быть длинной, а в строке задачи нужно только
+ * то, что важно увидеть на ходу. Целиком заметка — в редакторе. Заметки нет — null, подписи нет.
+ *
+ * `lineSequence()` — строки текста по одной, «лениво»: дальше первой непустой не читаем.
+ */
+val Task.notePreview: String?
+    get() = note.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }

@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.Button
@@ -37,7 +39,7 @@ import app.planner.core.domain.model.Goal
 import java.time.LocalDate
 
 /**
- * Шторка «Новая цель» / «Цель»: название, «Зачем» и необязательный срок.
+ * Шторка «Новая цель» / «Цель»: название, «Зачем», необязательный срок и заметки.
  *
  * Шаги здесь не добавляются: их удобнее записывать уже на экране цели, по одному,
  * когда цель есть и на неё можно смотреть. Здесь — только «шапка» цели.
@@ -67,17 +69,27 @@ fun GoalEditorSheetBody(initial: Goal, today: LocalDate, onSave: (Goal) -> Unit)
     val isNew = initial.id == 0L
     var title by rememberSaveable { mutableStateOf(initial.title) }
     var why by rememberSaveable { mutableStateOf(initial.why) }
+    var note by rememberSaveable { mutableStateOf(initial.note) }
     var deadline by rememberSaveable { mutableStateOf(initial.deadline) }
     var pickDeadline by rememberSaveable { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
 
     fun save() {
         if (title.isBlank()) return
-        onSave(initial.copy(title = title.trim(), why = why.trim(), deadline = deadline))
+        onSave(
+            initial.copy(
+                title = title.trim(),
+                why = why.trim(),
+                note = note.trim(),
+                deadline = deadline
+            )
+        )
     }
 
     Column(
         Modifier
+            // Полей стало много: с открытой клавиатурой шторка может не поместиться — тогда её можно листать
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
             .navigationBarsPadding()
             .imePadding()
@@ -110,14 +122,32 @@ fun GoalEditorSheetBody(initial: Goal, today: LocalDate, onSave: (Goal) -> Unit)
         )
         EditorActionRow(
             icon = Icons.Outlined.Event,
-            value = deadline?.let { stringResource(R.string.goal_deadline_until, DateTexts.dayMonthYear(it, today)) },
+            value = deadline?.let {
+                stringResource(
+                    R.string.goal_deadline_until,
+                    DateTexts.dayMonthYear(it, today)
+                )
+            },
             action = stringResource(R.string.goal_deadline_add),
             onClick = { pickDeadline = true },
             onClear = { deadline = null },
             clearDescription = stringResource(R.string.cd_clear_deadline),
             modifier = Modifier.padding(top = 12.dp),
         )
-        Row(Modifier.fillMaxWidth().padding(top = 20.dp)) {
+        // Заметки — всё, что не шаг и не «зачем»: ссылки, мерки, телефон мастера, мысли на потом
+        OutlinedTextField(
+            value = note,
+            onValueChange = { note = it },
+            placeholder = { Text(stringResource(R.string.goal_note_hint)) },
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            minLines = 3,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+        )
+        Row(Modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp)) {
             Row(Modifier.weight(1f)) {}
             Button(onClick = ::save, enabled = title.isNotBlank()) {
                 Text(stringResource(if (isNew) R.string.action_add else R.string.action_save))

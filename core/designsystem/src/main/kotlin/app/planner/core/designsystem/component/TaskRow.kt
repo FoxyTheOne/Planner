@@ -49,7 +49,8 @@ import app.planner.core.designsystem.theme.SectionLabelStyle
  * Строка задачи в стиле блокнота: квадратный чекбокс, текст, справа — время и точка-метка списка.
  * Ею же рисуются и дни повторений («Полив», «Бассейн») — с [repeating] и, у цикла, [subtitle].
  *
- * @param subtitle вторая строка мелким шрифтом: у цикла — дела этого дня («фикус, монстера»).
+ * @param subtitle подпись под названием мелким серым шрифтом: начало заметки («каб. 214»), у цикла — дела
+ *   этого дня («фикус, монстера»), у шага цели — его цель. Не больше двух строк: длинное обрезается «…».
  * @param repeating показать справа значок ↻ — это день повторения, а не обычная задача.
  * @param trailingBadge плашка даты у запланированной задачи в списке («Пт 25»).
  * @param dimmed приглушить текст (запланированная задача в списке).
@@ -101,7 +102,13 @@ fun TaskRow(
                 overflow = TextOverflow.Ellipsis,
             )
             if (!subtitle.isNullOrEmpty()) {
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = paper.inkMuted)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = paper.inkMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
         if (repeating) {

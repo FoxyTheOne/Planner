@@ -38,6 +38,7 @@ import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskListSaver
 import app.planner.common.TaskSaver
 import app.planner.common.listName
+import app.planner.common.notePreview
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
@@ -193,6 +194,7 @@ fun ListDetailContent(
                             done = task.isDone,
                             onToggle = { onToggle(task) },
                             onClick = { onEdit(task) },
+                            subtitle = task.notePreview,
                             dimmed = task.isScheduled,
                             trailingBadge = task.date?.let(DateTexts::shortDay),
                             toggleDescription = stringResource(R.string.cd_mark_done),

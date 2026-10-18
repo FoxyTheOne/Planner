@@ -71,6 +71,7 @@ import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
 import app.planner.common.habitHistoryText
+import app.planner.common.notePreview
 import app.planner.common.pausedText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.PaperChip
@@ -398,6 +399,32 @@ fun GoalContent(
                     onClick = onNewHabit
                 )
             }
+
+            // --- Заметки — в самом низу: это не план, а то, что под рукой (ссылки, мерки, мысли).
+            // Пишут их в шторке цели (карандаш в шапке); тап по заметкам открывает её же ---
+            if (goal != null) {
+                item(key = "notes_label") {
+                    SectionLabel(
+                        stringResource(R.string.section_goal_notes),
+                        Modifier.padding(top = 16.dp)
+                    )
+                }
+                item(key = "notes") {
+                    if (goal.note.isBlank()) {
+                        AddRow(
+                            stringResource(R.string.goal_note_add),
+                            onClick = { onEditGoal(goal) })
+                    } else {
+                        Text(
+                            goal.note,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onEditGoal(goal) }
+                                .padding(top = 4.dp, bottom = 8.dp, end = 8.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -581,6 +608,7 @@ private fun StepRow(
         done = step.isDone,
         onToggle = { onToggle(step) },
         onClick = { onEdit(step) },
+        subtitle = step.notePreview,
         // Действие возвращает true — «выполнено»: так TalkBack понимает, что нажатие сработало
         modifier = Modifier.semantics {
             customActions = listOf(

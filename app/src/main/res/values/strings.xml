@@ -275,4 +275,7 @@
     <string name="habit_new">New habit</string>
     <string name="action_to_goal">Back to goal</string>
     <string name="msg_returned_to_goal">Back in its goal</string>
+    <string name="section_goal_notes">notes</string>
+    <string name="goal_note_add">Add a note</string>
+    <string name="goal_note_hint">Notes: links, measurements, anything to keep at hand</string>
 </resources>

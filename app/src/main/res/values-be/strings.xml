@@ -279,4 +279,7 @@
     <string name="habit_new">Новая звычка</string>
     <string name="action_to_goal">У мэту</string>
     <string name="msg_returned_to_goal">Вярнулася ў мэту</string>
+    <string name="section_goal_notes">нататкі</string>
+    <string name="goal_note_add">Дадаць нататку</string>
+    <string name="goal_note_hint">Нататкі: спасылкі, меркі, усё, што трэба пад рукой</string>
 </resources>
