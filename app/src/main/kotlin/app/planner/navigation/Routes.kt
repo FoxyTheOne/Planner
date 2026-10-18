@@ -30,15 +30,20 @@ import java.time.LocalDate
 /**
  * Вкладки нижней панели: адрес экрана, подпись и иконка.
  * `enum class` — фиксированный набор вариантов; порядок здесь = порядок кнопок на панели.
+ *
+ * @param home первый экран вкладки, если внутри неё несколько экранов: повторное нажатие
+ *   на вкладку возвращает к нему. null — у вкладки один экран.
  */
-enum class Tab(val route: String, val label: Int, val icon: ImageVector) {
+enum class Tab(val route: String, val label: Int, val icon: ImageVector, val home: String? = null) {
     TODAY("today", R.string.nav_today, Icons.Outlined.WbSunny),
     WEEK("week", R.string.nav_week, Icons.Outlined.CalendarViewWeek),
 
     // У «Списков» внутри два экрана (оглавление и один список), поэтому у вкладки
     // адрес не экрана, а «вложенного графа» — группы экранов (см. navigation(...) в PlannerApp.kt)
-    LISTS("lists_tab", R.string.nav_lists, Icons.Outlined.Checklist),
-    GOALS("goals", R.string.nav_goals, Icons.Outlined.Flag),
+    LISTS("lists_tab", R.string.nav_lists, Icons.Outlined.Checklist, home = Routes.LISTS_OVERVIEW),
+
+    // «Цели» — так же: все цели и экран одной цели
+    GOALS("goals_tab", R.string.nav_goals, Icons.Outlined.Flag, home = Routes.GOALS_OVERVIEW),
     DIARY("diary", R.string.nav_diary, Icons.Outlined.EditNote),
 }
 
@@ -72,6 +77,19 @@ object Routes {
 
     /** Готовый адрес конкретного списка, например "list/4". */
     fun list(id: Long): String = "list/$id"
+
+    // --- Цели ---
+
+    const val GOALS_OVERVIEW = "goals"
+
+    /** Имя аргумента: какую цель открыть (её id в базе). */
+    const val ARG_GOAL_ID = "goalId"
+
+    /** Шаблон адреса цели. */
+    const val GOAL_DETAIL = "goal/{$ARG_GOAL_ID}"
+
+    /** Готовый адрес конкретной цели, например "goal/2". */
+    fun goal(id: Long): String = "goal/$id"
 }
 
 //1. На «Неделе» нажали на день → navController.navigate(Routes.day(date)) → получается адрес "day/20720".

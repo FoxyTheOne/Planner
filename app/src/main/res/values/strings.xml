@@ -244,4 +244,11 @@
     <string name="deadline_passed">deadline was %1$s</string>
     <string name="section_achieved">achieved</string>
     <string name="goal_achieved_on">achieved %1$s</string>
+    <string name="cd_edit_goal">Edit goal</string>
+    <string name="goal_steps_hint">Break the goal into steps — small enough that each can be done in one go.</string>
+    <string name="step_add">Add a step</string>
+    <string name="step_hint">New step</string>
+    <string name="stage_add">Add a stage</string>
+    <string name="stage_new">New stage</string>
+    <string name="stage_name_hint">For example, Preparation</string>
 </resources>

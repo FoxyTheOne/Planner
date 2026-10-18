@@ -1,5 +1,6 @@
 package app.planner.core.domain.goal
 
+import app.planner.core.domain.goal.DeadlineState.Companion.SOON_DAYS
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.Task
@@ -83,15 +84,46 @@ fun orderedSteps(stages: List<GoalStage>, steps: List<Task>): List<Task> {
 }
 
 /**
- * Место для нового шага: в конец своего этапа ([stageId]; null — среди шагов без этапа).
- * «Конец» — на одно больше самого большого места в этапе; в пустом этапе — 0.
+ * Место для нового: после всех, что уже есть. Одно правило для новой цели, этапа и шага —
+ * новое появляется в конце и не сдвигает привычный порядок.
+ * «После всех» — на одно больше самого большого места; если никого нет — 0.
+ *
+ * @param positions места тех, кто уже есть: целей, этапов этой цели или шагов этого этапа.
  */
-fun positionForNewStep(steps: List<Task>, stageId: Long?): Int =
-    // maxOfOrNull — наибольшее значение или null, если шагов в этапе нет
-    (steps.filter { it.stageId == stageId }.maxOfOrNull { it.position } ?: -1) + 1
+fun nextPosition(positions: Iterable<Int>): Int =
+    // maxOrNull — наибольшее значение или null, если список пустой
+    (positions.maxOrNull() ?: -1) + 1
 
-/** Место для новой цели: после всех остальных — новая карточка появляется внизу, а не сдвигает привычный порядок. */
-fun positionForNewGoal(goals: List<Goal>): Int = (goals.maxOfOrNull { it.position } ?: -1) + 1
+/** Место для нового шага: в конец своего этапа ([stageId]; null — среди шагов без этапа). */
+fun positionForNewStep(steps: List<Task>, stageId: Long?): Int =
+    nextPosition(steps.filter { it.stageId == stageId }.map { it.position })
+
+/**
+ * Шаги одного этапа — для экрана цели. [stage] = null — шаги без этапа.
+ */
+data class StepGroup(val stage: GoalStage?, val steps: List<Task>)
+
+/**
+ * Шаги цели, разложенные по этапам, в порядке [orderedSteps] — так их показывает экран цели:
+ * - сначала шаги без этапа. Эта группа есть, только если в ней есть шаги или этапов нет совсем
+ *   (у цели без этапов шаги просто лежат списком — и туда же их добавляют);
+ * - потом каждый этап — даже пустой: в него ведь нужно как-то добавить первый шаг.
+ */
+fun stepGroups(stages: List<GoalStage>, steps: List<Task>): List<StepGroup> {
+    val ordered = orderedSteps(stages, steps)
+    // Шаги, чей этап не нашёлся, — к шагам без этапа. Так бывает на мгновение после удаления этапа:
+    // этапы и шаги приходят из базы разными потоками, и новый список этапов может прийти раньше шагов
+    val stageIds = stages.map { it.id }.toSet()
+    val loose = ordered.filter { it.stageId == null || it.stageId !in stageIds }
+    val groups = stages.sortedWith(compareBy({ it.position }, { it.id }))
+        .map { stage -> StepGroup(stage, ordered.filter { it.stageId == stage.id }) }
+    return if (loose.isNotEmpty() || stages.isEmpty()) listOf(
+        StepGroup(
+            null,
+            loose
+        )
+    ) + groups else groups
+}
 
 /**
  * Всё, что нужно карточке цели: сколько сделано, следующий шаг и срок.
@@ -109,7 +141,12 @@ data class GoalOverview(
         /**
          * @param stages этапы этой цели; [steps] — её шаги (задачи с goalId этой цели).
          */
-        fun of(goal: Goal, stages: List<GoalStage>, steps: List<Task>, today: LocalDate): GoalOverview {
+        fun of(
+            goal: Goal,
+            stages: List<GoalStage>,
+            steps: List<Task>,
+            today: LocalDate
+        ): GoalOverview {
             val ordered = orderedSteps(stages, steps)
             return GoalOverview(
                 goal = goal,

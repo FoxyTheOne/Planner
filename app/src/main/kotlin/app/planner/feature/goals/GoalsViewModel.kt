@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.common.TodayClock
 import app.planner.core.domain.goal.GoalOverview
-import app.planner.core.domain.goal.positionForNewGoal
+import app.planner.core.domain.goal.nextPosition
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.repository.IGoalRepository
 import app.planner.core.domain.repository.ITaskRepository
@@ -41,7 +41,12 @@ class GoalsViewModel @Inject constructor(
         val stagesByGoal = stages.groupBy { it.goalId }
         val stepsByGoal = steps.groupBy { it.goalId }
         val overviews = allGoals.map { goal ->
-            GoalOverview.of(goal, stagesByGoal[goal.id].orEmpty(), stepsByGoal[goal.id].orEmpty(), today)
+            GoalOverview.of(
+                goal,
+                stagesByGoal[goal.id].orEmpty(),
+                stepsByGoal[goal.id].orEmpty(),
+                today
+            )
         }
         val (achieved, active) = overviews.partition { it.goal.isAchieved }
         GoalsUiState(
@@ -50,11 +55,18 @@ class GoalsViewModel @Inject constructor(
             achieved = achieved.sortedByDescending { it.goal.achievedOn },
             loaded = true,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GoalsUiState(todayClock.today()))
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        GoalsUiState(todayClock.today())
+    )
 
-    /** Сохранить из шторки. Новая цель встаёт в конец списка (см. positionForNewGoal). */
-    fun save(goal: Goal) = viewModelScope.launch {
+    /**
+     * Создать цель из шторки. Она встаёт в конец списка (см. nextPosition).
+     * @param onCreated получает id новой цели — экран сразу открывает её, чтобы добавить шаги.
+     */
+    fun create(goal: Goal, onCreated: (Long) -> Unit) = viewModelScope.launch {
         val all = state.value.let { it.active + it.achieved }.map { it.goal }
-        goals.save(if (goal.id == 0L) goal.copy(position = positionForNewGoal(all)) else goal)
+        onCreated(goals.save(goal.copy(position = nextPosition(all.map { it.position }))))
     }
 }

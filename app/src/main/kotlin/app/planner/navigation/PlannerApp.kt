@@ -38,6 +38,7 @@ import app.planner.R
 import app.planner.common.UiMessage
 import app.planner.common.resolve
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.feature.goals.GoalScreen
 import app.planner.feature.goals.GoalsScreen
 import app.planner.feature.lists.ListDetailScreen
 import app.planner.feature.lists.ListsOverviewScreen
@@ -165,11 +166,12 @@ private fun BottomTabs(navController: NavHostController, destination: NavDestina
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    if (selected && tab == Tab.LISTS) {
-                        // Повторное нажатие на открытую вкладку «Списки» — назад к оглавлению.
+                    val home = tab.home
+                    if (selected && home != null) {
+                        // Повторное нажатие на открытую вкладку «Списки» или «Цели» — назад к её первому экрану.
                         // popBackStack(адрес, inclusive = false) убирает из истории всё,
                         // что открыто поверх этого адреса, а сам адрес оставляет
-                        navController.popBackStack(Routes.LISTS_OVERVIEW, inclusive = false)
+                        navController.popBackStack(home, inclusive = false)
                     } else {
                         navController.navigate(tab.route) {
                             // Стандартный рецепт для вкладок:
@@ -256,7 +258,21 @@ private fun PlannerNavHost(navController: NavHostController, padding: PaddingVal
             }
         }
 
-        composable(Tab.GOALS.route) { GoalsScreen(contentPadding = padding) }
+        // Вкладка «Цели» — тоже вложенный граф: все цели и экран одной цели
+        navigation(route = Tab.GOALS.route, startDestination = Routes.GOALS_OVERVIEW) {
+            composable(Routes.GOALS_OVERVIEW) {
+                GoalsScreen(
+                    onOpenGoal = { id -> navController.navigate(Routes.goal(id)) },
+                    contentPadding = padding,
+                )
+            }
+            composable(
+                Routes.GOAL_DETAIL,
+                arguments = listOf(navArgument(Routes.ARG_GOAL_ID) { type = NavType.LongType }),
+            ) {
+                GoalScreen(onBack = navController::popBackStack, contentPadding = padding)
+            }
+        }
         composable(Tab.DIARY.route) {
             ComingSoon(
                 R.string.nav_diary,
@@ -282,10 +298,12 @@ private fun NavDestination?.isInside(tab: Tab): Boolean =
 /** Заглушка для разделов следующих этапов (сейчас — дневник). */
 @Composable
 private fun ComingSoon(title: Int, text: Int, padding: PaddingValues) {
-    Column(Modifier
-        .fillMaxSize()
-        .padding(padding)
-        .padding(20.dp)) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(20.dp)
+    ) {
         Text(
             stringResource(title),
             style = MaterialTheme.typography.headlineMedium,

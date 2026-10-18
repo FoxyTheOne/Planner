@@ -248,4 +248,11 @@
     <string name="deadline_passed">тэрмін быў %1$s</string>
     <string name="section_achieved">дасягнутыя</string>
     <string name="goal_achieved_on">дасягнута %1$s</string>
+    <string name="cd_edit_goal">Змяніць мэту</string>
+    <string name="goal_steps_hint">Разбіце мэту на крокі — такія маленькія, каб кожны можна было зрабіць за раз.</string>
+    <string name="step_add">Дадаць крок</string>
+    <string name="step_hint">Новы крок</string>
+    <string name="stage_add">Дадаць этап</string>
+    <string name="stage_new">Новы этап</string>
+    <string name="stage_name_hint">Напрыклад, Падрыхтоўка</string>
 </resources>

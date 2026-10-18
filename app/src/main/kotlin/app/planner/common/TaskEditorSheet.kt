@@ -261,69 +261,75 @@ fun TaskEditorSheetBody(
     ) {
         // --- Список: первым делом видно, куда попадёт задача.
         // Выпадающее меню, а не ряд кнопок: так удобно и при 3 списках, и при 50 ---
-        val selectedList = lists.firstOrNull { it.id == listId } ?: lists.firstOrNull { it.isInbox }
-        Box {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { listMenuOpen = true }
-                    .padding(vertical = 6.dp),
-            ) {
-                Icon(Icons.Outlined.Inbox, null, tint = PlannerTheme.paper.inkMuted)
-                Text(
-                    stringResource(R.string.task_list) + ":",
-                    color = PlannerTheme.paper.inkMuted,
-                    modifier = Modifier.padding(start = 12.dp, end = 8.dp),
-                )
-                Text(
-                    text = if (creatingList) stringResource(R.string.list_new) else selectedList?.let {
-                        listName(
-                            it
-                        )
-                    }.orEmpty(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    Icons.Outlined.ArrowDropDown,
-                    stringResource(R.string.cd_choose_list),
-                    tint = PlannerTheme.paper.inkMuted
-                )
-            }
-            // DropdownMenu появляется поверх экрана под строкой; heightIn ограничивает высоту — дальше прокрутка
-            DropdownMenu(
-                expanded = listMenuOpen,
-                onDismissRequest = { listMenuOpen = false },
-                modifier = Modifier.heightIn(max = 360.dp),
-            ) {
-                lists.forEach { list ->
-                    DropdownMenuItem(
-                        text = { Text(listName(list)) },
-                        leadingIcon = { ListColorDot(list) },
-                        onClick = { listId = list.id; newListName = null; listMenuOpen = false },
+        // Шаг цели живёт в своей цели, а не в списке — выбирать список ему не нужно
+        if (!initial.isGoalStep) {
+            val selectedList =
+                lists.firstOrNull { it.id == listId } ?: lists.firstOrNull { it.isInbox }
+            Box {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { listMenuOpen = true }
+                        .padding(vertical = 6.dp),
+                ) {
+                    Icon(Icons.Outlined.Inbox, null, tint = PlannerTheme.paper.inkMuted)
+                    Text(
+                        stringResource(R.string.task_list) + ":",
+                        color = PlannerTheme.paper.inkMuted,
+                        modifier = Modifier.padding(start = 12.dp, end = 8.dp),
+                    )
+                    Text(
+                        text = if (creatingList) stringResource(R.string.list_new) else selectedList?.let {
+                            listName(
+                                it
+                            )
+                        }.orEmpty(),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(
+                        Icons.Outlined.ArrowDropDown,
+                        stringResource(R.string.cd_choose_list),
+                        tint = PlannerTheme.paper.inkMuted
                     )
                 }
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.list_new)) },
-                    leadingIcon = { Icon(Icons.Outlined.Add, null) },
-                    onClick = { newListName = newListName ?: ""; listMenuOpen = false },
+                // DropdownMenu появляется поверх экрана под строкой; heightIn ограничивает высоту — дальше прокрутка
+                DropdownMenu(
+                    expanded = listMenuOpen,
+                    onDismissRequest = { listMenuOpen = false },
+                    modifier = Modifier.heightIn(max = 360.dp),
+                ) {
+                    lists.forEach { list ->
+                        DropdownMenuItem(
+                            text = { Text(listName(list)) },
+                            leadingIcon = { ListColorDot(list) },
+                            onClick = {
+                                listId = list.id; newListName = null; listMenuOpen = false
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.list_new)) },
+                        leadingIcon = { Icon(Icons.Outlined.Add, null) },
+                        onClick = { newListName = newListName ?: ""; listMenuOpen = false },
+                    )
+                }
+            }
+            if (newListName != null) {
+                OutlinedTextField(
+                    value = newListName.orEmpty(),
+                    onValueChange = { newListName = it },
+                    label = { Text(stringResource(R.string.list_name_label)) },
+                    placeholder = { Text(stringResource(R.string.list_name_hint)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .focusRequester(newListFocus),
                 )
             }
-        }
-        if (newListName != null) {
-            OutlinedTextField(
-                value = newListName.orEmpty(),
-                onValueChange = { newListName = it },
-                label = { Text(stringResource(R.string.list_name_label)) },
-                placeholder = { Text(stringResource(R.string.list_name_hint)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-                    .focusRequester(newListFocus),
-            )
         }
         // Нажали «+ Новый список» — курсор сразу в поле названия списка,
         // иначе текст по привычке уйдёт в название задачи
@@ -381,8 +387,9 @@ fun TaskEditorSheetBody(
             modifier = Modifier.padding(top = 12.dp),
         )
         // У дня повторения (отмечен, перенесён) своего повторения нет — оно у правила.
-        // Иначе «Сделать повторяющейся» создало бы новое правило из одного дня старого
-        if (!initial.isOccurrenceDay) {
+        // Иначе «Сделать повторяющейся» создало бы новое правило из одного дня старого.
+        // У шага цели тоже нет: шаг делают один раз (а то, что повторяется, — это привычка цели)
+        if (!initial.isOccurrenceDay && !initial.isGoalStep) {
             EditorActionRow(
                 icon = Icons.Outlined.Repeat,
                 value = repeat?.let { repeatSummary(it) },

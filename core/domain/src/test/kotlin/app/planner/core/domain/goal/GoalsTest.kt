@@ -79,6 +79,36 @@ class GoalsTest {
     }
 
     @Test
+    fun `next position is after the last one`() {
+        assertEquals(0, nextPosition(emptyList()))
+        assertEquals(3, nextPosition(listOf(0, 2, 1)))
+    }
+
+    @Test
+    fun `steps are grouped by stage, empty stage is shown too`() {
+        val steps = listOf(
+            step("Снять старую плитку", demolition, order = 1),
+            step("Посчитать бюджет", order = 2),
+        )
+
+        val groups = stepGroups(listOf(tiles, demolition), steps)
+
+        // Без этапа, потом «Демонтаж», потом пустая «Плитка» — чтобы было куда добавить первый шаг
+        assertEquals(listOf(null, "Демонтаж", "Плитка"), groups.map { it.stage?.title })
+        assertEquals(listOf("Посчитать бюджет"), groups[0].steps.map { it.title })
+        assertEquals(emptyList<Task>(), groups[2].steps)
+    }
+
+    @Test
+    fun `no loose group when all steps are in stages, but there is one when there are no stages`() {
+        val inStage = stepGroups(listOf(demolition), listOf(step("Снять плитку", demolition, order = 1)))
+        assertEquals(listOf("Демонтаж"), inStage.map { it.stage?.title })
+
+        // Цель без этапов и без шагов: одна группа «без этапа» — туда добавляют первый шаг
+        assertEquals(listOf(StepGroup(null, emptyList())), stepGroups(emptyList(), emptyList()))
+    }
+
+    @Test
     fun `next step is the first open one, progress counts done steps`() {
         val steps = listOf(
             step("Посчитать бюджет", order = 1, status = TaskStatus.DONE),

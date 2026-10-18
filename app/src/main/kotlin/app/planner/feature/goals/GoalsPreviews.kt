@@ -11,6 +11,7 @@ import app.planner.core.designsystem.preview.PlannerPreviews
 import app.planner.core.designsystem.preview.PlannerScreenPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.goal.GoalOverview
+import app.planner.core.domain.goal.stepGroups
 import app.planner.preview.SampleData
 
 /*
@@ -42,7 +43,11 @@ private fun GoalsPreview() {
 @Composable
 private fun GoalsEmptyPreview() {
     PlannerTheme {
-        GoalsContent(GoalsUiState(SampleData.today, loaded = true), PaddingValues(), onOpenGoal = {}, onNewGoal = {})
+        GoalsContent(
+            GoalsUiState(SampleData.today, loaded = true),
+            PaddingValues(),
+            onOpenGoal = {},
+            onNewGoal = {})
     }
 }
 
@@ -51,8 +56,46 @@ private fun GoalsEmptyPreview() {
 @Composable
 private fun GoalEditorPreview() {
     PlannerTheme {
-        Box(Modifier.background(PlannerTheme.paper.highlight).padding(top = 16.dp)) {
-            GoalEditorSheetBody(initial = SampleData.repairGoal, today = SampleData.today, onSave = {})
+        Box(Modifier
+            .background(PlannerTheme.paper.highlight)
+            .padding(top = 16.dp)) {
+            GoalEditorSheetBody(
+                initial = SampleData.repairGoal,
+                today = SampleData.today,
+                onSave = {})
         }
+    }
+}
+
+/** Экран цели «Ремонт»: «Зачем», срок, прогресс; шаг без этапа и два этапа, один шаг запланирован. */
+@PlannerScreenPreviews
+@Composable
+private fun GoalPreview() {
+    val state = with(SampleData) {
+        val stages = listOf(demolition, tiles)
+        // «Купить плитку» уже в плане на завтра — серая, с датой
+        val steps = repairSteps.map { if (it.id == 33L) it.copy(date = today.plusDays(1)) else it }
+        GoalUiState(
+            today = today,
+            goal = repairGoal,
+            overview = GoalOverview.of(repairGoal, stages, steps, today),
+            groups = stepGroups(stages, steps),
+            stages = stages,
+            steps = steps,
+            loaded = true,
+        )
+    }
+    PlannerTheme {
+        GoalContent(
+            state = state,
+            contentPadding = PaddingValues(),
+            onBack = {},
+            onEditGoal = {},
+            onToggle = {},
+            onEditStep = {},
+            onSchedule = {},
+            onAddStep = { _, _ -> },
+            onAddStage = {},
+        )
     }
 }
