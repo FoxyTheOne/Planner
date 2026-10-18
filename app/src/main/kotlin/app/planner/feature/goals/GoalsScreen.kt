@@ -211,8 +211,20 @@ private fun GoalCard(overview: GoalOverview, today: LocalDate, onClick: () -> Un
                     next.title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 8.dp),
+                    // weight(fill = false): название занимает столько, сколько ему нужно, но не больше
+                    // остатка строки — длинное обрежется «…», а дата справа останется видна
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .weight(1f, fill = false),
                 )
+                // Следующий шаг уже в плане — видно, на какой день: «→ Купить плитку · пт 17»
+                next.date?.let { date ->
+                    Text(
+                        " · ${DateTexts.shortDay(date).lowercase()}",
+                        color = PlannerTheme.paper.inkMuted,
+                        maxLines = 1,
+                    )
+                }
             }
             // Шаги есть, но все сделаны — спокойная подсказка; «Достигнута» появится на экране цели
             progress.total > 0 -> Hint(stringResource(R.string.goal_all_steps_done))

@@ -49,7 +49,10 @@ fun OverdueSheet(
     onAllBack: () -> Unit,
     onNotNow: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
         OverdueSheetBody(
             overdue = overdue,
             today = today,
@@ -78,7 +81,10 @@ fun OverdueSheetBody(
     onAllBack: () -> Unit,
     onNotNow: () -> Unit,
 ) {
-    Column(Modifier.navigationBarsPadding().padding(horizontal = 20.dp).padding(bottom = 16.dp)) {
+    Column(Modifier
+        .navigationBarsPadding()
+        .padding(horizontal = 20.dp)
+        .padding(bottom = 16.dp)) {
         Text(stringResource(R.string.overdue_title), style = MaterialTheme.typography.titleLarge)
 
         LazyColumn(Modifier.heightIn(max = 440.dp)) {
@@ -90,7 +96,12 @@ fun OverdueSheetBody(
                         OverdueItem(
                             task = task,
                             onToday = { onSchedule(task, Slot(today, task.partOfDay)) },
-                            onTomorrow = { onSchedule(task, Slot(today.plusDays(1), task.partOfDay)) },
+                            onTomorrow = {
+                                onSchedule(
+                                    task,
+                                    Slot(today.plusDays(1), task.partOfDay)
+                                )
+                            },
                             onBack = { onReturnToList(task) },
                         )
                     }
@@ -98,12 +109,25 @@ fun OverdueSheetBody(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
             OutlinedButton(onClick = onAllToToday, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.overdue_all_today), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    stringResource(R.string.overdue_all_today),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             OutlinedButton(onClick = onAllBack, modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.overdue_all_back), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    stringResource(R.string.overdue_all_back),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
         TextButton(onClick = onNotNow, modifier = Modifier.align(Alignment.CenterHorizontally)) {
@@ -121,13 +145,29 @@ private fun OverdueItem(
 ) {
     Column(Modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(task.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text(DateTexts.shortDay(task.date!!), color = PlannerTheme.paper.inkMuted, style = MaterialTheme.typography.labelMedium)
+            Text(
+                task.title,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                DateTexts.shortDay(task.date!!),
+                color = PlannerTheme.paper.inkMuted,
+                style = MaterialTheme.typography.labelMedium
+            )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
+        ) {
             PaperChip(stringResource(R.string.day_today), selected = false, onClick = onToday)
             PaperChip(stringResource(R.string.day_tomorrow), selected = false, onClick = onTomorrow)
-            PaperChip(stringResource(R.string.action_to_list), selected = false, onClick = onBack)
+            // Шаг цели возвращается не в список, а в свою цель — так и пишем, чтобы его не искали в списках
+            PaperChip(
+                stringResource(if (task.isGoalStep) R.string.action_to_goal else R.string.action_to_list),
+                selected = false,
+                onClick = onBack,
+            )
         }
         DashedRule()
     }

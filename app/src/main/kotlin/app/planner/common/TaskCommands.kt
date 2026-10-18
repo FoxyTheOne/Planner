@@ -193,7 +193,8 @@ class TaskCommands @Inject constructor(
         tasks.unschedule(task.id)
         messages.post(
             UiMessage(
-                UiText.Res(R.string.msg_returned_to_list),
+                // Шаг цели вернулся в свою цель, а не в список (см. Overdue.returnedToList)
+                UiText.Res(if (task.isGoalStep) R.string.msg_returned_to_goal else R.string.msg_returned_to_list),
                 undo = { tasks.addOrUpdate(task) })
         )
     }

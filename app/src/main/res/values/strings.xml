@@ -273,4 +273,6 @@
     <string name="cd_clear_habit_goal">Unlink from the goal</string>
     <string name="section_goal_habits">habits that help</string>
     <string name="habit_new">New habit</string>
+    <string name="action_to_goal">Back to goal</string>
+    <string name="msg_returned_to_goal">Back in its goal</string>
 </resources>

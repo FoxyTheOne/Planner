@@ -276,4 +276,6 @@
     <string name="cd_clear_habit_goal">Отвязать от цели</string>
     <string name="section_goal_habits">привычки, которые помогают</string>
     <string name="habit_new">Новая привычка</string>
+    <string name="action_to_goal">В цель</string>
+    <string name="msg_returned_to_goal">Вернулось в цель</string>
 </resources>
