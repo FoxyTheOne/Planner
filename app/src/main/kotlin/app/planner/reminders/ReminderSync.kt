@@ -39,6 +39,7 @@ class ReminderSync @Inject constructor(
     @ApplicationContext context: Context,
     private val tasks: ITaskRepository,
     private val scheduler: ReminderScheduler,
+    private val notifications: ReminderNotifications,
 ) {
     private companion object {
         const val TAG = "ReminderSync"
@@ -113,6 +114,10 @@ class ReminderSync @Inject constructor(
         // edit { } — короткая запись: открыть правку, записать, сохранить (apply — в фоне, не тормозя)
         prefs.edit { putStringSet(KEY_SCHEDULED, wanted.map { it.toString() }.toSet()) }
         saveSnoozes(stillSnoozed)
+
+        // Уведомления в шторке — только о том, о чём ещё есть смысл напоминать. Отметили задачу
+        // в приложении, удалили, вернули в список — её уведомление уходит само
+        notifications.dismissAllExcept(withReminders.map { it.id }.toSet())
     }
 
     /**

@@ -102,6 +102,23 @@ class ReminderNotifications @Inject constructor(
     fun dismiss(taskId: Long) = NotificationManagerCompat.from(context).cancel(taskId.toInt())
 
     /**
+     * Убрать уведомления о задачах, о которых напоминать больше не нужно: всех, кроме [keepTaskIds].
+     *
+     * Зачем: пришло «Позвонить бабушке», а отметили её в приложении (или удалили, вернули в список,
+     * убрали напоминание). Уведомление про уже сделанное дело в шторке ни к чему. Зовёт ReminderSync
+     * при каждом изменении — он как раз знает, у каких задач напоминание ещё в силе.
+     *
+     * activeNotifications — уведомления нашего приложения, которые сейчас висят в шторке.
+     * Берём только из канала напоминаний: если позже появятся другие (вечерняя сводка), их не трогаем.
+     */
+    fun dismissAllExcept(keepTaskIds: Set<Long>) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.activeNotifications
+            .filter { it.notification.channelId == CHANNEL_REMINDERS && it.id.toLong() !in keepTaskIds }
+            .forEach { manager.cancel(it.id) }
+    }
+
+    /**
      * Нажатие на кнопку уведомления — сигнал нашему [ReminderReceiver] с действием [action].
      * Номер (requestCode) у всех трёх «намерений» задачи один — id задачи, но Android различает
      * их по действию (action): «Готово» и «Отложить» не заменят друг друга и будильник.

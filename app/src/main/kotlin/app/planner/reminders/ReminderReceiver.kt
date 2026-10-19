@@ -43,8 +43,10 @@ class ReminderReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var tasks: ITaskRepository
+
     @Inject
     lateinit var notifications: ReminderNotifications
+
     @Inject
     lateinit var sync: ReminderSync
 
@@ -59,7 +61,15 @@ class ReminderReceiver : BroadcastReceiver() {
                 val task = tasks.getTask(taskId)
                 val fireAt = task?.let(Reminders::fireAt)
                 when (intent.action) {
-                    ACTION_REMIND -> if (task != null && fireAt != null) notifications.show(task)
+                    // Второе условие — напоминание не «из будущего». Так бывает, если задачу перенесли
+                    // на потом, а приложение закрылось раньше, чем успело переставить будильник: старый
+                    // будильник сработает в прежнее время. Тогда молчим — ReminderSync при запуске
+                    // поставит новый. Минута запаса — на случай, если система разбудила чуть раньше
+                    ACTION_REMIND -> if (task != null && fireAt != null && fireAt <= LocalDateTime.now()
+                            .plusMinutes(1)
+                    ) {
+                        notifications.show(task)
+                    }
 
                     ACTION_DONE -> {
                         notifications.dismiss(taskId)
