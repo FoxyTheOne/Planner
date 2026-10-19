@@ -19,7 +19,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Flag
@@ -232,7 +231,6 @@ fun TaskEditorSheetBody(
             )
         })
     }
-    var showSchedule by rememberSaveable { mutableStateOf(false) }
     var repeat by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf(initialRepeat) }
     var showRepeat by rememberSaveable { mutableStateOf(false) }
     var isHabit by rememberSaveable { mutableStateOf(initialHabit) }
@@ -386,30 +384,34 @@ fun TaskEditorSheetBody(
                 .padding(top = 8.dp),
         )
 
-        // --- Когда и Повторять. Пока ничего не выбрано — строка выглядит как кнопка-действие
-        // («Запланировать» цветом кнопок); выбрали — видно значение и ✕, чтобы убрать ---
+        // --- День, Время, Напомнить, Повторять (см. DayTimeRows.kt). Пока ничего не выбрано — строка
+        // выглядит как кнопка-действие («Запланировать» цветом кнопок); выбрали — видно значение и ✕ ---
         val current = slot
-        // У повторения дата — это день, с которого оно начинается: «С сегодня · вечер»
-        val dateText = when {
-            current != null && repeat != null -> startText(current, today)
-            current != null -> slotText(current, today)
-            repeat != null -> stringResource(
-                R.string.repeat_starting,
-                stringResource(R.string.day_today_lower)
-            )
-
+        // У повторения день — это день, с которого оно начинается: «С сегодня», «С 2 октября»
+        val dayText = when {
+            current != null && repeat != null -> startText(current.date, today)
+            current != null -> dayText(current.date, today)
+            repeat != null -> startText(today, today)
             else -> null
         }
-        EditorActionRow(
-            icon = Icons.Outlined.CalendarMonth,
-            value = dateText,
-            action = stringResource(R.string.schedule_title),
-            onClick = { showSchedule = true },
-            // Убрать можно только выбранную дату; «С сегодня» у повторения без даты — не выбор, а подсказка
+        DayRow(
+            value = dayText,
+            date = current?.date,
+            today = today,
+            // Поменяли день — часть дня и время остаются: «утро» переезжает вместе с задачей
+            onPick = { day -> slot = Slot(day, current?.partOfDay, current?.time) },
+            // Убрать можно только выбранный день; «С сегодня» у повторения без даты — не выбор, а подсказка
             onClear = if (current != null) ({ slot = null }) else null,
-            clearDescription = stringResource(R.string.cd_clear_date),
             modifier = Modifier.padding(top = 12.dp),
         )
+        // Время — когда есть день. У повторения день есть всегда: без даты оно начинается сегодня
+        if (current != null || repeat != null) {
+            TimeRow(
+                partOfDay = current?.partOfDay,
+                time = current?.time,
+                onChange = { part, time -> slot = Slot(current?.date ?: today, part, time) },
+            )
+        }
         // --- Напомнить: только у задачи с датой (без даты напоминать не о чем) и пока не у повторений ---
         if (current != null && repeat == null) {
             ReminderRow(
@@ -492,15 +494,6 @@ fun TaskEditorSheetBody(
 
     if (isNew) LaunchedEffect(Unit) { focus.requestFocus() }
 
-    if (showSchedule) {
-        ScheduleSheet(
-            today = today,
-            initial = slot,
-            onDismiss = { showSchedule = false },
-            // Напоминание у редактора своё (строка «Напомнить»), поэтому из шторки берём только слот
-            onConfirm = { newSlot, _ -> slot = newSlot; showSchedule = false },
-        )
-    }
     if (showPause && onPause != null) {
         PauseSheet(
             today = today,
@@ -678,30 +671,32 @@ fun listName(list: TaskList): String =
     if (list.isInbox) stringResource(R.string.list_inbox) else list.name
 
 /**
- * Начало повторения словами: «С сегодня · вечер», «С завтра», «С 2 октября · 18:30».
+ * Начало повторения словами: «С сегодня», «С завтра», «С 2 октября». Время — в своей строке ниже.
  * Без дня недели: «С пт 2, 2 октября» звучало бы странно, а день недели тут и не важен.
  */
 @Composable
-private fun startText(slot: Slot, today: LocalDate): String {
-    val day = when (slot.date) {
+private fun startText(date: LocalDate, today: LocalDate): String {
+    val day = when (date) {
         today -> stringResource(R.string.day_today_lower)
         today.plusDays(1) -> stringResource(R.string.day_tomorrow_lower)
-        else -> DateTexts.dayMonth(slot.date)
+        else -> DateTexts.dayMonth(date)
     }
-    val detail =
-        slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
-    return stringResource(R.string.repeat_starting, listOfNotNull(day, detail).joinToString(" · "))
+    return stringResource(R.string.repeat_starting, day)
 }
 
-/** «Завтра · утро», «Пт 25, 25 сентября · 10:30» — дата задачи словами. */
+/** «Сегодня», «Завтра», «Вт, 29 сентября» — день задачи словами. */
+@Composable
+fun dayText(date: LocalDate, today: LocalDate): String = when (date) {
+    today -> stringResource(R.string.day_today)
+    today.plusDays(1) -> stringResource(R.string.day_tomorrow)
+    // «Вт, 29 сентября» — день недели без числа: число уже есть в «29 сентября»
+    else -> "${DateTexts.weekdayShort(date.dayOfWeek)}, ${DateTexts.dayMonth(date)}"
+}
+
+/** «Завтра · утро», «Вт, 29 сентября · 10:30» — дата задачи словами. */
 @Composable
 fun slotText(slot: Slot, today: LocalDate): String {
-    val day = when (slot.date) {
-        today -> stringResource(R.string.day_today)
-        today.plusDays(1) -> stringResource(R.string.day_tomorrow)
-        // «Вт, 29 сентября» — день недели без числа: число уже есть в «29 сентября»
-        else -> "${DateTexts.weekdayShort(slot.date.dayOfWeek)}, ${DateTexts.dayMonth(slot.date)}"
-    }
+    val day = dayText(slot.date, today)
     val detail =
         slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
     return listOfNotNull(day, detail).joinToString(" · ")

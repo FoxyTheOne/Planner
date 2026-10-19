@@ -72,6 +72,8 @@
     <string name="schedule_title">Запланировать</string>
     <string name="schedule_part_of_day">Когда в течение дня</string>
     <string name="schedule_exact_time">Точное время</string>
+    <string name="time_add">Добавить время</string>
+    <string name="time_exact">Точное время…</string>
 
     <string name="task_title_hint">Что нужно сделать?</string>
     <string name="task_note_hint">Заметка</string>

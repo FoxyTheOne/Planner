@@ -73,6 +73,8 @@
     <string name="schedule_title">Plan</string>
     <string name="schedule_part_of_day">Time of day</string>
     <string name="schedule_exact_time">Exact time</string>
+    <string name="time_add">Add time</string>
+    <string name="time_exact">Exact time…</string>
 
     <!-- Задача -->
     <string name="task_title_hint">What needs doing?</string>

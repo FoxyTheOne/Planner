@@ -73,6 +73,8 @@
     <string name="schedule_title">Запланаваць</string>
     <string name="schedule_part_of_day">Калі на працягу дня</string>
     <string name="schedule_exact_time">Дакладны час</string>
+    <string name="time_add">Дадаць час</string>
+    <string name="time_exact">Дакладны час…</string>
 
     <string name="task_title_hint">Што трэба зрабіць?</string>
     <string name="task_note_hint">Нататка</string>
