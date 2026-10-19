@@ -84,6 +84,7 @@ import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
+import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Recurrence
 import sh.calvin.reorderable.ReorderableItem
@@ -212,9 +213,14 @@ fun GoalScreen(
     scheduling?.let { step ->
         ScheduleSheet(
             today = state.today,
-            initial = null,
+            // Уже запланированный шаг — шторка открывается на его дне и времени, а не «с нуля»
+            initial = step.date?.let { Slot(it, step.partOfDay, step.time) },
             onDismiss = { scheduling = null },
-            onConfirm = { viewModel.schedule(step, it); scheduling = null },
+            onConfirm = { slot, reminder ->
+                viewModel.schedule(step, slot, reminder); scheduling = null
+            },
+            withReminder = true,
+            initialReminder = step.reminder,
         )
     }
     if (addingStage) {

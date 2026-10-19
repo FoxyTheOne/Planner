@@ -131,11 +131,16 @@ fun TodayScreen(
             today = state.today,
             initial = task.date?.let { Slot(it, task.partOfDay, task.time) },
             onDismiss = { scheduling = null },
-            onConfirm = { viewModel.schedule(task, it); scheduling = null },
+            onConfirm = { slot, reminder ->
+                viewModel.schedule(task, slot, reminder); scheduling = null
+            },
             // Только у дня повторения (черновик или уже перенесённый): «Пропустить этот раз»
             onSkip = if (task.isOccurrenceDay) ({
                 viewModel.skipOccurrence(task); scheduling = null
             }) else null,
+            // Напоминания у дней повторения — отдельный блок (в редакторе правила), здесь их нет
+            withReminder = !task.isOccurrenceDay,
+            initialReminder = task.reminder,
         )
     }
     if (showOverdue) {

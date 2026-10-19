@@ -36,7 +36,9 @@ import app.planner.R
 import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.PartOfDay
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
+import app.planner.core.domain.reminder.Reminders
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -44,6 +46,12 @@ import java.time.LocalTime
  * Шторка «Запланировать»: быстрые даты, часть дня, точное время.
  * Время необязательно — большинство дел планируются просто «на завтра».
  *
+ * Напоминание ([withReminder]) — прямо здесь, чтобы не открывать ради него редактор: «к врачу
+ * в четверг в 10:30, напомнить за час» — за один заход. Его нет в шторке из редактора (там своя
+ * строка «Напомнить») и у дней повторения (напоминания повторений — отдельно, в редакторе правила).
+ *
+ * @param initialReminder напоминание задачи сейчас; в onConfirm приходит то, что выбрали
+ *   (null — без напоминания), уже подогнанное под новое время (Reminders.fitting).
  * @param onSkip есть только у дня повторения: кнопка «Пропустить этот раз» внизу.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -52,8 +60,10 @@ fun ScheduleSheet(
     today: LocalDate,
     initial: Slot?,
     onDismiss: () -> Unit,
-    onConfirm: (Slot) -> Unit,
+    onConfirm: (Slot, Reminder?) -> Unit,
     onSkip: (() -> Unit)? = null,
+    withReminder: Boolean = false,
+    initialReminder: Reminder? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -64,6 +74,8 @@ fun ScheduleSheet(
             initial = initial,
             onConfirm = onConfirm,
             onSkip = onSkip,
+            withReminder = withReminder,
+            initialReminder = initialReminder,
         )
     }
 }
@@ -78,12 +90,15 @@ fun ScheduleSheet(
 fun ScheduleSheetBody(
     today: LocalDate,
     initial: Slot?,
-    onConfirm: (Slot) -> Unit,
+    onConfirm: (Slot, Reminder?) -> Unit,
     onSkip: (() -> Unit)? = null,
+    withReminder: Boolean = false,
+    initialReminder: Reminder? = null,
 ) {
     var date by rememberSaveable { mutableStateOf(initial?.date ?: today.plusDays(1)) }
     var part by rememberSaveable { mutableStateOf(initial?.partOfDay) }
     var time by rememberSaveable { mutableStateOf(initial?.time) }
+    var reminder by rememberSaveable(stateSaver = ReminderSaver) { mutableStateOf(initialReminder) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showTimePicker by rememberSaveable { mutableStateOf(false) }
 
@@ -107,10 +122,13 @@ fun ScheduleSheetBody(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            quickDates.forEach { (label, value) ->
+            // Быстрые даты могут совпасть: в субботу «Выходные» — это «Сегодня», а «След. неделя»
+            // (если неделя с воскресенья) — «Завтра». Подсвечиваем только первую совпавшую
+            val selectedIndex = quickDates.indexOfFirst { it.second == date }
+            quickDates.forEachIndexed { index, (label, value) ->
                 PaperChip(
                     stringResource(label),
-                    selected = date == value,
+                    selected = index == selectedIndex,
                     onClick = { date = value })
             }
             PaperChip(
@@ -165,8 +183,24 @@ fun ScheduleSheetBody(
             }
         }
 
+        if (withReminder) {
+            // Показываем напоминание, подходящее времени: сняли время — строка снова «Напомнить»,
+            // вернули время — выбранное «за 30 минут» вернётся (оно хранится в reminder)
+            ReminderRow(
+                reminder = Reminders.fitting(reminder, date, time),
+                timed = time != null,
+                onChange = { reminder = it },
+            )
+        }
+
         Button(
-            onClick = { onConfirm(Slot(date, part, time)) },
+            // Напоминание — подходящее новому времени: убрали время — «за 30 минут» не от чего считать
+            onClick = {
+                onConfirm(
+                    Slot(date, part, time),
+                    Reminders.fitting(reminder, date, time)
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp),

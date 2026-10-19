@@ -18,6 +18,7 @@ import app.planner.core.domain.goal.rearrangedSteps
 import app.planner.core.domain.goal.stepGroups
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.HabitHistory
@@ -95,19 +96,6 @@ class GoalViewModel @Inject constructor(
         SharingStarted.WhileSubscribed(5_000),
         GoalUiState(todayClock.today())
     )
-
-    /**
-     * Привычки, которые помогают этой цели, и мягкая статистика каждой за 30 дней — та же,
-     * что в редакторе привычки (HabitHistory). Отметки берём «с запасом» на весь период.
-     */
-    private fun linkedHabits(today: LocalDate) = combine(
-        rules.observeRules(),
-        tasks.observeOccurrenceTasks(today.minusDays(HabitHistory.DAYS - 1L), today),
-    ) { allRules, done ->
-        allRules
-            .filter { it.isHabit && it.goalId == goalId }
-            .map { LinkedHabit(it, HabitHistory.of(it, done, today)) }
-    }
 
     /**
      * Добавить шаг в конец этапа [stageId] (null — к шагам без этапа).
@@ -197,7 +185,9 @@ class GoalViewModel @Inject constructor(
     }
 
     fun toggle(step: Task) = viewModelScope.launch { commands.toggleDone(step) }
-    fun schedule(step: Task, slot: Slot) = viewModelScope.launch { commands.schedule(step, slot) }
+    fun schedule(step: Task, slot: Slot, reminder: Reminder? = step.reminder) =
+        viewModelScope.launch { commands.schedule(step, slot, reminder) }
+
     fun saveStep(result: EditorResult) = viewModelScope.launch { commands.save(result) }
     fun deleteStep(step: Task) = viewModelScope.launch { commands.delete(step) }
 
@@ -238,5 +228,18 @@ class GoalViewModel @Inject constructor(
                 },
             ),
         )
+    }
+
+    /**
+     * Привычки, которые помогают этой цели, и мягкая статистика каждой за 30 дней — та же,
+     * что в редакторе привычки (HabitHistory). Отметки берём «с запасом» на весь период.
+     */
+    private fun linkedHabits(today: LocalDate) = combine(
+        rules.observeRules(),
+        tasks.observeOccurrenceTasks(today.minusDays(HabitHistory.DAYS - 1L), today),
+    ) { allRules, done ->
+        allRules
+            .filter { it.isHabit && it.goalId == goalId }
+            .map { LinkedHabit(it, HabitHistory.of(it, done, today)) }
     }
 }

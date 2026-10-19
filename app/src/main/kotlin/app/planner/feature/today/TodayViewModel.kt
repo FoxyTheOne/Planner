@@ -11,6 +11,7 @@ import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -158,6 +159,57 @@ class TodayViewModel @Inject constructor(
         TodayUiState(todayClock.today())
     )
 
+    // --- Действия пользователя. launch запускает корутину и сразу возвращается,
+    // поэтому экран не «замирает», пока идёт запись в базу. ---
+
+    fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
+    fun completeOccurrence(occurrence: Occurrence) =
+        viewModelScope.launch { commands.completeOccurrence(occurrence) }
+
+    /**
+     * Нажали на «таблетку» привычки.
+     * - Отмечена — снимаем: toggleDone удалит задачу, и «таблетка» снова будет пустой (по правилу).
+     * - Не отмечена — отмечаем через completeOccurrence, даже если задача на этот день уже есть.
+     *   Так бывает, если правило раньше было делом и этот день перенесли или пропустили.
+     *   completeOccurrence возьмёт id той задачи и запишет её заново: сделано, на свой день.
+     *   (toggleDone тут не подошёл бы: отметил бы сделанным перенесённый день — на чужую дату.)
+     */
+    fun toggleHabit(habit: HabitDay) = viewModelScope.launch {
+        val task = habit.task
+        if (task != null && task.isDone) commands.toggleDone(task)
+        else commands.completeOccurrence(habit.occurrence)
+    }
+
+    fun skipOccurrence(task: Task) = viewModelScope.launch { commands.skipOccurrence(task) }
+    fun pauseRule(ruleId: Long, until: LocalDate?) =
+        viewModelScope.launch { commands.pauseRule(ruleId, until) }
+
+    fun resumeRule(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
+
+    fun moveToTomorrow(task: Task) = viewModelScope.launch { commands.moveToTomorrow(task) }
+    fun schedule(task: Task, slot: Slot, reminder: Reminder? = task.reminder) =
+        viewModelScope.launch { commands.schedule(task, slot, reminder) }
+
+    fun returnToList(task: Task) = viewModelScope.launch { commands.returnToList(task) }
+    fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
+
+    /** Сохранить то, что ввели в редакторе (задачу или повторение), — см. TaskCommands.save. */
+    fun save(result: EditorResult) = viewModelScope.launch { commands.save(result) }
+
+    fun allOverdueToToday() = viewModelScope.launch {
+        val today = state.value.today
+        tasks.moveOverdueToDate(today, today)
+    }
+
+    fun allOverdueBackToLists() = viewModelScope.launch {
+        tasks.returnAllOverdueToLists(state.value.today)
+    }
+
+    fun hideOverdueBannerForToday() = viewModelScope.launch {
+        val today = state.value.today
+        settingsRepository.update { it.copy(overdueBannerHiddenOn = today) }
+    }
+
     private fun buildState(
         today: LocalDate,
         twoDays: List<Task>,
@@ -215,54 +267,5 @@ class TodayViewModel @Inject constructor(
             PartOfDay.EVENING -> DaySection.EVENING
             null -> DaySection.ANYTIME
         }
-    }
-
-    // --- Действия пользователя. launch запускает корутину и сразу возвращается,
-    // поэтому экран не «замирает», пока идёт запись в базу. ---
-
-    fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
-    fun completeOccurrence(occurrence: Occurrence) =
-        viewModelScope.launch { commands.completeOccurrence(occurrence) }
-
-    /**
-     * Нажали на «таблетку» привычки.
-     * - Отмечена — снимаем: toggleDone удалит задачу, и «таблетка» снова будет пустой (по правилу).
-     * - Не отмечена — отмечаем через completeOccurrence, даже если задача на этот день уже есть.
-     *   Так бывает, если правило раньше было делом и этот день перенесли или пропустили.
-     *   completeOccurrence возьмёт id той задачи и запишет её заново: сделано, на свой день.
-     *   (toggleDone тут не подошёл бы: отметил бы сделанным перенесённый день — на чужую дату.)
-     */
-    fun toggleHabit(habit: HabitDay) = viewModelScope.launch {
-        val task = habit.task
-        if (task != null && task.isDone) commands.toggleDone(task)
-        else commands.completeOccurrence(habit.occurrence)
-    }
-
-    fun skipOccurrence(task: Task) = viewModelScope.launch { commands.skipOccurrence(task) }
-    fun pauseRule(ruleId: Long, until: LocalDate?) =
-        viewModelScope.launch { commands.pauseRule(ruleId, until) }
-
-    fun resumeRule(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
-
-    fun moveToTomorrow(task: Task) = viewModelScope.launch { commands.moveToTomorrow(task) }
-    fun schedule(task: Task, slot: Slot) = viewModelScope.launch { commands.schedule(task, slot) }
-    fun returnToList(task: Task) = viewModelScope.launch { commands.returnToList(task) }
-    fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
-
-    /** Сохранить то, что ввели в редакторе (задачу или повторение), — см. TaskCommands.save. */
-    fun save(result: EditorResult) = viewModelScope.launch { commands.save(result) }
-
-    fun allOverdueToToday() = viewModelScope.launch {
-        val today = state.value.today
-        tasks.moveOverdueToDate(today, today)
-    }
-
-    fun allOverdueBackToLists() = viewModelScope.launch {
-        tasks.returnAllOverdueToLists(state.value.today)
-    }
-
-    fun hideOverdueBannerForToday() = viewModelScope.launch {
-        val today = state.value.today
-        settingsRepository.update { it.copy(overdueBannerHiddenOn = today) }
     }
 }

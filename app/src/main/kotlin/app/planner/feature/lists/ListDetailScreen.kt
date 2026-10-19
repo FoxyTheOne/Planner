@@ -42,6 +42,7 @@ import app.planner.common.notePreview
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 
@@ -96,9 +97,14 @@ fun ListDetailScreen(
     scheduling?.let { task ->
         ScheduleSheet(
             today = state.today,
-            initial = null,
+            // Уже запланированная задача — шторка открывается на её дне и времени, а не «с нуля»
+            initial = task.date?.let { Slot(it, task.partOfDay, task.time) },
             onDismiss = { scheduling = null },
-            onConfirm = { viewModel.schedule(task, it); scheduling = null },
+            onConfirm = { slot, reminder ->
+                viewModel.schedule(task, slot, reminder); scheduling = null
+            },
+            withReminder = true,
+            initialReminder = task.reminder,
         )
     }
     editingList?.let { l ->

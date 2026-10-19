@@ -497,7 +497,8 @@ fun TaskEditorSheetBody(
             today = today,
             initial = slot,
             onDismiss = { showSchedule = false },
-            onConfirm = { slot = it; showSchedule = false },
+            // Напоминание у редактора своё (строка «Напомнить»), поэтому из шторки берём только слот
+            onConfirm = { newSlot, _ -> slot = newSlot; showSchedule = false },
         )
     }
     if (showPause && onPause != null) {

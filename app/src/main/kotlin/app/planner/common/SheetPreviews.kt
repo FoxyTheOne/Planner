@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.dp
 import app.planner.core.designsystem.preview.PlannerPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.PartOfDay
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -17,6 +18,7 @@ import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.feature.today.OverdueSheetBody
 import app.planner.preview.SampleData
+import java.time.LocalTime
 
 /*
  * Превью содержимого шторок (без самой выезжающей рамки — её обычное превью не рисует).
@@ -42,7 +44,9 @@ private fun ScheduleSheetPreview() = SheetSurface {
     ScheduleSheetBody(
         today = SampleData.today,
         initial = Slot(SampleData.today.plusDays(1), PartOfDay.MORNING),
-        onConfirm = {},
+        onConfirm = { _, _ -> },
+        withReminder = true,
+        initialReminder = Reminder.AtTime(LocalTime.of(9, 0)),
     )
 }
 

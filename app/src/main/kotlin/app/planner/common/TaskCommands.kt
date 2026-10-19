@@ -45,6 +45,7 @@ class TaskCommands @Inject constructor(
     private val reminderQuestions: ReminderQuestions,
     private val todayClock: TodayClock,
 ) {
+
     suspend fun toggleDone(task: Task) {
         // Сняли отметку с дня повторения, который не переносили, — удаляем задачу, и на экране снова
         // «виртуальная» строка по правилу. Так, если правило потом поменяют (новое название, время), день
@@ -63,17 +64,6 @@ class TaskCommands @Inject constructor(
     suspend fun completeOccurrence(occurrence: Occurrence) {
         val draft = Recurrence.toTask(occurrence, TaskStatus.DONE)
         tasks.addOrUpdate(withExistingId(draft))
-    }
-
-    /**
-     * Если для этого дня правила задача уже есть — берём её id, чтобы обновить её, а не создать вторую.
-     * Так бывает при быстром двойном нажатии: строка по правилу ещё не успела исчезнуть с экрана.
-     */
-    private suspend fun withExistingId(draft: Task): Task {
-        val day = draft.occurrenceDate ?: return draft
-        val existing =
-            tasks.observeOccurrenceTasks(day, day).first().firstOrNull { it.ruleId == draft.ruleId }
-        return if (existing != null) draft.copy(id = existing.id) else draft
     }
 
     /** Создать новую задачу (id = 0) без нового списка — например, из шторки недели. */
@@ -145,31 +135,27 @@ class TaskCommands @Inject constructor(
         return listId
     }
 
-    suspend fun schedule(task: Task, slot: Slot) {
+    /**
+     * Поставить задачу в план.
+     *
+     * @param reminder напоминание после переноса. Из шторки «Запланировать» приходит то, что там
+     *   выбрали (шторка уже подогнала его под новое время). Остальные пути — перетаскивание, шторка «+» —
+     *   его не передают, и напоминание остаётся как было. «Отменить» вернёт и прежнее напоминание:
+     *   в undo кладём задачу целиком.
+     */
+    suspend fun schedule(task: Task, slot: Slot, reminder: Reminder? = task.reminder) {
         if (task.isOccurrenceDraft) return moveOccurrence(task, slot, scheduledText(slot))
         tasks.schedule(task.id, slot)
+        if (reminder != task.reminder) setReminder(task.id, reminder)
         messages.post(UiMessage(scheduledText(slot), undo = { tasks.addOrUpdate(task) }))
+        // Напоминание поменяли в шторке — человек уже решил, askAfterMove ничего не спросит
         askAboutReminder(
             task,
-            task.copy(date = slot.date, partOfDay = slot.partOfDay, time = slot.time)
-        )
-    }
-
-    /**
-     * После переноса спросить про напоминание, если нужно (когда — решает домен: Reminders.askAfterMove).
-     * Задача к этому моменту уже перенесена, а напоминание — пока «как было»: если окно просто закрыть,
-     * оно так и останется. Сам вопрос показывает каркас приложения (см. ReminderQuestions).
-     */
-    private fun askAboutReminder(before: Task, after: Task) {
-        if (!Reminders.askAfterMove(before, after)) return
-        // askAfterMove уже проверил, что напоминание — «в такой-то час», поэтому приведение безопасно
-        val at = (after.reminder as Reminder.AtTime).time
-        reminderQuestions.ask(
-            ReminderQuestion(
-                after.id,
-                after.title,
-                reminderTime = at,
-                taskTime = after.time
+            task.copy(
+                date = slot.date,
+                partOfDay = slot.partOfDay,
+                time = slot.time,
+                reminder = reminder
             )
         )
     }
@@ -211,22 +197,6 @@ class TaskCommands @Inject constructor(
         messages.post(UiMessage(UiText.Res(R.string.msg_skipped), undo = undo))
     }
 
-    /**
-     * Перенести один день повторения: он становится задачей на новой дате, а на свой день
-     * строка по правилу больше не выпадает — задача помнит его в occurrenceDate. Само правило не меняется.
-     * «Отменить» удаляет эту задачу, и день повторения возвращается на место.
-     */
-    private suspend fun moveOccurrence(draft: Task, slot: Slot, message: UiText) {
-        val id = tasks.addOrUpdate(
-            withExistingId(draft).copy(
-                date = slot.date,
-                partOfDay = slot.partOfDay,
-                time = slot.time
-            )
-        )
-        messages.post(UiMessage(message, undo = { tasks.getTask(id)?.let { tasks.delete(it) } }))
-    }
-
     suspend fun returnToList(task: Task) {
         tasks.unschedule(task.id)
         messages.post(
@@ -254,6 +224,81 @@ class TaskCommands @Inject constructor(
                 UiText.Res(R.string.msg_deleted),
                 undo = { tasks.addOrUpdate(task) })
         )
+    }
+
+    /** Поставить правило на паузу с сегодняшнего дня по [until] (null — пока не нажмут «Продолжить»). */
+    suspend fun pauseRule(ruleId: Long, until: LocalDate?) {
+        val rule = rules.getRule(ruleId) ?: return
+        rules.save(Recurrence.pause(rule, todayClock.today(), until))
+        messages.post(UiMessage(UiText.Res(R.string.msg_paused), undo = { rules.save(rule) }))
+    }
+
+    /** «Продолжить»: снять паузу, которая идёт сейчас. */
+    suspend fun resumeRule(ruleId: Long) {
+        val rule = rules.getRule(ruleId) ?: return
+        rules.save(Recurrence.resume(rule, todayClock.today()))
+        messages.post(UiMessage(UiText.Res(R.string.msg_resumed), undo = { rules.save(rule) }))
+    }
+
+    /** «Запланировано: завтра» или «Запланировано: Пт 25, 10:30». */
+    fun scheduledText(slot: Slot): UiText {
+        val today = todayClock.today()
+        val day = when (slot.date) {
+            today -> UiText.Res(R.string.day_today_lower)
+            today.plusDays(1) -> UiText.Res(R.string.day_tomorrow_lower)
+            else -> UiText.Raw(DateTexts.shortDay(slot.date))
+        }
+        return if (slot.time == null) {
+            UiText.Res(R.string.msg_scheduled, listOf(day))
+        } else {
+            UiText.Res(R.string.msg_scheduled_at, listOf(day, DateTexts.time(slot.time!!)))
+        }
+    }
+
+    /**
+     * Если для этого дня правила задача уже есть — берём её id, чтобы обновить её, а не создать вторую.
+     * Так бывает при быстром двойном нажатии: строка по правилу ещё не успела исчезнуть с экрана.
+     */
+    private suspend fun withExistingId(draft: Task): Task {
+        val day = draft.occurrenceDate ?: return draft
+        val existing =
+            tasks.observeOccurrenceTasks(day, day).first().firstOrNull { it.ruleId == draft.ruleId }
+        return if (existing != null) draft.copy(id = existing.id) else draft
+    }
+
+    /**
+     * После переноса спросить про напоминание, если нужно (когда — решает домен: Reminders.askAfterMove).
+     * Задача к этому моменту уже перенесена, а напоминание — пока «как было»: если окно просто закрыть,
+     * оно так и останется. Сам вопрос показывает каркас приложения (см. ReminderQuestions).
+     */
+    private fun askAboutReminder(before: Task, after: Task) {
+        if (!Reminders.askAfterMove(before, after)) return
+        // askAfterMove уже проверил, что напоминание — «в такой-то час», поэтому приведение безопасно
+        val at = (after.reminder as Reminder.AtTime).time
+        reminderQuestions.ask(
+            ReminderQuestion(
+                after.id,
+                after.title,
+                reminderTime = at,
+                taskTime = after.time
+            )
+        )
+    }
+
+    /**
+     * Перенести один день повторения: он становится задачей на новой дате, а на свой день
+     * строка по правилу больше не выпадает — задача помнит его в occurrenceDate. Само правило не меняется.
+     * «Отменить» удаляет эту задачу, и день повторения возвращается на место.
+     */
+    private suspend fun moveOccurrence(draft: Task, slot: Slot, message: UiText) {
+        val id = tasks.addOrUpdate(
+            withExistingId(draft).copy(
+                date = slot.date,
+                partOfDay = slot.partOfDay,
+                time = slot.time
+            )
+        )
+        messages.post(UiMessage(message, undo = { tasks.getTask(id)?.let { tasks.delete(it) } }))
     }
 
     /** Удалить правило повторения кнопкой «Удалить» — с «Отменить», которое вернёт всё как было. */
@@ -289,32 +334,4 @@ class TaskCommands @Inject constructor(
         return days
     }
 
-    /** Поставить правило на паузу с сегодняшнего дня по [until] (null — пока не нажмут «Продолжить»). */
-    suspend fun pauseRule(ruleId: Long, until: LocalDate?) {
-        val rule = rules.getRule(ruleId) ?: return
-        rules.save(Recurrence.pause(rule, todayClock.today(), until))
-        messages.post(UiMessage(UiText.Res(R.string.msg_paused), undo = { rules.save(rule) }))
-    }
-
-    /** «Продолжить»: снять паузу, которая идёт сейчас. */
-    suspend fun resumeRule(ruleId: Long) {
-        val rule = rules.getRule(ruleId) ?: return
-        rules.save(Recurrence.resume(rule, todayClock.today()))
-        messages.post(UiMessage(UiText.Res(R.string.msg_resumed), undo = { rules.save(rule) }))
-    }
-
-    /** «Запланировано: завтра» или «Запланировано: Пт 25, 10:30». */
-    fun scheduledText(slot: Slot): UiText {
-        val today = todayClock.today()
-        val day = when (slot.date) {
-            today -> UiText.Res(R.string.day_today_lower)
-            today.plusDays(1) -> UiText.Res(R.string.day_tomorrow_lower)
-            else -> UiText.Raw(DateTexts.shortDay(slot.date))
-        }
-        return if (slot.time == null) {
-            UiText.Res(R.string.msg_scheduled, listOf(day))
-        } else {
-            UiText.Res(R.string.msg_scheduled_at, listOf(day, DateTexts.time(slot.time!!)))
-        }
-    }
 }

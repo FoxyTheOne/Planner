@@ -9,6 +9,7 @@ import app.planner.common.TodayClock
 import app.planner.core.domain.list.IInboxNames
 import app.planner.core.domain.list.ListNameProblem
 import app.planner.core.domain.list.nameProblem
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -44,11 +45,11 @@ class ListDetailViewModel @Inject constructor(
     todayClock: TodayClock,
 ) : ViewModel() {
 
-    private val listId: Long = checkNotNull(savedStateHandle.get<Long>(Routes.ARG_LIST_ID))
-
     init {
         viewModelScope.launch { settingsRepository.update { it.copy(lastListId = listId) } }
     }
+
+    private val listId: Long = checkNotNull(savedStateHandle.get<Long>(Routes.ARG_LIST_ID))
 
     val state: StateFlow<ListDetailUiState> = combine(
         listRepository.observeLists(),
@@ -70,7 +71,9 @@ class ListDetailViewModel @Inject constructor(
 
     fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
-    fun schedule(task: Task, slot: Slot) = viewModelScope.launch { commands.schedule(task, slot) }
+    fun schedule(task: Task, slot: Slot, reminder: Reminder? = task.reminder) =
+        viewModelScope.launch { commands.schedule(task, slot, reminder) }
+
     fun saveTask(result: EditorResult) = viewModelScope.launch { commands.save(result) }
     fun saveList(list: TaskList) = viewModelScope.launch { listRepository.upsert(list) }
 
@@ -83,4 +86,5 @@ class ListDetailViewModel @Inject constructor(
         listRepository.delete(list)
         settingsRepository.update { if (it.lastListId == list.id) it.copy(lastListId = null) else it }
     }
+
 }
