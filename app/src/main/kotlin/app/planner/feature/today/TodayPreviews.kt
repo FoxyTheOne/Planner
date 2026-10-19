@@ -65,6 +65,7 @@ private fun TodayContentForPreview(state: TodayUiState) = TodayContent(
     state = state,
     contentPadding = PaddingValues(),
     onOpenSettings = {},
+    onOpenHabits = {},
     onOpenOverdue = {},
     onToggle = {},
     onCompleteOccurrence = {},

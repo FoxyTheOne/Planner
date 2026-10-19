@@ -188,6 +188,9 @@
     <string name="cd_choose_list">Choose a list</string>
     <string name="cd_clear_search">Clear search</string>
     <string name="habit_open">Edit habit</string>
+    <string name="habits_title">Habits</string>
+    <string name="habits_all">All habits</string>
+    <string name="habits_empty">No habits yet. Make any repeat a habit — the “Habit” switch in the editor — or tap “+ Habit”.</string>
     <string name="habit_switch">Habit</string>
     <string name="habit_switch_hint">A button above the day plan, never carried over</string>
     <!-- 30 — HabitHistory.DAYS: поменяется период — поменять и здесь -->

@@ -41,6 +41,7 @@ import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Reminder
 import app.planner.feature.goals.GoalScreen
 import app.planner.feature.goals.GoalsScreen
+import app.planner.feature.habits.HabitsScreen
 import app.planner.feature.lists.ListDetailScreen
 import app.planner.feature.lists.ListsOverviewScreen
 import app.planner.feature.settings.ReliabilityScreen
@@ -230,6 +231,7 @@ private fun PlannerNavHost(navController: NavHostController, padding: PaddingVal
         composable(Tab.TODAY.route) {
             TodayScreen(
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                onOpenHabits = { navController.navigate(Routes.HABITS) },
                 contentPadding = padding
             )
         }
@@ -303,6 +305,9 @@ private fun PlannerNavHost(navController: NavHostController, padding: PaddingVal
                 onOpenReliability = { navController.navigate(Routes.REMINDER_RELIABILITY) },
                 contentPadding = padding,
             )
+        }
+        composable(Routes.HABITS) {
+            HabitsScreen(onBack = navController::popBackStack, contentPadding = padding)
         }
         composable(Routes.REMINDER_RELIABILITY) {
             ReliabilityScreen(onBack = navController::popBackStack, contentPadding = padding)

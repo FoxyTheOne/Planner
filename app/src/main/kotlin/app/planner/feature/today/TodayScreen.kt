@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.PauseCircle
@@ -28,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -84,6 +86,7 @@ import java.time.LocalDate
 @Composable
 fun TodayScreen(
     onOpenSettings: () -> Unit,
+    onOpenHabits: () -> Unit,
     contentPadding: PaddingValues,
     viewModel: TodayViewModel = hiltViewModel(),
 ) {
@@ -103,6 +106,7 @@ fun TodayScreen(
         state = state,
         contentPadding = contentPadding,
         onOpenSettings = onOpenSettings,
+        onOpenHabits = onOpenHabits,
         onOpenOverdue = { showOverdue = true },
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
@@ -202,6 +206,7 @@ fun TodayContent(
     state: TodayUiState,
     contentPadding: PaddingValues,
     onOpenSettings: () -> Unit,
+    onOpenHabits: () -> Unit,
     onOpenOverdue: () -> Unit,
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
@@ -227,12 +232,15 @@ fun TodayContent(
                 item { OverdueBanner(count = state.overdueCount, onClick = onOpenOverdue) }
             }
 
-            if (state.habits.isNotEmpty()) {
+            // Ряд привычек — если они вообще есть, даже когда сегодня ни одной: тогда в нём только
+            // «Все привычки», чтобы привычка, которая начнётся завтра, не потерялась
+            if (state.hasHabits) {
                 item(key = "habits") {
                     HabitPills(
                         state.habits,
                         onToggle = onToggleHabit,
-                        onOpen = onEditRule
+                        onOpen = onEditRule,
+                        onOpenAll = onOpenHabits,
                     )
                 }
             }
@@ -325,6 +333,7 @@ private fun TodayHeader(state: TodayUiState, onOpenSettings: () -> Unit) {
 /**
  * Привычки дня — ряд «таблеток» над планом. Тап — отметить или снять отметку,
  * долгое нажатие — открыть привычку (настроить, поставить на паузу).
+ * В конце ряда — «Все привычки ›»: экран со всеми привычками, и с теми, которых сегодня нет.
  *
  * FlowRow — как Row, но не обрезает лишнее, а переносит на следующую строку, как слова в тексте.
  * Привычек может быть и две, и восемь — все будут видны, без прокрутки вбок.
@@ -333,7 +342,8 @@ private fun TodayHeader(state: TodayUiState, onOpenSettings: () -> Unit) {
 private fun HabitPills(
     habits: List<HabitDay>,
     onToggle: (HabitDay) -> Unit,
-    onOpen: (RecurrenceRule) -> Unit
+    onOpen: (RecurrenceRule) -> Unit,
+    onOpenAll: () -> Unit,
 ) {
     val openLabel = stringResource(R.string.habit_open)
     FlowRow(
@@ -349,6 +359,11 @@ private fun HabitPills(
                 onLongClick = { onOpen(habit.rule) },
                 onLongClickLabel = openLabel,
             )
+        }
+        // В конце ряда — вход на экран «Привычки»: все привычки, их статистика и паузы
+        TextButton(onClick = onOpenAll) {
+            Text(stringResource(R.string.habits_all))
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
         }
     }
 }

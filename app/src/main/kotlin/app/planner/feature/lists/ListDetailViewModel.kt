@@ -66,8 +66,10 @@ class ListDetailViewModel @Inject constructor(
             list = list,
             tasks = listTasks,
             // Повторения этого списка. Правило «без списка» хранит пустой список (null), а обычная
-            // задача — id списка «Без списка»; поэтому в «Без списке» показываем и правила с null
+            // задача — id списка «Без списка»; поэтому в «Без списке» показываем и правила с null.
+            // Привычек здесь нет: у них свой экран «Привычки», иначе списки разрастались бы
             rules = rules
+                .filter { !it.isHabit }
                 .filter { it.listId == listId || (it.listId == null && list?.isInbox == true) }
                 .sortedBy { it.title.lowercase() },
             allLists = lists,

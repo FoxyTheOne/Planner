@@ -49,6 +49,9 @@ data class TodayUiState(
     /** Все правила повторений по id — из дня повторения можно открыть его правило («Изменить все дни»). */
     val rules: Map<Long, RecurrenceRule> = emptyMap(),
 ) {
+    /** Есть ли привычки вообще (не только сегодня) — тогда на «Сегодня» есть вход «Все привычки». */
+    val hasHabits: Boolean get() = rules.values.any { it.isHabit }
+
     /** Названия целей по id — подпись под шагом цели («Купить плитку» → «шаг к цели «Ремонт в ванной»»). */
     val goalTitles: Map<Long, String> get() = goals.associate { it.id to it.title }
 
