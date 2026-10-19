@@ -81,11 +81,10 @@
     <string name="task_note_hint">Заметка</string>
     <string name="task_list">Список</string>
 
-    <string name="pick_tab_new">Новая</string>
     <string name="pick_tab_lists">Из списков</string>
     <string name="pick_more">Заметка, повтор, напоминание…</string>
-    <string name="pick_search">Поиск по спискам</string>
-    <string name="pick_empty">В списках пока пусто</string>
+    <string name="add_title_new_task">Новая задача</string>
+    <string name="pick_from_lists">или взять из списков</string>
     <string name="pick_nothing_found">Ничего не нашлось</string>
 
     <string name="week_add">добавить</string>

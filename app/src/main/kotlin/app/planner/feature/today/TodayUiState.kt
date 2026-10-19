@@ -35,6 +35,8 @@ data class TodayUiState(
     val lists: List<TaskList> = emptyList(),
     /** Все цели — для подписи под шагом цели и для «Помогает цели» в редакторе привычки. */
     val goals: List<Goal> = emptyList(),
+    /** Задачи без даты из списков и шаги целей — для окна «Добавить»: можно взять готовую на сегодня. */
+    val unscheduled: List<Task> = emptyList(),
     /** Повторения, которые сегодня на паузе: их не видно в разделах, но открыть, чтобы продолжить, нужно. */
     val paused: List<RecurrenceRule> = emptyList(),
     /**

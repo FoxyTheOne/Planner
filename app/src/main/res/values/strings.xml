@@ -84,11 +84,10 @@
     <string name="task_list">List</string>
 
     <!-- Выбор задачи для слота -->
-    <string name="pick_tab_new">New</string>
     <string name="pick_tab_lists">From lists</string>
     <string name="pick_more">Note, repeat, reminder…</string>
-    <string name="pick_search">Search your lists</string>
-    <string name="pick_empty">Your lists are empty for now</string>
+    <string name="add_title_new_task">New task</string>
+    <string name="pick_from_lists">or pick from your lists</string>
     <string name="pick_nothing_found">Nothing found</string>
 
     <!-- Неделя -->

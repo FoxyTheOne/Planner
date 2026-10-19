@@ -82,11 +82,10 @@
     <string name="task_note_hint">Нататка</string>
     <string name="task_list">Спіс</string>
 
-    <string name="pick_tab_new">Новая</string>
     <string name="pick_tab_lists">Са спісаў</string>
     <string name="pick_more">Нататка, паўтор, напамін…</string>
-    <string name="pick_search">Пошук па спісах</string>
-    <string name="pick_empty">У спісах пакуль пуста</string>
+    <string name="add_title_new_task">Новая справа</string>
+    <string name="pick_from_lists">або ўзяць са спісаў</string>
     <string name="pick_nothing_found">Нічога не знойдзена</string>
 
     <string name="week_add">дадаць</string>

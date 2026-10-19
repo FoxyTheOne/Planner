@@ -120,9 +120,15 @@ class TodayViewModel @Inject constructor(
             ), // задачи именно этого дня (и завтрашнего)
             tasks.observeOverdue(today),
             settingsRepository.settings,
-            // Списки и цели — одним потоком: у combine всего пять «мест», а нужны и те и другие.
-            // ::Pair — «склей два значения в пару»; ниже пару разбираем обратно: (lists, goals)
-            combine(listRepository.observeLists(), goalRepository.observeGoals(), ::Pair),
+            // Списки, цели и задачи без даты — одним потоком: у combine всего пять «мест».
+            // ::Triple — «склей три значения вместе»; ниже разбираем обратно: (lists, goals, unscheduled).
+            // Задачи без даты — для окна «Добавить»: взять готовую из списков на сегодня
+            combine(
+                listRepository.observeLists(),
+                goalRepository.observeGoals(),
+                tasks.observeUnscheduled(),
+                ::Triple,
+            ),
             // Повторения на сегодня (тоже combine): какие дни ещё не отмечены и какие правила на паузе
             combine(
                 recurrenceRepository.observeRules(),
@@ -145,7 +151,7 @@ class TodayViewModel @Inject constructor(
                     rules = rules.associateBy { it.id },
                 )
             },
-        ) { twoDays, overdue, settings, (lists, goals), repeats ->
+        ) { twoDays, overdue, settings, (lists, goals, unscheduled), repeats ->
             buildState(
                 today,
                 twoDays,
@@ -153,6 +159,7 @@ class TodayViewModel @Inject constructor(
                 settings,
                 lists,
                 goals,
+                unscheduled,
                 repeats
             ) // ← результат уходит в поток combine
         }
@@ -220,6 +227,7 @@ class TodayViewModel @Inject constructor(
         settings: PlannerSettings,
         lists: List<TaskList>,
         goals: List<Goal>,
+        unscheduled: List<Task>,
         repeats: RepeatsOfDay,
     ): TodayUiState {
         val occurrences = repeats.occurrences
@@ -251,6 +259,7 @@ class TodayViewModel @Inject constructor(
             lists = lists,
             // Цели: по ним подписываются шаги целей и выбирается «Помогает цели» у привычки
             goals = goals,
+            unscheduled = unscheduled,
             paused = repeats.paused,
             rules = repeats.rules,
             habits = repeats.habits,

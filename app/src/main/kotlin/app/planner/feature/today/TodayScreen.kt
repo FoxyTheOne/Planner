@@ -43,9 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
+import app.planner.common.AddTaskSheet
 import app.planner.common.DateTexts
 import app.planner.common.DayItem
 import app.planner.common.DayItemRow
+import app.planner.common.EditorResult
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
 import app.planner.common.ScheduleSheet
@@ -53,6 +55,7 @@ import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
 import app.planner.common.asTask
 import app.planner.common.pausedText
+import app.planner.common.slotText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.HabitPill
 import app.planner.core.designsystem.component.SectionLabel
@@ -92,6 +95,8 @@ fun TodayScreen(
         )
     }
     var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
+    // Открыто ли окно «Добавить» (кнопка «+»)
+    var adding by rememberSaveable { mutableStateOf(false) }
     var showOverdue by rememberSaveable { mutableStateOf(false) }
 
     TodayContent(
@@ -108,7 +113,7 @@ fun TodayScreen(
         onSwipeTomorrow = { item -> viewModel.moveToTomorrow(item.asTask()) },
         // Шторка «Запланировать» работает с задачей; день повторения отдаём ей черновиком
         onSwipeSchedule = { item -> scheduling = item.asTask() },
-        onAdd = { editing = EditorTarget(Task(title = "", date = state.today)) },
+        onAdd = { adding = true },
     )
 
     editing?.let { target ->
@@ -127,6 +132,26 @@ fun TodayScreen(
             // День повторения: «Изменить все дни» открывает его правило в этом же редакторе
             rules = state.rules,
             onOpenRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
+        )
+    }
+    // Окно «Добавить» — то же, что в «Неделе» и «Списках»: новая задача на сегодня или готовая из списков
+    if (adding) {
+        val todaySlot = Slot(state.today)
+        AddTaskSheet(
+            title = slotText(todaySlot, state.today),
+            candidates = state.unscheduled,
+            lists = state.lists,
+            goalTitles = state.goalTitles,
+            onDismiss = { adding = false },
+            onPick = { viewModel.schedule(it, todaySlot); adding = false },
+            onCreate = { title ->
+                viewModel.save(EditorResult(Task(title = title, date = state.today))); adding =
+                false
+            },
+            onMore = { title ->
+                adding = false
+                editing = EditorTarget(Task(title = title, date = state.today))
+            },
         )
     }
     scheduling?.let { task ->

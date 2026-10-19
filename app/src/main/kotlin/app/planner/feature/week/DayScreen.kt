@@ -31,13 +31,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
+import app.planner.common.AddTaskSheet
 import app.planner.common.DateTexts
 import app.planner.common.DayItemRow
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
-import app.planner.common.PickTaskSheet
 import app.planner.common.SlotSaver
 import app.planner.common.TaskEditorSheet
+import app.planner.common.slotText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
@@ -83,9 +84,8 @@ fun DayScreen(
     )
 
     pickSlot?.let { slot ->
-        PickTaskSheet(
-            slot = slot,
-            today = state.today,
+        AddTaskSheet(
+            title = slotText(slot, state.today),
             candidates = state.unscheduled,
             lists = state.lists,
             goalTitles = state.goalTitles,

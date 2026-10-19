@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
+import app.planner.common.AddTaskSheet
+import app.planner.common.EditorResult
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskListSaver
 import app.planner.common.TaskSaver
@@ -72,6 +74,8 @@ fun ListsOverviewScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var editingList by rememberSaveable(stateSaver = TaskListSaver) { mutableStateOf<TaskList?>(null) }
     var newTask by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
+    // Открыто ли окно «Добавить» (кнопка «+»)
+    var adding by rememberSaveable { mutableStateOf(false) }
 
     // LaunchedEffect(Unit) выполняется один раз, когда экран появляется
     LaunchedEffect(Unit) {
@@ -85,9 +89,25 @@ fun ListsOverviewScreen(
         onOpenList = onOpenList,
         onEditList = { editingList = it },
         onNewList = { editingList = TaskList(name = "", color = nextListColor(state.allLists)) },
-        onAddTask = { newTask = Task(title = "") },
+        onAddTask = { adding = true },
     )
 
+    // Окно «Добавить» — то же, что на других экранах. Отсюда задача ложится в «Без списка»;
+    // другой список можно выбрать в полном редакторе («Заметка, повтор, напоминание…»)
+    if (adding) {
+        AddTaskSheet(
+            title = stringResource(R.string.add_title_new_task),
+            candidates = emptyList(),
+            lists = state.allLists,
+            goalTitles = emptyMap(),
+            onDismiss = { adding = false },
+            onPick = {},
+            onCreate = { title ->
+                viewModel.saveTask(EditorResult(Task(title = title))); adding = false
+            },
+            onMore = { title -> adding = false; newTask = Task(title = title) },
+        )
+    }
     newTask?.let { task ->
         TaskEditorSheet(
             initial = task,

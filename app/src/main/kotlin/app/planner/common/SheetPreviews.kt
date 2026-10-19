@@ -142,13 +142,12 @@ private fun PauseSheetPreview() = SheetSurface {
     PauseSheetBody(today = SampleData.today, onPause = {})
 }
 
-/** Шторка из недели: свободный слот в пятницу, вкладка «Из списков». */
+/** Окно «Добавить» из недели: завтрашний день, ниже — готовые задачи из списков. */
 @PlannerPreviews
 @Composable
-private fun PickTaskSheetPreview() = SheetSurface {
-    PickTaskSheetBody(
-        slot = Slot(SampleData.today.plusDays(1)),
-        today = SampleData.today,
+private fun AddTaskSheetPreview() = SheetSurface {
+    AddTaskSheetBody(
+        title = slotText(Slot(SampleData.today.plusDays(1)), SampleData.today),
         candidates = listOf(
             SampleData.readDune,
             SampleData.buyBook,
@@ -157,6 +156,7 @@ private fun PickTaskSheetPreview() = SheetSurface {
         lists = SampleData.lists,
         onPick = {},
         onCreate = {},
+        autoFocus = false,
     )
 }
 

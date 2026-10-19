@@ -58,15 +58,16 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
+import app.planner.common.AddTaskSheet
 import app.planner.common.DateTexts
 import app.planner.common.DayItem
 import app.planner.common.DayItemRow
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
-import app.planner.common.PickTaskSheet
 import app.planner.common.SlotSaver
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
+import app.planner.common.slotText
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.designsystem.theme.SerifFamily
 import app.planner.core.domain.model.RecurrenceRule
@@ -127,9 +128,8 @@ fun WeekScreen(
     )
 
     pickSlot?.let { slot ->
-        PickTaskSheet(
-            slot = slot,
-            today = state.today,
+        AddTaskSheet(
+            title = slotText(slot, state.today),
             candidates = state.unscheduled,
             lists = state.lists,
             goalTitles = state.goalTitles,

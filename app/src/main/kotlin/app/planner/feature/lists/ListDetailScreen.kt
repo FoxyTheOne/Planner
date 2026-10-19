@@ -32,7 +32,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
+import app.planner.common.AddTaskSheet
 import app.planner.common.DateTexts
+import app.planner.common.EditorResult
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskListSaver
@@ -63,6 +65,8 @@ fun ListDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
+    // Открыто ли окно «Добавить» (кнопка «+»)
+    var adding by rememberSaveable { mutableStateOf(false) }
     var editingList by rememberSaveable(stateSaver = TaskListSaver) { mutableStateOf<TaskList?>(null) }
 
     // Список удалили (здесь или через оглавление) — возвращаемся к оглавлению
@@ -80,10 +84,28 @@ fun ListDetailScreen(
         onToggle = viewModel::toggle,
         onEdit = { editing = it },
         onSchedule = { scheduling = it },
-        onAddTask = { editing = Task(title = "", listId = state.list?.id) },
+        onAddTask = { adding = true },
     )
 
     // Шторки и диалоги рисуются поверх экрана, только когда соответствующая переменная не null
+    // Окно «Добавить» — то же, что на «Сегодня» и в «Неделе». Задача ложится в этот список,
+    // поэтому блока «взять из списков» здесь нет (candidates пустой)
+    if (adding) {
+        val listId = state.list?.id
+        AddTaskSheet(
+            title = state.list?.let { listName(it) }.orEmpty(),
+            candidates = emptyList(),
+            lists = state.allLists,
+            goalTitles = emptyMap(),
+            onDismiss = { adding = false },
+            onPick = {},
+            onCreate = { title ->
+                viewModel.saveTask(EditorResult(Task(title = title, listId = listId))); adding =
+                false
+            },
+            onMore = { title -> adding = false; editing = Task(title = title, listId = listId) },
+        )
+    }
     editing?.let { task ->
         TaskEditorSheet(
             initial = task,
