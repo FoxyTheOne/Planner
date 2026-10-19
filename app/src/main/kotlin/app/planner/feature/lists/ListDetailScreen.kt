@@ -1,5 +1,6 @@
 package app.planner.feature.lists
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -14,6 +16,8 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.PauseCircle
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,18 +39,27 @@ import app.planner.R
 import app.planner.common.AddTaskSheet
 import app.planner.common.DateTexts
 import app.planner.common.EditorResult
+import app.planner.common.EditorTarget
+import app.planner.common.EditorTargetSaver
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskListSaver
 import app.planner.common.TaskSaver
+import app.planner.common.labelRes
 import app.planner.common.listName
 import app.planner.common.notePreview
+import app.planner.common.pausedText
+import app.planner.common.repeatSummary
 import app.planner.core.designsystem.component.DashedRule
+import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
+import app.planner.core.domain.recurrence.Recurrence
+import java.time.LocalDate
 
 /**
  * Экран одного списка — второй уровень вкладки «Списки».
@@ -63,7 +76,12 @@ fun ListDetailScreen(
     viewModel: ListDetailViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var editing by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
+    // Что открыто в редакторе: задача или правило повторения; null — закрыт
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) {
+        mutableStateOf<EditorTarget?>(
+            null
+        )
+    }
     var scheduling by rememberSaveable(stateSaver = TaskSaver) { mutableStateOf<Task?>(null) }
     // Открыто ли окно «Добавить» (кнопка «+»)
     var adding by rememberSaveable { mutableStateOf(false) }
@@ -82,7 +100,9 @@ fun ListDetailScreen(
         onBack = onBack,
         onEditList = { editingList = it },
         onToggle = viewModel::toggle,
-        onEdit = { editing = it },
+        onEdit = { editing = EditorTarget(it) },
+        // Тап по повторению — его правило в том же редакторе, что и на других экранах
+        onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         onSchedule = { scheduling = it },
         onAddTask = { adding = true },
     )
@@ -103,17 +123,21 @@ fun ListDetailScreen(
                 viewModel.saveTask(EditorResult(Task(title = title, listId = listId))); adding =
                 false
             },
-            onMore = { title -> adding = false; editing = Task(title = title, listId = listId) },
+            onMore = { title ->
+                adding = false; editing = EditorTarget(Task(title = title, listId = listId))
+            },
         )
     }
-    editing?.let { task ->
+    editing?.let { target ->
         TaskEditorSheet(
-            initial = task,
+            target = target,
             lists = state.allLists,
             today = state.today,
             onDismiss = { editing = null },
-            onSave = { viewModel.saveTask(it); editing = null },
-            onDelete = { viewModel.delete(it); editing = null },
+            onSave = viewModel::saveTask,
+            onDelete = viewModel::delete,
+            onPause = viewModel::pauseRule,
+            onResume = viewModel::resumeRule,
         )
     }
     scheduling?.let { task ->
@@ -152,6 +176,7 @@ fun ListDetailContent(
     onEditList: (TaskList) -> Unit,
     onToggle: (Task) -> Unit,
     onEdit: (Task) -> Unit,
+    onEditRule: (RecurrenceRule) -> Unit,
     onSchedule: (Task) -> Unit,
     onAddTask: () -> Unit,
 ) {
@@ -205,7 +230,7 @@ fun ListDetailContent(
                     bottom = 96.dp
                 )
             ) {
-                if (state.loaded && state.tasks.isEmpty()) {
+                if (state.loaded && state.tasks.isEmpty() && state.rules.isEmpty()) {
                     item {
                         Text(
                             stringResource(R.string.list_empty),
@@ -239,6 +264,22 @@ fun ListDetailContent(
                         DashedRule()
                     }
                 }
+                // Повторения этого списка — отдельным разделом внизу: это не дела «когда-нибудь»,
+                // а расписание, поэтому без галочки. Тап — редактор повторения
+                if (state.rules.isNotEmpty()) {
+                    item(key = "repeats") {
+                        SectionLabel(
+                            stringResource(R.string.list_repeats),
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                    }
+                    items(state.rules, key = { "rule_${it.id}" }) { rule ->
+                        Column(Modifier.animateItem()) {
+                            RuleRow(rule, state.today, onClick = { onEditRule(rule) })
+                            DashedRule()
+                        }
+                    }
+                }
             }
         }
 
@@ -252,5 +293,40 @@ fun ListDetailContent(
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
         )
+    }
+}
+
+/**
+ * Строка повторения в списке: ↻, название и как часто — «Каждый день · вечер».
+ * Если повторение сейчас на паузе — значок паузы и «На паузе до 12 октября».
+ * Без галочки: отмечают дни повторения в «Сегодня» и «Неделе», а здесь — само расписание.
+ */
+@Composable
+private fun RuleRow(rule: RecurrenceRule, today: LocalDate, onClick: () -> Unit) {
+    val paper = PlannerTheme.paper
+    val pause = Recurrence.activePause(rule, today)
+    val subtitle = pause?.let { pausedText(it) } ?: listOfNotNull(
+        repeatSummary(rule.repeat),
+        rule.time?.let(DateTexts::time) ?: rule.partOfDay?.let { stringResource(it.labelRes()) },
+    ).joinToString(" · ")
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+    ) {
+        // Та же ширина 40dp, что у чекбокса в строке задачи — названия стоят ровно
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                if (pause != null) Icons.Outlined.PauseCircle else Icons.Outlined.Repeat,
+                null,
+                tint = paper.inkMuted,
+            )
+        }
+        Column(Modifier.padding(start = 10.dp)) {
+            Text(rule.title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, color = paper.inkMuted, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }

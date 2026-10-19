@@ -13,6 +13,7 @@ import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
+import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
@@ -23,10 +24,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 /**
- * ViewModel экрана одного списка: его задачи и действия с ними.
+ * ViewModel экрана одного списка: его задачи, его повторения и действия с ними.
  *
  * Какой список открыт, берётся из адреса экрана (`list/{listId}`) через [SavedStateHandle] —
  * это «сумка с параметрами» экрана, которую навигация заполняет сама и которая
@@ -38,6 +40,7 @@ import javax.inject.Inject
 class ListDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     tasks: ITaskRepository,
+    recurrenceRepository: IRecurrenceRepository,
     private val listRepository: ITaskListRepository,
     private val inboxNames: IInboxNames,
     private val settingsRepository: ISettingsRepository,
@@ -54,12 +57,19 @@ class ListDetailViewModel @Inject constructor(
     val state: StateFlow<ListDetailUiState> = combine(
         listRepository.observeLists(),
         tasks.observeListTasks(listId),
+        recurrenceRepository.observeRules(),
         todayClock.todayFlow,
-    ) { lists, listTasks, today ->
+    ) { lists, listTasks, rules, today ->
+        val list = lists.firstOrNull { it.id == listId }
         ListDetailUiState(
             today = today,
-            list = lists.firstOrNull { it.id == listId },
+            list = list,
             tasks = listTasks,
+            // Повторения этого списка. Правило «без списка» хранит пустой список (null), а обычная
+            // задача — id списка «Без списка»; поэтому в «Без списке» показываем и правила с null
+            rules = rules
+                .filter { it.listId == listId || (it.listId == null && list?.isInbox == true) }
+                .sortedBy { it.title.lowercase() },
             allLists = lists,
             loaded = true,
         )
@@ -75,6 +85,10 @@ class ListDetailViewModel @Inject constructor(
         viewModelScope.launch { commands.schedule(task, slot, reminder) }
 
     fun saveTask(result: EditorResult) = viewModelScope.launch { commands.save(result) }
+    fun pauseRule(ruleId: Long, until: LocalDate?) =
+        viewModelScope.launch { commands.pauseRule(ruleId, until) }
+
+    fun resumeRule(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
     fun saveList(list: TaskList) = viewModelScope.launch { listRepository.upsert(list) }
 
     /** Удалить этот список. Задачи остаются «Без списка»; последний открытый список забываем. */

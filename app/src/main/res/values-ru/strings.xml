@@ -107,6 +107,7 @@
     <string name="lists_search">Поиск по спискам и задачам</string>
     <string name="lists_found_tasks">задачи</string>
     <string name="list_empty">Здесь пока пусто. Запишите то, что хочется сделать когда-нибудь.</string>
+    <string name="list_repeats">повторяется</string>
 
     <string name="settings_title">Настройки</string>
     <string name="settings_planning">планирование</string>

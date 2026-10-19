@@ -71,6 +71,7 @@ private fun ListDetailPreview() {
             onEditList = {},
             onToggle = {},
             onEdit = {},
+            onEditRule = {},
             onSchedule = {},
             onAddTask = {},
         )

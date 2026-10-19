@@ -112,6 +112,7 @@
     <string name="lists_search">Search lists and tasks</string>
     <string name="lists_found_tasks">tasks</string>
     <string name="list_empty">Nothing here yet. Write down what you\'d like to do someday.</string>
+    <string name="list_repeats">repeats</string>
 
     <!-- Настройки -->
     <string name="settings_title">Settings</string>

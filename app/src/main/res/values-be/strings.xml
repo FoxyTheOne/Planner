@@ -108,6 +108,7 @@
     <string name="lists_search">Пошук па спісах і задачах</string>
     <string name="lists_found_tasks">задачы</string>
     <string name="list_empty">Тут пакуль пуста. Запішыце тое, што хочацца зрабіць калі-небудзь.</string>
+    <string name="list_repeats">паўтараецца</string>
 
     <string name="settings_title">Налады</string>
     <string name="settings_planning">планаванне</string>
