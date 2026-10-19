@@ -3,6 +3,8 @@ package app.planner.core.domain.reminder
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
+import app.planner.core.domain.reminder.Reminders.alarmAt
+import app.planner.core.domain.reminder.Reminders.fireAt
 import app.planner.core.domain.reminder.Reminders.upcoming
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -81,8 +83,26 @@ object Reminders {
     /**
      * Напоминания, которые ещё впереди: задача и момент, по порядку времени.
      * Их и нужно поставить будильниками — прошедшие уже не нужны.
+     * [snoozes] — отложенные напоминания по id задачи (см. [alarmAt]).
      */
-    fun upcoming(tasks: List<Task>, now: LocalDateTime): List<Pair<Task, LocalDateTime>> =
-        tasks.mapNotNull { task -> fireAt(task)?.takeIf { it > now }?.let { task to it } }
+    fun upcoming(
+        tasks: List<Task>,
+        now: LocalDateTime,
+        snoozes: Map<Long, Snooze> = emptyMap(),
+    ): List<Pair<Task, LocalDateTime>> =
+        tasks.mapNotNull { task -> alarmAt(task, now, snoozes[task.id])?.let { task to it } }
             .sortedBy { it.second }
+
+    /**
+     * Когда звенеть будильнику задачи [task], если считать от [now]; null — не нужно.
+     *
+     * Обычно это [fireAt], если он ещё впереди. Но если напоминание отложили ([snooze]) —
+     * звоним в [Snooze.until]. Отложенное действует, пока задачу не меняли: если её перенесли
+     * или поменяли напоминание, fireAt стал другим, и снова действует обычное правило.
+     */
+    fun alarmAt(task: Task, now: LocalDateTime, snooze: Snooze? = null): LocalDateTime? {
+        val at = fireAt(task) ?: return null
+        if (snooze != null && snooze.original == at && snooze.until > now) return snooze.until
+        return at.takeIf { it > now }
+    }
 }

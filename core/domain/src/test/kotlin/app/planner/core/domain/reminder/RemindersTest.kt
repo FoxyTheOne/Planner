@@ -108,4 +108,25 @@ class RemindersTest {
 
         assertEquals(listOf("Врач", "Позвонить"), upcoming.map { it.first.title })
     }
+
+    @Test
+    fun `snoozed reminder rings again later, until the task changes`() {
+        val fired = LocalDateTime.of(2026, 10, 19, 10, 0) // врач в 10:30, напомнили в 10:00
+        val now = fired.plusMinutes(1)
+        val snooze = Snooze(original = fired, until = fired.plusMinutes(10))
+
+        // Отложили — будильник через 10 минут, хотя обычное время уже прошло
+        assertEquals(snooze.until, Reminders.alarmAt(doctor, now, snooze))
+        // Без отложенного прошедшее напоминание не ставится
+        assertNull(Reminders.alarmAt(doctor, now))
+        // Отложенное время прошло — больше не звоним
+        assertNull(Reminders.alarmAt(doctor, snooze.until, snooze))
+        // Задачу перенесли на 15:00 — отложенное забыто, действует новое «за 30 минут»: 14:30
+        assertEquals(
+            LocalDateTime.of(2026, 10, 19, 14, 30),
+            Reminders.alarmAt(doctor.copy(time = LocalTime.of(15, 0)), now, snooze),
+        )
+        // Задачу отметили — не звоним совсем
+        assertNull(Reminders.alarmAt(doctor.copy(status = TaskStatus.DONE), now, snooze))
+    }
 }

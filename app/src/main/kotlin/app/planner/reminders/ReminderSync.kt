@@ -3,8 +3,9 @@ package app.planner.reminders
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
-import app.planner.core.domain.reminder.Reminders
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.reminder.Reminders
+import app.planner.core.domain.reminder.Snooze
 import app.planner.core.domain.repository.ITaskRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,13 @@ class ReminderSync @Inject constructor(
     private val tasks: ITaskRepository,
     private val scheduler: ReminderScheduler,
 ) {
+    private companion object {
+        const val TAG = "ReminderSync"
+        const val KEY_SCHEDULED = "scheduled_task_ids"
+        const val KEY_SNOOZES = "snoozes"
+        const val MAX_ALARMS = 300
+    }
+
     // Своя «область» корутин на всё время жизни процесса. SupervisorJob — ошибка в одной корутине
     // не отменит остальные; Dispatchers.Default — работа не на главном потоке, экран не тормозит
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -66,25 +74,66 @@ class ReminderSync @Inject constructor(
      */
     suspend fun syncNow() = apply(tasks.observeTasksWithReminders().first())
 
+    /**
+     * «Отложить на 10 минут»: напомнить о задаче [taskId] снова в [until].
+     *
+     * Почему не поставить будильник прямо здесь: будильниками распоряжается только [apply],
+     * и при первом же изменении в базе он снял бы «лишний» будильник — по задаче-то напоминание
+     * уже прошло. Поэтому отложенное записываем туда же, где [apply] его увидит (в SharedPreferences),
+     * а будильник он поставит сам. Заодно отложенное переживёт и перезагрузку телефона.
+     *
+     * @param original когда напоминание сработало по задаче — по нему [apply] поймёт,
+     *   что задачу с тех пор не меняли (см. Reminders.alarmAt).
+     */
+    suspend fun snooze(taskId: Long, original: LocalDateTime, until: LocalDateTime) {
+        mutex.withLock { saveSnoozes(loadSnoozes() + (taskId to Snooze(original, until))) }
+        syncNow()
+    }
+
     private suspend fun apply(withReminders: List<Task>) = mutex.withLock {
+        val now = LocalDateTime.now()
+        val snoozes = loadSnoozes()
         // Когда звенеть, решает домен; прошедшие не нужны. Берём ближайшие MAX_ALARMS:
         // у Android ограничение на число будильников одного приложения (около 500)
-        val upcoming = Reminders.upcoming(withReminders, LocalDateTime.now()).take(MAX_ALARMS)
+        val upcoming = Reminders.upcoming(withReminders, now, snoozes).take(MAX_ALARMS)
         val wanted = upcoming.map { it.first.id }.toSet()
-        val previous = prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty().map { it.toLong() }.toSet()
+        val previous =
+            prefs.getStringSet(KEY_SCHEDULED, emptySet()).orEmpty().map { it.toLong() }.toSet()
 
         // Было, а теперь не нужно (задачу удалили, отметили, убрали напоминание) — снимаем
         (previous - wanted).forEach(scheduler::cancel)
         // Ставим все нужные заново: время могло поменяться, а повторная постановка просто заменяет будильник
         upcoming.forEach { (task, at) -> scheduler.schedule(task.id, at) }
 
+        // Отложенные храним, только пока они действуют: будильник стоит ровно на их время.
+        // Прошедшие и те, чью задачу с тех пор поменяли или отметили, забываем
+        val alarmById = upcoming.associate { (task, at) -> task.id to at }
+        val stillSnoozed = snoozes.filter { (id, snooze) -> alarmById[id] == snooze.until }
+
         // edit { } — короткая запись: открыть правку, записать, сохранить (apply — в фоне, не тормозя)
         prefs.edit { putStringSet(KEY_SCHEDULED, wanted.map { it.toString() }.toSet()) }
+        saveSnoozes(stillSnoozed)
     }
 
-    private companion object {
-        const val TAG = "ReminderSync"
-        const val KEY_SCHEDULED = "scheduled_task_ids"
-        const val MAX_ALARMS = 300
+    /**
+     * Отложенные напоминания из SharedPreferences. Там они строками «id|когда было|когда напомнить»,
+     * например «12|2026-10-19T10:00|2026-10-19T10:10»: SharedPreferences умеет хранить набор строк,
+     * а вот своих классов — нет. Испорченную строку пропускаем, а не падаем.
+     */
+    private fun loadSnoozes(): Map<Long, Snooze> =
+        prefs.getStringSet(KEY_SNOOZES, emptySet()).orEmpty().mapNotNull { line ->
+            runCatching {
+                val (id, original, until) = line.split('|')
+                id.toLong() to Snooze(LocalDateTime.parse(original), LocalDateTime.parse(until))
+            }.getOrNull()
+        }.toMap()
+
+    private fun saveSnoozes(snoozes: Map<Long, Snooze>) {
+        prefs.edit {
+            putStringSet(
+                KEY_SNOOZES,
+                snoozes.map { (id, s) -> "$id|${s.original}|${s.until}" }.toSet()
+            )
+        }
     }
 }

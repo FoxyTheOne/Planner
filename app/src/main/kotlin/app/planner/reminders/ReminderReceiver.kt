@@ -5,27 +5,48 @@ import android.content.Context
 import android.content.Intent
 import app.planner.core.domain.reminder.Reminders
 import app.planner.core.domain.repository.ITaskRepository
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_DONE
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_SNOOZE
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 /**
- * Его будит будильник ([ReminderScheduler]): пора напомнить о задаче.
+ * Приёмник всего, что связано с напоминанием одной задачи:
+ * - [ACTION_REMIND] — будильник ([ReminderScheduler]): пора напомнить, показываем уведомление;
+ * - [ACTION_DONE] — кнопка «Готово» в уведомлении: отмечаем задачу сделанной;
+ * - [ACTION_SNOOZE] — кнопка «Отложить на 10 минут»: напомним ещё раз через 10 минут.
  *
  * BroadcastReceiver — маленький «приёмник» сигналов от системы. Android создаёт его на один
  * сигнал, вызывает [onReceive] и сразу о нём забывает. Работать долго ему нельзя: на всё около
  * 10 секунд. Нам нужно сходить в базу (это не мгновенно), поэтому goAsync(): «я ещё не закончил,
  * подожди» — и pending.finish(), когда всё сделано.
  *
+ * Будильники после «Готово» снимать не нужно: задача перестала быть открытой, база сообщит
+ * об этом [ReminderSync], и он сам уберёт её будильник — как при отметке на экране.
+ *
  * `@AndroidEntryPoint` — Hilt сам заполнит поля с `@Inject` (репозиторий, уведомления), как во ViewModel.
  */
 @AndroidEntryPoint
 class ReminderReceiver : BroadcastReceiver() {
+    companion object {
+        const val ACTION_REMIND = "app.planner.action.REMIND"
+        const val ACTION_DONE = "app.planner.action.REMINDER_DONE"
+        const val ACTION_SNOOZE = "app.planner.action.REMINDER_SNOOZE"
+        const val EXTRA_TASK_ID = "taskId"
+        const val SNOOZE_MINUTES = 10L
+    }
 
-    @Inject lateinit var tasks: ITaskRepository
-    @Inject lateinit var notifications: ReminderNotifications
+    @Inject
+    lateinit var tasks: ITaskRepository
+    @Inject
+    lateinit var notifications: ReminderNotifications
+    @Inject
+    lateinit var sync: ReminderSync
 
     override fun onReceive(context: Context, intent: Intent) {
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1)
@@ -34,17 +55,31 @@ class ReminderReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Задачу берём свежую из базы: пока ждали будильник, её могли отметить или удалить.
-                // Напоминаем, только если ей по-прежнему есть о чём напомнить
+                // fireAt == null — напоминать больше не о чем (отметили, убрали напоминание, удалили)
                 val task = tasks.getTask(taskId)
-                if (task != null && Reminders.fireAt(task) != null) notifications.show(task)
+                val fireAt = task?.let(Reminders::fireAt)
+                when (intent.action) {
+                    ACTION_REMIND -> if (task != null && fireAt != null) notifications.show(task)
+
+                    ACTION_DONE -> {
+                        notifications.dismiss(taskId)
+                        if (fireAt != null) tasks.setDone(taskId, true)
+                    }
+
+                    ACTION_SNOOZE -> {
+                        notifications.dismiss(taskId)
+                        if (fireAt != null) {
+                            sync.snooze(
+                                taskId,
+                                original = fireAt,
+                                until = LocalDateTime.now().plusMinutes(SNOOZE_MINUTES)
+                            )
+                        }
+                    }
+                }
             } finally {
                 pending.finish()
             }
         }
-    }
-
-    companion object {
-        const val ACTION_REMIND = "app.planner.action.REMIND"
-        const val EXTRA_TASK_ID = "taskId"
     }
 }

@@ -286,6 +286,7 @@
     <!-- Напаміны -->
     <string name="channel_reminders">Напаміны</string>
     <string name="channel_reminders_desc">Напаміны пра справы ў абраны час</string>
+    <string name="notification_snooze">Адкласці на 10 хвілін</string>
     <string name="reminder_add">Нагадаць</string>
     <string name="reminder_value">Нагадаць: %1$s</string>
     <string name="reminder_at_start">у момант пачатку</string>

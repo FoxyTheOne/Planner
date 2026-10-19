@@ -36,6 +36,10 @@ import javax.inject.Singleton
 class ReminderNotifications @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
+    private companion object {
+        const val CHANNEL_REMINDERS = "reminders"
+    }
+
     fun createChannel() {
         val channel = NotificationChannel(
             CHANNEL_REMINDERS,
@@ -49,8 +53,11 @@ class ReminderNotifications @Inject constructor(
     /** Есть ли разрешение показывать уведомления (до Android 13 оно есть всегда). */
     val canNotify: Boolean
         get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) ==
+                PackageManager.PERMISSION_GRANTED
 
     /**
      * Показать напоминание о [task]: заголовок — название задачи, ниже — её время и начало заметки
@@ -64,7 +71,8 @@ class ReminderNotifications @Inject constructor(
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) return
-        val text = listOfNotNull(task.time?.let(DateTexts::time), task.notePreview).joinToString(" · ")
+        val text =
+            listOfNotNull(task.time?.let(DateTexts::time), task.notePreview).joinToString(" · ")
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_stat_reminder)
             .setContentTitle(task.title)
@@ -73,21 +81,50 @@ class ReminderNotifications @Inject constructor(
             .setAutoCancel(true) // нажали — уведомление убирается
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH) // для Android 7 и старше, где каналов нет
+            // Кнопки под текстом. Иконка 0 — без значка: в уведомлениях Android 7+ у кнопок
+            // значки всё равно не рисуются, только подписи
+            .addAction(
+                0,
+                context.getString(R.string.action_done),
+                action(task.id, ReminderReceiver.ACTION_DONE)
+            )
+            .addAction(
+                0,
+                context.getString(R.string.notification_snooze),
+                action(task.id, ReminderReceiver.ACTION_SNOOZE)
+            )
             .build()
         // id уведомления = id задачи: повторное напоминание о той же задаче заменит старое, а не добавит второе
         NotificationManagerCompat.from(context).notify(task.id.toInt(), notification)
     }
+
+    /** Убрать уведомление задачи [taskId] — после нажатия на его кнопку. */
+    fun dismiss(taskId: Long) = NotificationManagerCompat.from(context).cancel(taskId.toInt())
+
+    /**
+     * Нажатие на кнопку уведомления — сигнал нашему [ReminderReceiver] с действием [action].
+     * Номер (requestCode) у всех трёх «намерений» задачи один — id задачи, но Android различает
+     * их по действию (action): «Готово» и «Отложить» не заменят друг друга и будильник.
+     */
+    private fun action(taskId: Long, action: String): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            taskId.toInt(),
+            Intent(context, ReminderReceiver::class.java)
+                .setAction(action)
+                .putExtra(ReminderReceiver.EXTRA_TASK_ID, taskId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     /** Тап по уведомлению — открыть приложение (на экране «Сегодня»). */
     private fun openApp(taskId: Long): PendingIntent =
         PendingIntent.getActivity(
             context,
             taskId.toInt(),
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            Intent(
+                context,
+                MainActivity::class.java
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
-    private companion object {
-        const val CHANNEL_REMINDERS = "reminders"
-    }
 }
