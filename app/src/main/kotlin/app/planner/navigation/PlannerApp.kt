@@ -20,7 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination
@@ -132,7 +132,9 @@ private fun SnackbarMessages(
     onUndo: (suspend () -> Unit) -> Unit,
 ) {
     // Строки берём заранее: внутри LaunchedEffect функции вроде stringResource вызывать нельзя
-    val resources = LocalContext.current.resources
+    // LocalResources, а не LocalContext.current.resources: если сменится язык или тема,
+    // Compose узнает об этом и возьмёт строки заново
+    val resources = LocalResources.current
     val undoLabel = stringResource(R.string.action_undo)
 
     // LaunchedEffect запускает корутину, когда эта функция впервые появляется на экране,

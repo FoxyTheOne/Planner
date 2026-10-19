@@ -63,4 +63,15 @@ object DateTexts {
         else today.with(TemporalAdjusters.next(DayOfWeek.SATURDAY))
 
     fun nextWeekStart(today: LocalDate): LocalDate = startOfWeek(today).plusWeeks(1)
+
+    /**
+     * «Следующая неделя» для задачи: тот же день недели, что был у задачи, но на следующей неделе
+     * (считая от сегодня). Вторник → вторник, четверг → четверг. Так перенос «на следующую неделю»
+     * не сваливает все дела в понедельник. Нет даты (задача из списка) — начало недели.
+     */
+    fun nextWeekSameDay(today: LocalDate, from: LocalDate?): LocalDate {
+        val start = nextWeekStart(today)
+        // Неделя может начинаться и с воскресенья (по языку телефона): ищем нужный день от её начала
+        return from?.let { start.with(TemporalAdjusters.nextOrSame(it.dayOfWeek)) } ?: start
+    }
 }

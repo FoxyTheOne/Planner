@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +53,8 @@ import java.time.LocalDate
  * ради чего цели разбивают на шаги. Они собраны под заголовками своих целей, после списков.
  *
  * @param goalTitles названия целей по id — для заголовков над шагами.
+ * @param onMore «Заметка, повтор, напоминание…»: открыть полный редактор с уже набранным названием.
+ *   Без этой кнопки шторка выглядела так, будто приложение больше ничего не умеет.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +67,7 @@ fun PickTaskSheet(
     onDismiss: () -> Unit,
     onPick: (Task) -> Unit,
     onCreate: (String) -> Unit,
+    onMore: (String) -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -77,6 +81,7 @@ fun PickTaskSheet(
             goalTitles = goalTitles,
             onPick = onPick,
             onCreate = onCreate,
+            onMore = onMore,
         )
     }
 }
@@ -96,6 +101,7 @@ fun PickTaskSheetBody(
     goalTitles: Map<Long, String> = emptyMap(),
     onPick: (Task) -> Unit,
     onCreate: (String) -> Unit,
+    onMore: (String) -> Unit = {},
 ) {
     var tab by rememberSaveable { mutableIntStateOf(if (candidates.isEmpty()) 0 else 1) }
     var newTitle by rememberSaveable { mutableStateOf("") }
@@ -151,6 +157,11 @@ fun PickTaskSheetBody(
                         .fillMaxWidth()
                         .padding(top = 12.dp),
                 ) { Text(stringResource(R.string.action_add)) }
+                // Быстро — только название; всё остальное — в полном редакторе, тот же день уже выбран
+                TextButton(
+                    onClick = { onMore(newTitle.trim()) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(stringResource(R.string.pick_more)) }
             }
         } else {
             OutlinedTextField(
@@ -184,9 +195,11 @@ fun PickTaskSheetBody(
                     .entries
                     .sortedBy { it.key.startsWith("goal_") } // сначала списки, потом цели
                 val listsById = lists.associateBy { it.id }
-                LazyColumn(Modifier
-                    .heightIn(max = 420.dp)
-                    .padding(horizontal = 20.dp)) {
+                LazyColumn(
+                    Modifier
+                        .heightIn(max = 420.dp)
+                        .padding(horizontal = 20.dp)
+                ) {
                     groups.forEach { (key, tasks) ->
                         item(key = "h$key") {
                             val first = tasks.first()

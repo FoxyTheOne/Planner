@@ -148,6 +148,9 @@ fun reminderText(reminder: Reminder): String = when (reminder) {
     is Reminder.AtTime -> stringResource(R.string.reminder_at, DateTexts.time(reminder.time))
     is Reminder.BeforeTime -> when (val minutes = reminder.minutes) {
         0 -> stringResource(R.string.reminder_at_start)
+        // «За час» — отдельной строкой: в русском и белорусском форма «one» нужна и для 21, 31…
+        // часа, а там без числа не обойтись («за 21 час»). Поэтому во множественных — всегда с числом
+        60 -> stringResource(R.string.reminder_hour_before)
         24 * 60 -> stringResource(R.string.reminder_day_before)
         // Ровное число часов — часами («за 2 часа»), иначе минутами («за 90 минут»)
         else -> if (minutes % 60 == 0) {

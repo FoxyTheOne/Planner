@@ -91,7 +91,7 @@ fun ScheduleSheetBody(
         R.string.day_today to today,
         R.string.day_tomorrow to today.plusDays(1),
         R.string.day_weekend to DateTexts.nearestWeekend(today),
-        R.string.day_next_week to DateTexts.nextWeekStart(today),
+        R.string.day_next_week to DateTexts.nextWeekSameDay(today, initial?.date),
     )
     val customDate = quickDates.none { it.second == date }
 

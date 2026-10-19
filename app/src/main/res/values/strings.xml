@@ -82,6 +82,7 @@
     <!-- Выбор задачи для слота -->
     <string name="pick_tab_new">New</string>
     <string name="pick_tab_lists">From lists</string>
+    <string name="pick_more">Note, repeat, reminder…</string>
     <string name="pick_search">Search your lists</string>
     <string name="pick_empty">Your lists are empty for now</string>
     <string name="pick_nothing_found">Nothing found</string>
@@ -285,6 +286,7 @@
     <string name="reminder_value">Remind: %1$s</string>
     <string name="reminder_at_start">when it starts</string>
     <string name="reminder_day_before">a day before</string>
+    <string name="reminder_hour_before">an hour before</string>
     <string name="reminder_at">at %1$s</string>
     <string name="reminder_other_time">Another time…</string>
     <plurals name="reminder_minutes_before">
@@ -292,7 +294,7 @@
         <item quantity="other">%d minutes before</item>
     </plurals>
     <plurals name="reminder_hours_before">
-        <item quantity="one">an hour before</item>
+        <item quantity="one">%d hour before</item>
         <item quantity="other">%d hours before</item>
     </plurals>
     <string name="cd_clear_reminder">Don’t remind</string>

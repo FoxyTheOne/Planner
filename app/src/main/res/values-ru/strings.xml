@@ -79,6 +79,7 @@
 
     <string name="pick_tab_new">Новая</string>
     <string name="pick_tab_lists">Из списков</string>
+    <string name="pick_more">Заметка, повтор, напоминание…</string>
     <string name="pick_search">Поиск по спискам</string>
     <string name="pick_empty">В списках пока пусто</string>
     <string name="pick_nothing_found">Ничего не нашлось</string>
@@ -288,6 +289,7 @@
     <string name="reminder_value">Напомнить: %1$s</string>
     <string name="reminder_at_start">в момент начала</string>
     <string name="reminder_day_before">за день</string>
+    <string name="reminder_hour_before">за час</string>
     <string name="reminder_at">в %1$s</string>
     <string name="reminder_other_time">Другое время…</string>
     <plurals name="reminder_minutes_before">
@@ -297,7 +299,7 @@
         <item quantity="other">за %d минуты</item>
     </plurals>
     <plurals name="reminder_hours_before">
-        <item quantity="one">за час</item>
+        <item quantity="one">за %d час</item>
         <item quantity="few">за %d часа</item>
         <item quantity="many">за %d часов</item>
         <item quantity="other">за %d часа</item>

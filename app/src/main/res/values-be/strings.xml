@@ -80,6 +80,7 @@
 
     <string name="pick_tab_new">Новая</string>
     <string name="pick_tab_lists">Са спісаў</string>
+    <string name="pick_more">Нататка, паўтор, напамін…</string>
     <string name="pick_search">Пошук па спісах</string>
     <string name="pick_empty">У спісах пакуль пуста</string>
     <string name="pick_nothing_found">Нічога не знойдзена</string>
@@ -289,6 +290,7 @@
     <string name="reminder_value">Нагадаць: %1$s</string>
     <string name="reminder_at_start">у момант пачатку</string>
     <string name="reminder_day_before">за дзень</string>
+    <string name="reminder_hour_before">за гадзіну</string>
     <string name="reminder_at">а %1$s</string>
     <string name="reminder_other_time">Іншы час…</string>
     <plurals name="reminder_minutes_before">
@@ -298,7 +300,7 @@
         <item quantity="other">за %d хвіліны</item>
     </plurals>
     <plurals name="reminder_hours_before">
-        <item quantity="one">за гадзіну</item>
+        <item quantity="one">за %d гадзіну</item>
         <item quantity="few">за %d гадзіны</item>
         <item quantity="many">за %d гадзін</item>
         <item quantity="other">за %d гадзіны</item>

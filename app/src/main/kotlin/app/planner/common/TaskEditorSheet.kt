@@ -698,7 +698,8 @@ fun slotText(slot: Slot, today: LocalDate): String {
     val day = when (slot.date) {
         today -> stringResource(R.string.day_today)
         today.plusDays(1) -> stringResource(R.string.day_tomorrow)
-        else -> "${DateTexts.shortDay(slot.date)}, ${DateTexts.dayMonth(slot.date)}"
+        // «Вт, 29 сентября» — день недели без числа: число уже есть в «29 сентября»
+        else -> "${DateTexts.weekdayShort(slot.date.dayOfWeek)}, ${DateTexts.dayMonth(slot.date)}"
     }
     val detail =
         slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }

@@ -92,6 +92,18 @@ fun DayScreen(
             onDismiss = { pickSlot = null },
             onPick = { viewModel.schedule(it, slot); pickSlot = null },
             onCreate = { viewModel.createIn(slot, it); pickSlot = null },
+            // Полный редактор: новая задача уже стоит в выбранный день (и часть дня, если выбрали)
+            onMore = { title ->
+                pickSlot = null
+                editing = EditorTarget(
+                    Task(
+                        title = title,
+                        date = slot.date,
+                        partOfDay = slot.partOfDay,
+                        time = slot.time
+                    )
+                )
+            },
         )
     }
     editing?.let { target ->
