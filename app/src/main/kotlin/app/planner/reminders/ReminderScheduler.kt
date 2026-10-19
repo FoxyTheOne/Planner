@@ -4,7 +4,6 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -22,8 +21,8 @@ import javax.inject.Singleton
  *
  * ТОЧНОЕ ВРЕМЯ. С Android 12 точные будильники требуют разрешения, а с Android 14 у новых установок
  * оно по умолчанию выключено. Без него ставим «неточный» будильник: система может прислать его
- * на несколько минут позже, зато он работает всегда. Как включить точное — объяснит страница
- * «Надёжность напоминаний» (следующий блок).
+ * позже — на эмуляторе с Android 15 окно было до часа, — зато он работает всегда. Как включить точное — объясняет страница
+ * «Надёжность напоминаний».
  *
  * У каждой задачи — свой будильник: номер (requestCode) PendingIntent = id задачи. Поэтому
  * повторная постановка того же id заменяет старый будильник, а не добавляет второй.
@@ -34,18 +33,37 @@ class ReminderScheduler @Inject constructor(
 ) {
     private val alarms: AlarmManager = context.getSystemService(AlarmManager::class.java)
 
-    /** Можно ли ставить будильники на точное время. До Android 12 — всегда можно. */
-    val canScheduleExact: Boolean
-        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
-
     /** Поставить (или переставить) будильник задачи [taskId] на [at] по часам телефона. */
     fun schedule(taskId: Long, at: LocalDateTime) {
+        pendingIntent(taskId, ReminderReceiver.ACTION_REMIND, PendingIntent.FLAG_UPDATE_CURRENT)
+            ?.let { setAlarm(at, it) }
+    }
+
+    /**
+     * Пробное напоминание со страницы «Надёжность». Идёт тем же путём, что настоящие: будильник →
+     * [ReminderReceiver] → уведомление. Поэтому проверяет всё по-честному, вплоть до того,
+     * не закроет ли телефон приложение в фоне.
+     */
+    fun scheduleTest(at: LocalDateTime) {
+        pendingIntent(TEST_REQUEST, ReminderReceiver.ACTION_TEST, PendingIntent.FLAG_UPDATE_CURRENT)
+            ?.let { setAlarm(at, it) }
+    }
+
+    /** Снять будильник задачи [taskId], если он стоит. */
+    fun cancel(taskId: Long) {
+        // FLAG_NO_CREATE — «найди уже существующий, новый не создавай»: нет будильника — null, и снимать нечего
+        pendingIntent(taskId, ReminderReceiver.ACTION_REMIND, PendingIntent.FLAG_NO_CREATE)?.let {
+            alarms.cancel(it)
+            it.cancel()
+        }
+    }
+
+    private fun setAlarm(at: LocalDateTime, intent: PendingIntent) {
         // AlarmManager считает в миллисекундах от 1970 года по всемирному времени, поэтому
         // «19 октября, 10:00» переводим с учётом часового пояса телефона
         val millis = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val intent = pendingIntent(taskId, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
         // ...AndAllowWhileIdle — сработает и в режиме сна (Doze), когда телефон долго лежит без дела
-        if (canScheduleExact) {
+        if (ReminderHealth.exactAlarmsOn(context)) {
             try {
                 alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, millis, intent)
                 return
@@ -56,23 +74,19 @@ class ReminderScheduler @Inject constructor(
         alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, millis, intent)
     }
 
-    /** Снять будильник задачи [taskId], если он стоит. */
-    fun cancel(taskId: Long) {
-        // FLAG_NO_CREATE — «найди уже существующий, новый не создавай»: нет будильника — null, и снимать нечего
-        pendingIntent(taskId, PendingIntent.FLAG_NO_CREATE)?.let {
-            alarms.cancel(it)
-            it.cancel()
-        }
-    }
-
-    private fun pendingIntent(taskId: Long, flags: Int): PendingIntent? =
+    private fun pendingIntent(taskId: Long, action: String, flags: Int): PendingIntent? =
         PendingIntent.getBroadcast(
             context,
             taskId.toInt(),
             Intent(context, ReminderReceiver::class.java)
-                .setAction(ReminderReceiver.ACTION_REMIND)
+                .setAction(action)
                 .putExtra(ReminderReceiver.EXTRA_TASK_ID, taskId),
             // IMMUTABLE — система не может подменить содержимое намерения (требование Android 12+)
             flags or PendingIntent.FLAG_IMMUTABLE,
         )
+
+    private companion object {
+        /** «Номер задачи» пробного будильника: у настоящих задач номера с 1. */
+        const val TEST_REQUEST = 0L
+    }
 }

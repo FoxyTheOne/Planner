@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.LocalCafe
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -36,6 +40,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.BuildConfig
 import app.planner.R
@@ -47,6 +52,7 @@ import app.planner.core.domain.model.DarkVariant
 import app.planner.core.domain.model.OverdueMode
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.ThemeMode
+import app.planner.reminders.ReminderHealth
 import java.time.LocalDate
 
 /** Страница автора на Boosty — та же, что в RadioJourney. */
@@ -62,6 +68,7 @@ private const val DONATE_URL = "https://boosty.to/foxynest/donate"
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
+    onOpenReliability: () -> Unit,
     contentPadding: PaddingValues,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -73,24 +80,45 @@ fun SettingsScreen(
     // Открывает ссылку в браузере (для кнопки «Поддержать»)
     val uriHandler = LocalUriHandler.current
 
+    // Всё ли в порядке с напоминаниями — для подписи под «Надёжностью напоминаний».
+    // Перепроверяем при каждом возвращении на экран: человек мог поменять настройки Android
+    val context = LocalContext.current
+    var remindersOk by remember { mutableStateOf(ReminderHealth.allGood(context)) }
+    LifecycleResumeEffect(Unit) {
+        remindersOk = ReminderHealth.allGood(context)
+        onPauseOrDispose { }
+    }
+
     // Системные окна выбора файла (Storage Access Framework). Приложению не нужно разрешение
     // на доступ ко всей памяти: пользователь сам выбирает, куда сохранить и что открыть.
     // Результат (адрес файла — Uri) приходит в лямбду; null — если окно закрыли без выбора.
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        if (uri != null) viewModel.export(resolver, uri)
-    }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) viewModel.readForRestore(resolver, uri)
-    }
+    val exportLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) viewModel.export(resolver, uri)
+        }
+    val importLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) viewModel.readForRestore(resolver, uri)
+        }
 
     SettingsContent(
         settings = settings,
         showDonate = BuildConfig.SHOW_DONATE,
+        remindersOk = remindersOk,
         contentPadding = contentPadding,
         onBack = onBack,
         onUpdate = viewModel::update,
+        onOpenReliability = onOpenReliability,
         onExport = { exportLauncher.launch("planner-${LocalDate.now()}.json") },
-        onImport = { importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain")) },
+        onImport = {
+            importLauncher.launch(
+                arrayOf(
+                    "application/json",
+                    "application/octet-stream",
+                    "text/plain"
+                )
+            )
+        },
         onDonate = { uriHandler.openUri(DONATE_URL) },
     )
 
@@ -98,8 +126,23 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = viewModel::cancelRestore,
             title = { Text(stringResource(R.string.import_confirm_title)) },
-            text = { Text(stringResource(R.string.import_confirm_text, snapshot.tasks.size, snapshot.lists.count { !it.isInbox })) },
-            confirmButton = { TextButton(onClick = viewModel::confirmRestore) { Text(stringResource(R.string.import_confirm_action)) } },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.import_confirm_text,
+                        snapshot.tasks.size,
+                        snapshot.lists.count { !it.isInbox })
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmRestore) {
+                    Text(
+                        stringResource(
+                            R.string.import_confirm_action
+                        )
+                    )
+                }
+            },
             dismissButton = { TextButton(onClick = viewModel::cancelRestore) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
@@ -110,6 +153,7 @@ fun SettingsScreen(
  * поэтому экран можно показать в превью (см. `SettingsPreviews.kt`).
  *
  * @param onUpdate изменить настройки: получает текущие, возвращает новые.
+ * @param remindersOk всё ли в порядке с напоминаниями (ReminderHealth.allGood) — подпись под строкой «Надёжность».
  * @param showDonate показывать ли «Поддержать проект». В приложении это BuildConfig.SHOW_DONATE:
  *   true в сборке для RuStore, false для Google Play — правила Play запрещают вести
  *   пользователя на сторонние способы оплаты, кроме пожертвований на благотворительность.
@@ -119,9 +163,11 @@ fun SettingsScreen(
 fun SettingsContent(
     settings: PlannerSettings,
     showDonate: Boolean,
+    remindersOk: Boolean,
     contentPadding: PaddingValues,
     onBack: () -> Unit,
     onUpdate: ((PlannerSettings) -> PlannerSettings) -> Unit,
+    onOpenReliability: () -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onDonate: () -> Unit,
@@ -134,15 +180,29 @@ fun SettingsContent(
             .verticalScroll(rememberScrollState())
             .padding(bottom = 32.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cd_back)) }
-            Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp)
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.ArrowBack,
+                    stringResource(R.string.cd_back)
+                )
+            }
+            Text(
+                stringResource(R.string.settings_title),
+                style = MaterialTheme.typography.titleLarge
+            )
         }
 
         Column(Modifier.padding(horizontal = 20.dp)) {
             SectionLabel(stringResource(R.string.settings_planning))
             SettingTitle(stringResource(R.string.settings_overdue))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 PaperChip(
                     stringResource(R.string.overdue_mode_banner),
                     settings.overdueMode == OverdueMode.BANNER,
@@ -165,7 +225,36 @@ fun SettingsContent(
                 }
             }
 
-            SectionLabel(stringResource(R.string.settings_appearance), modifier = Modifier.padding(top = 16.dp))
+            SectionLabel(
+                stringResource(R.string.settings_notifications),
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenReliability)
+                    .padding(vertical = 12.dp),
+            ) {
+                Icon(Icons.Outlined.NotificationsActive, null, tint = paper.inkMuted)
+                Column(
+                    Modifier
+                        .padding(start = 16.dp)
+                        .weight(1f)
+                ) {
+                    Text(stringResource(R.string.reliability_title))
+                    Text(
+                        stringResource(if (remindersOk) R.string.reliability_ok else R.string.reliability_improve),
+                        color = paper.inkMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+
+            SectionLabel(
+                stringResource(R.string.settings_appearance),
+                modifier = Modifier.padding(top = 16.dp)
+            )
             SettingTitle(stringResource(R.string.settings_theme))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
@@ -173,7 +262,10 @@ fun SettingsContent(
                     ThemeMode.LIGHT to R.string.theme_light,
                     ThemeMode.DARK to R.string.theme_dark,
                 ).forEach { (mode, label) ->
-                    PaperChip(stringResource(label), settings.themeMode == mode, { onUpdate { it.copy(themeMode = mode) } })
+                    PaperChip(
+                        stringResource(label),
+                        settings.themeMode == mode,
+                        { onUpdate { it.copy(themeMode = mode) } })
                 }
             }
             SettingTitle(stringResource(R.string.settings_dark_variant))
@@ -183,7 +275,10 @@ fun SettingsContent(
                     DarkVariant.INK to R.string.dark_ink,
                     DarkVariant.BLACK to R.string.dark_black,
                 ).forEach { (variant, label) ->
-                    PaperChip(stringResource(label), settings.darkVariant == variant, { onUpdate { it.copy(darkVariant = variant) } })
+                    PaperChip(
+                        stringResource(label),
+                        settings.darkVariant == variant,
+                        { onUpdate { it.copy(darkVariant = variant) } })
                 }
             }
             Row(
@@ -195,12 +290,21 @@ fun SettingsContent(
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_system_colors))
-                    Text(stringResource(R.string.settings_system_colors_hint), color = paper.inkMuted, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        stringResource(R.string.settings_system_colors_hint),
+                        color = paper.inkMuted,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
-                Switch(checked = settings.systemColors, onCheckedChange = { checked -> onUpdate { it.copy(systemColors = checked) } })
+                Switch(
+                    checked = settings.systemColors,
+                    onCheckedChange = { checked -> onUpdate { it.copy(systemColors = checked) } })
             }
 
-            SectionLabel(stringResource(R.string.settings_data), modifier = Modifier.padding(top = 8.dp))
+            SectionLabel(
+                stringResource(R.string.settings_data),
+                modifier = Modifier.padding(top = 8.dp)
+            )
             ActionRow(Icons.Outlined.FileUpload, stringResource(R.string.export_file), onExport)
             DashedRule()
             ActionRow(Icons.Outlined.FileDownload, stringResource(R.string.import_file), onImport)
@@ -226,7 +330,11 @@ fun SettingsContent(
 /** Заголовок одной настройки над её вариантами. */
 @Composable
 private fun SettingTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
+    )
 }
 
 /** Строка-кнопка с иконкой: «Экспорт в файл», «Поддержать проект». */

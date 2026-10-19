@@ -43,10 +43,12 @@ import app.planner.feature.goals.GoalScreen
 import app.planner.feature.goals.GoalsScreen
 import app.planner.feature.lists.ListDetailScreen
 import app.planner.feature.lists.ListsOverviewScreen
+import app.planner.feature.settings.ReliabilityScreen
 import app.planner.feature.settings.SettingsScreen
 import app.planner.feature.today.TodayScreen
 import app.planner.feature.week.DayScreen
 import app.planner.feature.week.WeekScreen
+import app.planner.reminders.ExactAlarmOfferDialog
 import app.planner.reminders.ReminderQuestion
 import app.planner.reminders.ReminderQuestionDialog
 import kotlinx.coroutines.flow.SharedFlow
@@ -82,6 +84,8 @@ fun PlannerApp(
     onUndo: (suspend () -> Unit) -> Unit,
     reminderQuestions: SharedFlow<ReminderQuestion>,
     onReminderAnswer: (taskId: Long, reminder: Reminder?) -> Unit,
+    showExactAlarmOffer: Boolean,
+    onExactAlarmOfferClosed: () -> Unit,
 ) {
     // rememberNavController создаёт «пульт» навигации один раз и помнит его между перерисовками
     val navController = rememberNavController()
@@ -92,6 +96,8 @@ fun PlannerApp(
     SnackbarMessages(messages = messages, snackbar = snackbar, onUndo = onUndo)
     // Окно «задачу перенесли — что с напоминанием?» — тоже одно на всё приложение
     ReminderQuestionDialog(questions = reminderQuestions, onAnswer = onReminderAnswer)
+    // Окно «Точное время» — один раз, после первого напоминания (см. MainViewModel.showExactAlarmOffer)
+    if (showExactAlarmOffer) ExactAlarmOfferDialog(onClose = onExactAlarmOfferClosed)
 
     // Какой экран сейчас открыт. currentBackStackEntryAsState — «подписка»: при каждом переходе
     // эта переменная меняется, и Compose перерисовывает панель вкладок (подсветка, видимость)
@@ -292,7 +298,14 @@ private fun PlannerNavHost(navController: NavHostController, padding: PaddingVal
         }
 
         composable(Routes.SETTINGS) {
-            SettingsScreen(onBack = navController::popBackStack, contentPadding = padding)
+            SettingsScreen(
+                onBack = navController::popBackStack,
+                onOpenReliability = { navController.navigate(Routes.REMINDER_RELIABILITY) },
+                contentPadding = padding,
+            )
+        }
+        composable(Routes.REMINDER_RELIABILITY) {
+            ReliabilityScreen(onBack = navController::popBackStack, contentPadding = padding)
         }
     }
 }

@@ -8,6 +8,7 @@ import app.planner.core.domain.repository.ITaskRepository
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_DONE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_SNOOZE
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_TEST
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +21,7 @@ import javax.inject.Inject
  * - [ACTION_REMIND] — будильник ([ReminderScheduler]): пора напомнить, показываем уведомление;
  * - [ACTION_DONE] — кнопка «Готово» в уведомлении: отмечаем задачу сделанной;
  * - [ACTION_SNOOZE] — кнопка «Отложить на 10 минут»: напомним ещё раз через 10 минут.
+ * - [ACTION_TEST] — пробное напоминание со страницы «Надёжность напоминаний».
  *
  * BroadcastReceiver — маленький «приёмник» сигналов от системы. Android создаёт его на один
  * сигнал, вызывает [onReceive] и сразу о нём забывает. Работать долго ему нельзя: на всё около
@@ -37,6 +39,7 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_REMIND = "app.planner.action.REMIND"
         const val ACTION_DONE = "app.planner.action.REMINDER_DONE"
         const val ACTION_SNOOZE = "app.planner.action.REMINDER_SNOOZE"
+        const val ACTION_TEST = "app.planner.action.REMINDER_TEST"
         const val EXTRA_TASK_ID = "taskId"
         const val SNOOZE_MINUTES = 10L
     }
@@ -51,6 +54,8 @@ class ReminderReceiver : BroadcastReceiver() {
     lateinit var sync: ReminderSync
 
     override fun onReceive(context: Context, intent: Intent) {
+        // Пробное — без задачи и без базы: просто показать уведомление
+        if (intent.action == ACTION_TEST) return notifications.showTest()
         val taskId = intent.getLongExtra(EXTRA_TASK_ID, -1)
         if (taskId < 0) return
         val pending = goAsync()

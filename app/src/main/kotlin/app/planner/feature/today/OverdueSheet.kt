@@ -81,10 +81,12 @@ fun OverdueSheetBody(
     onAllBack: () -> Unit,
     onNotNow: () -> Unit,
 ) {
-    Column(Modifier
-        .navigationBarsPadding()
-        .padding(horizontal = 20.dp)
-        .padding(bottom = 16.dp)) {
+    Column(
+        Modifier
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 16.dp)
+    ) {
         Text(stringResource(R.string.overdue_title), style = MaterialTheme.typography.titleLarge)
 
         LazyColumn(Modifier.heightIn(max = 440.dp)) {
@@ -131,7 +133,7 @@ fun OverdueSheetBody(
             }
         }
         TextButton(onClick = onNotNow, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(stringResource(R.string.overdue_not_now))
+            Text(stringResource(R.string.action_not_now))
         }
     }
 }

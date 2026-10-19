@@ -34,7 +34,8 @@
             android:name=".reminders.ReminderReceiver"
             android:exported="false" />
 
-        <!-- Переставить будильники после перезагрузки, смены времени или часового пояса, обновления -->
+        <!-- Переставить будильники после перезагрузки, смены времени или часового пояса, обновления,
+             разрешения точных будильников -->
         <receiver
             android:name=".reminders.RescheduleReceiver"
             android:exported="false">
@@ -43,6 +44,8 @@
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- Разрешили точные будильники (Android 12+): переставить уже стоящие на точное время -->
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
     </application>

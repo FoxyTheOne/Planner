@@ -29,15 +29,18 @@ import javax.inject.Singleton
  * Android просто ничего не делает, поэтому [createChannel] вызывается при каждом запуске.
  *
  * РАЗРЕШЕНИЕ. С Android 13 показывать уведомления можно только с разрешения человека
- * (POST_NOTIFICATIONS). Спрашивать его будем, когда человек впервые поставит напоминание
- * (следующий шаг). Без разрешения [show] просто ничего не показывает.
+ * (POST_NOTIFICATIONS). Спрашиваем его, когда человек впервые выбирает напоминание (ReminderRow),
+ * а включены ли уведомления, проверяет ReminderHealth. Без разрешения [show] просто ничего не показывает.
  */
 @Singleton
 class ReminderNotifications @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
-    private companion object {
+    companion object {
         const val CHANNEL_REMINDERS = "reminders"
+
+        /** Номер пробного уведомления. У задач номера с 1, поэтому 0 ни с одной не совпадёт. */
+        const val TEST_NOTIFICATION_ID = 0
     }
 
     fun createChannel() {
@@ -50,21 +53,12 @@ class ReminderNotifications @Inject constructor(
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    /** Есть ли разрешение показывать уведомления (до Android 13 оно есть всегда). */
-    val canNotify: Boolean
-        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) ==
-                PackageManager.PERMISSION_GRANTED
-
     /**
      * Показать напоминание о [task]: заголовок — название задачи, ниже — её время и начало заметки
      * («10:30 · каб. 214»). Тап по уведомлению открывает приложение.
      */
     fun show(task: Task) {
-        // Проверка разрешения — прямо здесь, рядом с notify, а не только через canNotify:
+        // Проверка разрешения — прямо здесь, рядом с notify, а не в отдельной функции:
         // Android Studio (проверка Lint «MissingPermission») видит проверку, только если она
         // в той же функции, что и вызов, которому разрешение нужно. Через свойство она её «не видит»
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -98,6 +92,28 @@ class ReminderNotifications @Inject constructor(
         NotificationManagerCompat.from(context).notify(task.id.toInt(), notification)
     }
 
+    /**
+     * Пробное напоминание со страницы «Надёжность напоминаний»: «Если вы это видите — напоминания доходят».
+     * Без кнопок и без задачи; тап открывает приложение.
+     */
+    fun showTest() {
+        // Та же проверка разрешения, что в show(): lint видит её только рядом с notify
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+            .setSmallIcon(R.drawable.ic_stat_reminder)
+            .setContentTitle(context.getString(R.string.test_notification_title))
+            .setContentText(context.getString(R.string.test_notification_text))
+            .setContentIntent(openApp(TEST_NOTIFICATION_ID.toLong()))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+        NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION_ID, notification)
+    }
+
     /** Убрать уведомление задачи [taskId] — после нажатия на его кнопку. */
     fun dismiss(taskId: Long) = NotificationManagerCompat.from(context).cancel(taskId.toInt())
 
@@ -114,7 +130,9 @@ class ReminderNotifications @Inject constructor(
     fun dismissAllExcept(keepTaskIds: Set<Long>) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.activeNotifications
-            .filter { it.notification.channelId == CHANNEL_REMINDERS && it.id.toLong() !in keepTaskIds }
+            // Пробное уведомление не трогаем: задачи у него нет, но оно должно повисеть, пока его не увидят
+            .filter { it.notification.channelId == CHANNEL_REMINDERS && it.id != TEST_NOTIFICATION_ID }
+            .filter { it.id.toLong() !in keepTaskIds }
             .forEach { manager.cancel(it.id) }
     }
 

@@ -56,7 +56,7 @@
     <string name="overdue_older">a while ago</string>
     <string name="overdue_all_today">All to today</string>
     <string name="overdue_all_back">All back to lists</string>
-    <string name="overdue_not_now">Not now</string>
+    <string name="action_not_now">Not now</string>
 
     <!-- Сообщения -->
     <string name="msg_scheduled">Planned for %s</string>
@@ -118,6 +118,29 @@
     <string name="overdue_mode_auto">Move to today</string>
     <string name="settings_return_after">Send forgotten tasks back to lists after</string>
     <string name="days_short">%d d</string>
+    <string name="settings_notifications">notifications</string>
+    <string name="reliability_title">Reliable reminders</string>
+    <string name="exact_offer_text">Right now Android may deliver reminders late — sometimes by up to an hour. To get them right on the minute, allow “Alarms &amp; reminders”. You can always do this later in Settings → Reliable reminders.</string>
+    <string name="reliability_ok">All set</string>
+    <string name="reliability_improve">Could be more reliable</string>
+    <string name="reliability_intro">Whether reminders arrive on time depends on a few phone settings.</string>
+    <string name="reliability_notifications">Notifications</string>
+    <string name="reliability_notifications_on">On</string>
+    <string name="reliability_notifications_off">Off — reminders won\'t arrive</string>
+    <string name="reliability_exact">Exact time</string>
+    <string name="reliability_exact_on">Reminders arrive right on the minute</string>
+    <string name="reliability_exact_off">Android may deliver reminders late — sometimes by up to an hour</string>
+    <string name="reliability_allow">Allow</string>
+    <string name="reliability_background">Background work</string>
+    <string name="reliability_background_on">Unrestricted</string>
+    <string name="reliability_background_off">Usually not needed. But some phones (Xiaomi, Huawei, Samsung and others) close apps in the background to save battery, and reminders may not arrive. If that has happened, open App info → Battery and choose “Unrestricted”.</string>
+    <string name="reliability_open_settings">Open settings</string>
+    <string name="reliability_test">Check</string>
+    <string name="reliability_test_text">We\'ll send a test reminder in a minute. Close the app and lock the screen — that makes the check more honest.</string>
+    <string name="reliability_test_action">Send a test reminder</string>
+    <string name="reliability_test_scheduled">Expect a notification around %1$s</string>
+    <string name="test_notification_title">Test reminder</string>
+    <string name="test_notification_text">If you can see this, reminders work</string>
     <string name="settings_appearance">appearance</string>
     <string name="settings_theme">Theme</string>
     <string name="theme_system">System</string>

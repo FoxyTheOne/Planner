@@ -49,6 +49,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val eveningStart = intPreferencesKey("evening_start_minutes")
         val bannerHiddenOn = longPreferencesKey("overdue_banner_hidden_on")
         val lastListId = longPreferencesKey("last_list_id")
+        val exactAlarmOfferShown = booleanPreferencesKey("exact_alarm_offer_shown")
     }
 
     // Подписка, которая видит изменения в dataStore.data (после update()), которая преобразует данные (.map) и рассылает подписчикам на settings.
@@ -75,6 +76,7 @@ class DataStoreSettingsRepository @Inject constructor(
             val lastList = new.lastListId
             if (lastList != null) prefs[Keys.lastListId] =
                 lastList else prefs.remove(Keys.lastListId)
+            prefs[Keys.exactAlarmOfferShown] = new.exactAlarmOfferShown
         }
     }
 
@@ -90,6 +92,7 @@ class DataStoreSettingsRepository @Inject constructor(
             eveningStart = this[Keys.eveningStart]?.let(::minutesToTime) ?: defaults.eveningStart,
             overdueBannerHiddenOn = this[Keys.bannerHiddenOn]?.let(LocalDate::ofEpochDay),
             lastListId = this[Keys.lastListId],
+            exactAlarmOfferShown = this[Keys.exactAlarmOfferShown] ?: defaults.exactAlarmOfferShown,
         )
     }
 

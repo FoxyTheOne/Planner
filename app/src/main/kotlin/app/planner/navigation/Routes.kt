@@ -50,6 +50,9 @@ enum class Tab(val route: String, val label: Int, val icon: ImageVector, val hom
 /** Адреса экранов, которых нет на нижней панели. */
 object Routes {
     const val SETTINGS = "settings"
+
+    /** Страница «Надёжность напоминаний» — открывается из настроек. */
+    const val REMINDER_RELIABILITY = "settings/reminders"
     const val LISTS_OVERVIEW = "lists"
 
     // --- Экран одного дня ---

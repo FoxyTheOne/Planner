@@ -77,6 +77,9 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
             }
 
+            // Окно «Точное время» — один раз, после первого напоминания
+            val showExactAlarmOffer by viewModel.showExactAlarmOffer.collectAsStateWithLifecycle()
+
             PlannerTheme(
                 mode = current.themeMode,
                 darkVariant = current.darkVariant,
@@ -88,6 +91,8 @@ class MainActivity : ComponentActivity() {
                     onUndo = viewModel::runUndo,
                     reminderQuestions = viewModel.reminderQuestions,
                     onReminderAnswer = viewModel::answerReminder,
+                    showExactAlarmOffer = showExactAlarmOffer,
+                    onExactAlarmOfferClosed = viewModel::closeExactAlarmOffer,
                 )
             }
         }

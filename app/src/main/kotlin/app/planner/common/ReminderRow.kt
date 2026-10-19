@@ -1,10 +1,7 @@
 package app.planner.common
 
 import android.Manifest
-import android.content.Context
-import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -30,11 +27,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.planner.R
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Reminder
+import app.planner.reminders.ReminderHealth
 import java.time.LocalTime
 
 /**
@@ -58,15 +55,15 @@ fun ReminderRow(reminder: Reminder?, timed: Boolean, onChange: (Reminder?) -> Un
 
     // Включены ли уведомления. Человек может включить их в настройках и вернуться — поэтому
     // перепроверяем каждый раз, когда экран снова на виду (LifecycleResumeEffect — «при возвращении»)
-    var notificationsOn by remember { mutableStateOf(notificationsEnabled(context)) }
+    var notificationsOn by remember { mutableStateOf(ReminderHealth.notificationsOn(context)) }
     LifecycleResumeEffect(Unit) {
-        notificationsOn = notificationsEnabled(context)
+        notificationsOn = ReminderHealth.notificationsOn(context)
         onPauseOrDispose { }
     }
     // Системное окно «Разрешить уведомления?». Ответ приходит сюда, в лямбду
     val askPermission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-            notificationsOn = notificationsEnabled(context)
+            notificationsOn = ReminderHealth.notificationsOn(context)
         }
 
     fun choose(chosen: Reminder) {
@@ -126,7 +123,13 @@ fun ReminderRow(reminder: Reminder?, timed: Boolean, onChange: (Reminder?) -> Un
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = { context.startActivity(notificationSettings(context)) }) {
+                TextButton(onClick = {
+                    context.startActivity(
+                        ReminderHealth.notificationSettings(
+                            context
+                        )
+                    )
+                }) {
                     Text(stringResource(R.string.reminder_notifications_enable))
                 }
             }
@@ -160,17 +163,3 @@ fun reminderText(reminder: Reminder): String = when (reminder) {
         }
     }
 }
-
-/**
- * Включены ли уведомления приложения. Учитывает сразу всё: и разрешение Android 13+,
- * и выключатель «Уведомления» в настройках приложения, который человек мог выключить сам.
- */
-private fun notificationsEnabled(context: Context): Boolean =
-    NotificationManagerCompat.from(context).areNotificationsEnabled()
-
-/** Системный экран «Уведомления» этого приложения — там их включают. */
-private fun notificationSettings(context: Context): Intent =
-    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(
-        Settings.EXTRA_APP_PACKAGE,
-        context.packageName
-    )

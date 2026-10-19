@@ -27,6 +27,11 @@ data class PlannerSettings(
     val overdueBannerHiddenOn: LocalDate? = null,
     /** Последний открытый список — при следующем запуске приложение вернётся в него. */
     val lastListId: Long? = null,
+    /**
+     * Уже предлагали включить «точное время» (окно после первого напоминания). Предлагаем один раз:
+     * ответили «Разрешить» или «Не сейчас» — больше не спрашиваем, дальше — страница «Надёжность напоминаний».
+     */
+    val exactAlarmOfferShown: Boolean = false,
 ) {
     /** В какую часть дня попадает задача с точным временем. */
     fun partOfDayFor(time: LocalTime): PartOfDay = when {

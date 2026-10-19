@@ -1,5 +1,6 @@
 package app.planner
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.common.DailyMaintenance
@@ -9,15 +10,21 @@ import app.planner.common.TodayClock
 import app.planner.common.UiMessage
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.Reminder
+import app.planner.core.domain.reminder.Reminders
 import app.planner.core.domain.repository.ISettingsRepository
+import app.planner.core.domain.repository.ITaskRepository
+import app.planner.reminders.ReminderHealth
 import app.planner.reminders.ReminderQuestion
 import app.planner.reminders.ReminderQuestions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 /**
@@ -30,12 +37,15 @@ import javax.inject.Inject
  *    с любого экрана показываются в одном общем месте (см. `PlannerApp`).
  * 4. **Вопросы про напоминания** ([reminderQuestions]) — «задачу перенесли, что сделать с напоминанием?»;
  *    так же одно окно на всё приложение, ответ записывает [answerReminder].
+ * 5. **Предложение «Точное время»** ([showExactAlarmOffer]) — один раз, после первого напоминания.
  *
  * Эта ViewModel живёт столько же, сколько окно приложения, и переживает поворот экрана.
  */
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    settingsRepository: ISettingsRepository,
+    @param:ApplicationContext private val context: Context,
+    private val settingsRepository: ISettingsRepository,
+    tasks: ITaskRepository,
     messageBus: MessageBus,
     reminderQuestions: ReminderQuestions,
     private val commands: TaskCommands,
@@ -57,6 +67,29 @@ class MainViewModel @Inject constructor(
 
     /** Вопросы «что сделать с напоминанием» после переноса задачи; показывает их `PlannerApp`. */
     val reminderQuestions: SharedFlow<ReminderQuestion> = reminderQuestions.questions
+
+    /**
+     * Показать ли окно «Точное время» (ExactAlarmOfferDialog). Да, если всё сразу:
+     * - его ещё не показывали (показываем один раз);
+     * - есть хотя бы одно напоминание впереди — то есть человек им пользуется;
+     * - уведомления включены (иначе точное время ничего не даст, а про уведомления подскажет строка
+     *   «Напомнить» в редакторе);
+     * - точное время выключено.
+     *
+     * combine пересчитывает это при каждом изменении задач с напоминаниями или настроек.
+     * Поэтому окно появляется сразу после того, как сохранили первую задачу с напоминанием.
+     * Разрешения телефона проверяем в тот же момент: подписаться на их изменения нельзя, но этого и не нужно.
+     */
+    val showExactAlarmOffer: StateFlow<Boolean> =
+        combine(
+            tasks.observeTasksWithReminders(),
+            settingsRepository.settings
+        ) { withReminders, settings ->
+            !settings.exactAlarmOfferShown &&
+                    Reminders.upcoming(withReminders, LocalDateTime.now()).isNotEmpty() &&
+                    ReminderHealth.notificationsOn(context) &&
+                    !ReminderHealth.exactAlarmsOn(context)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     init {
         // init выполняется один раз, когда ViewModel создана (при открытии приложения).
@@ -87,5 +120,10 @@ class MainViewModel @Inject constructor(
     /** Ответ на вопрос про напоминание: новое напоминание или null — «убрать напоминание». */
     fun answerReminder(taskId: Long, reminder: Reminder?) {
         viewModelScope.launch { commands.setReminder(taskId, reminder) }
+    }
+
+    /** Окно «Точное время» закрыли (любым ответом) — больше его не показываем. */
+    fun closeExactAlarmOffer() {
+        viewModelScope.launch { settingsRepository.update { it.copy(exactAlarmOfferShown = true) } }
     }
 }
