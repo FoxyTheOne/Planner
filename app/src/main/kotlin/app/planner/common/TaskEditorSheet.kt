@@ -42,6 +42,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,6 +61,7 @@ import app.planner.R
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.Pause
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -108,6 +110,7 @@ fun TaskEditorSheet(
     habitHistory: HabitHistory? = null,
     goals: List<Goal> = emptyList(),
     initialHabitGoalId: Long? = null,
+    onEditAllDays: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -128,6 +131,7 @@ fun TaskEditorSheet(
             habitHistory = habitHistory,
             goals = goals,
             initialHabitGoalId = initialHabitGoalId,
+            onEditAllDays = onEditAllDays,
         )
     }
 }
@@ -148,6 +152,8 @@ fun TaskEditorSheet(
  * @param habitHistory статистика, если открыта привычка. Её считает ViewModel экрана, а не шторка:
  *   нужны отметки из базы, а шторка с базой не работает.
  * @param goals все цели — для строки «Помогает цели» у привычки (выбрать можно из тех, что в работе).
+ * @param rules правила повторений по id и [onOpenRule] — для строки «Изменить все дни» у дня повторения:
+ *   по ruleId дня находим его правило и открываем уже его. Экраны без дней повторений их не передают.
  */
 @Composable
 fun TaskEditorSheet(
@@ -161,27 +167,36 @@ fun TaskEditorSheet(
     onResume: (ruleId: Long) -> Unit,
     habitHistory: HabitHistory? = null,
     goals: List<Goal> = emptyList(),
+    rules: Map<Long, RecurrenceRule> = emptyMap(),
+    onOpenRule: (RecurrenceRule) -> Unit = {},
 ) {
+    // Открыт один день повторения — по его ruleId находим правило, чтобы дать «Изменить все дни»
+    val ruleOfDay = target.task.ruleId?.takeIf { target.task.isOccurrenceDay }?.let(rules::get)
     // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
     val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
-    TaskEditorSheet(
-        initial = target.task,
-        lists = lists,
-        today = today,
-        onDismiss = onDismiss,
-        onSave = { onSave(it); onDismiss() },
-        onDelete = { onDelete(it); onDismiss() },
-        initialRepeat = target.repeat,
-        pause = target.pause,
-        // ?.let: нет правила (ruleId == null) — нет и обработчика (null), и строки паузы не будет
-        onPause = ruleId?.let { id -> { until -> onPause(id, until); onDismiss() } },
-        onResume = ruleId?.let { id -> { onResume(id); onDismiss() } },
-        rulePauses = target.pauses,
-        initialHabit = target.isHabit,
-        habitHistory = habitHistory,
-        goals = goals,
-        initialHabitGoalId = target.habitGoalId,
-    )
+    // key(target): открыли другое (например, из дня повторения перешли к правилу) — редактор
+    // начинается заново. Без key поля помнили бы старое: rememberSaveable берёт initial только в первый раз
+    key(target) {
+        TaskEditorSheet(
+            initial = target.task,
+            lists = lists,
+            today = today,
+            onDismiss = onDismiss,
+            onSave = { onSave(it); onDismiss() },
+            onDelete = { onDelete(it); onDismiss() },
+            initialRepeat = target.repeat,
+            pause = target.pause,
+            // ?.let: нет правила (ruleId == null) — нет и обработчика (null), и строки паузы не будет
+            onPause = ruleId?.let { id -> { until -> onPause(id, until); onDismiss() } },
+            onResume = ruleId?.let { id -> { onResume(id); onDismiss() } },
+            rulePauses = target.pauses,
+            initialHabit = target.isHabit,
+            habitHistory = habitHistory,
+            goals = goals,
+            initialHabitGoalId = target.habitGoalId,
+            onEditAllDays = ruleOfDay?.let { rule -> { onOpenRule(rule) } },
+        )
+    }
 }
 
 /**
@@ -206,6 +221,7 @@ fun TaskEditorSheetBody(
     habitHistory: HabitHistory? = null,
     goals: List<Goal> = emptyList(),
     initialHabitGoalId: Long? = null,
+    onEditAllDays: (() -> Unit)? = null,
 ) {
     // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
     val isNew = initial.id == 0L && !initial.isRuleDraft
@@ -418,6 +434,18 @@ fun TaskEditorSheetBody(
                 reminder = Reminders.fitting(reminder, current.date, current.time),
                 timed = current.time != null,
                 onChange = { reminder = it },
+            )
+        }
+        // День повторения: своего «Повторять» у него нет, но всё повторение можно открыть отсюда.
+        // Без этой строки было непонятно, как поменять, например, время у всех дней, а не только у этого
+        if (onEditAllDays != null) {
+            EditorActionRow(
+                icon = Icons.Outlined.Repeat,
+                value = null,
+                action = stringResource(R.string.occurrence_edit_all),
+                onClick = onEditAllDays,
+                onClear = null,
+                clearDescription = "",
             )
         }
         // У дня повторения (отмечен, перенесён) своего повторения нет — оно у правила.

@@ -55,6 +55,8 @@ import java.time.LocalTime
  * @param initialReminder напоминание задачи сейчас; в onConfirm приходит то, что выбрали
  *   (null — без напоминания), уже подогнанное под новое время (Reminders.fitting).
  * @param onSkip есть только у дня повторения: кнопка «Пропустить этот раз» внизу.
+ * @param onEditAllDays тоже только у дня повторения: под заголовком «Только этот раз · Изменить все дни».
+ *   Шторка переносит один день, и без подписи казалось, что поменялось всё повторение.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -66,6 +68,7 @@ fun ScheduleSheet(
     onSkip: (() -> Unit)? = null,
     withReminder: Boolean = false,
     initialReminder: Reminder? = null,
+    onEditAllDays: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -78,6 +81,7 @@ fun ScheduleSheet(
             onSkip = onSkip,
             withReminder = withReminder,
             initialReminder = initialReminder,
+            onEditAllDays = onEditAllDays,
         )
     }
 }
@@ -96,6 +100,7 @@ fun ScheduleSheetBody(
     onSkip: (() -> Unit)? = null,
     withReminder: Boolean = false,
     initialReminder: Reminder? = null,
+    onEditAllDays: (() -> Unit)? = null,
 ) {
     var date by rememberSaveable { mutableStateOf(initial?.date ?: today.plusDays(1)) }
     var part by rememberSaveable { mutableStateOf(initial?.partOfDay) }
@@ -119,6 +124,15 @@ fun ScheduleSheetBody(
             .padding(bottom = 16.dp),
     ) {
         Text(stringResource(R.string.schedule_title), style = MaterialTheme.typography.titleLarge)
+        if (onEditAllDays != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.occurrence_only_this),
+                    color = PlannerTheme.paper.inkMuted
+                )
+                TextButton(onClick = onEditAllDays) { Text(stringResource(R.string.occurrence_edit_all)) }
+            }
+        }
         Spacer(Modifier.height(12.dp))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),

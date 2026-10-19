@@ -44,6 +44,8 @@ data class TodayUiState(
     val habits: List<HabitDay> = emptyList(),
     /** Мягкая статистика каждой привычки (по id правила): показывается в редакторе привычки. */
     val habitHistory: Map<Long, HabitHistory> = emptyMap(),
+    /** Все правила повторений по id — из дня повторения можно открыть его правило («Изменить все дни»). */
+    val rules: Map<Long, RecurrenceRule> = emptyMap(),
 ) {
     /** Названия целей по id — подпись под шагом цели («Купить плитку» → «шаг к цели «Ремонт в ванной»»). */
     val goalTitles: Map<Long, String> get() = goals.associate { it.id to it.title }

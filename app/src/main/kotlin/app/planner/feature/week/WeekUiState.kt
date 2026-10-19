@@ -2,6 +2,7 @@ package app.planner.feature.week
 
 import app.planner.common.DayItem
 import app.planner.core.domain.model.Goal
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import java.time.LocalDate
@@ -19,6 +20,8 @@ data class WeekUiState(
     /** Кандидаты для шторки «Из списков» и лотка планирования. */
     val unscheduled: List<Task> = emptyList(),
     val overdue: List<Task> = emptyList(),
+    /** Все правила повторений по id — из дня повторения можно открыть его правило («Изменить все дни»). */
+    val rules: Map<Long, RecurrenceRule> = emptyMap(),
 ) {
     /** Названия целей по id — подпись под шагом цели в дне недели и в шторке «Из списков». */
     val goalTitles: Map<Long, String> get() = goals.associate { it.id to it.title }

@@ -161,6 +161,9 @@ fun WeekScreen(
             onPause = viewModel::pauseRule,
             onResume = viewModel::resumeRule,
             goals = state.goals,
+            // День повторения: «Изменить все дни» открывает его правило в этом же редакторе
+            rules = state.rules,
+            onOpenRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         )
     }
 }

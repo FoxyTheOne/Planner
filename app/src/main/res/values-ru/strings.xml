@@ -70,6 +70,8 @@
     </plurals>
 
     <string name="schedule_title">Запланировать</string>
+    <string name="occurrence_only_this">Только этот раз</string>
+    <string name="occurrence_edit_all">Изменить все дни</string>
     <string name="schedule_part_of_day">Когда в течение дня</string>
     <string name="schedule_exact_time">Точное время</string>
     <string name="time_add">Добавить время</string>

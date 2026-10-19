@@ -124,6 +124,9 @@ fun TodayScreen(
             goals = state.goals,
             // Открыли привычку — её статистика (у задач и правил-дел её нет: null)
             habitHistory = target.task.ruleId?.let { state.habitHistory[it] },
+            // День повторения: «Изменить все дни» открывает его правило в этом же редакторе
+            rules = state.rules,
+            onOpenRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         )
     }
     scheduling?.let { task ->
@@ -141,6 +144,11 @@ fun TodayScreen(
             // Напоминания у дней повторения — отдельный блок (в редакторе правила), здесь их нет
             withReminder = !task.isOccurrenceDay,
             initialReminder = task.reminder,
+            // Шторка переносит только этот день; «Изменить все дни» открывает правило целиком
+            onEditAllDays = task.ruleId?.takeIf { task.isOccurrenceDay }?.let(state.rules::get)
+                ?.let { rule ->
+                    { scheduling = null; editing = EditorTarget.forRule(rule, state.today) }
+                },
         )
     }
     if (showOverdue) {

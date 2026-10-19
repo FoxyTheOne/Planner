@@ -68,11 +68,14 @@ class WeekViewModel @Inject constructor(
                         tasks.observeOccurrenceTasks(start, end)
                     ) { rules, done ->
                         val (habits, plans) = rules.partition { it.isHabit }
-                        // Pair — пара значений; `to` — короткая запись: a to b == Pair(a, b)
-                        Recurrence.occurrencesBetween(plans, start, end, instances = done) to
-                                habits.map { it.id }.toSet()
+                        // Triple — три значения вместе (как Pair, только на одно больше)
+                        Triple(
+                            Recurrence.occurrencesBetween(plans, start, end, instances = done),
+                            habits.map { it.id }.toSet(),
+                            rules.associateBy { it.id },
+                        )
                     },
-                ) { weekTasks, (lists, goals), unscheduled, overdue, (occurrences, habitIds) ->
+                ) { weekTasks, (lists, goals), unscheduled, overdue, (occurrences, habitIds, rules) ->
                     val days = (0L..6L).map(start::plusDays)
                     // Отмеченные привычки — задачи с ruleId; убираем их по id правил-привычек
                     val tasksByDay =
@@ -89,6 +92,7 @@ class WeekViewModel @Inject constructor(
                         goals = goals,
                         unscheduled = unscheduled,
                         overdue = overdue,
+                        rules = rules,
                     )
                 }
             }

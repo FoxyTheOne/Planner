@@ -59,6 +59,8 @@ private data class RepeatsOfDay(
     val habits: List<HabitDay>,
     val habitHistory: Map<Long, HabitHistory>,
     val paused: List<RecurrenceRule>,
+    /** Все правила по id — чтобы из дня повторения открыть его правило («Изменить все дни»). */
+    val rules: Map<Long, RecurrenceRule>,
 ) {
     /**
      * id правил-привычек: их отмеченные дни приходят вместе с задачами, и по этим id
@@ -140,6 +142,7 @@ class TodayViewModel @Inject constructor(
                     // associate — список → словарь: каждому правилу (по id) его история
                     habitHistory = habits.associate { it.id to HabitHistory.of(it, done, today) },
                     paused = rules.filter { Recurrence.activePause(it, today) != null },
+                    rules = rules.associateBy { it.id },
                 )
             },
         ) { twoDays, overdue, settings, (lists, goals), repeats ->
@@ -249,6 +252,7 @@ class TodayViewModel @Inject constructor(
             // Цели: по ним подписываются шаги целей и выбирается «Помогает цели» у привычки
             goals = goals,
             paused = repeats.paused,
+            rules = repeats.rules,
             habits = repeats.habits,
             habitHistory = repeats.habitHistory,
         )
