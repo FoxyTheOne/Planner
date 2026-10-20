@@ -6,6 +6,7 @@ import androidx.compose.ui.res.stringResource
 import app.planner.R
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -31,16 +32,21 @@ sealed interface DayItem {
     /** Сделанное опускается вниз раздела. */
     val isDone: Boolean
 
+    /** Часть дня без точного времени («утро», «день», «вечер»); null — в любое время. */
+    val partOfDay: PartOfDay?
+
     data class TaskItem(val task: Task) : DayItem {
         override val key get() = "task_${task.id}"
         override val time get() = task.time
         override val isDone get() = task.isDone
+        override val partOfDay get() = task.partOfDay
     }
 
     /** День повторения, ещё не отмеченный: строится по правилу, в базе его нет. */
     data class RepeatItem(val occurrence: Occurrence) : DayItem {
         override val key get() = "rule_${occurrence.rule.id}"
         override val time get() = occurrence.rule.time
+        override val partOfDay get() = occurrence.rule.partOfDay
 
         // Строка по правилу всегда «не сделано»: отмеченный день становится задачей (TaskItem)
         override val isDone get() = false

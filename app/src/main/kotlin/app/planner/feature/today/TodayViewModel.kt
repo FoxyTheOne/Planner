@@ -269,11 +269,7 @@ class TodayViewModel @Inject constructor(
 
     /** В какую часть дня попадает строка: по точному времени, а если его нет — по выбранной части дня. */
     private fun sectionOf(item: DayItem, settings: PlannerSettings): DaySection {
-        val partOfDay = when (item) {
-            is DayItem.TaskItem -> item.task.partOfDay
-            is DayItem.RepeatItem -> item.occurrence.rule.partOfDay
-        }
-        val part = item.time?.let(settings::partOfDayFor) ?: partOfDay
+        val part = item.time?.let(settings::partOfDayFor) ?: item.partOfDay
         return when (part) {
             PartOfDay.MORNING -> DaySection.MORNING
             PartOfDay.DAY -> DaySection.DAY

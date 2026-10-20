@@ -38,10 +38,12 @@ import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
 import app.planner.common.SlotSaver
 import app.planner.common.TaskEditorSheet
+import app.planner.common.labelRes
 import app.planner.common.slotText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -182,8 +184,8 @@ fun DayContent(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp)
         ) {
             item {
-                SectionLabel(stringResource(R.string.day_no_time))
                 if (untimed.isEmpty()) {
+                    SectionLabel(stringResource(R.string.day_no_time))
                     Text(
                         stringResource(R.string.week_add),
                         color = paper.inkFaint,
@@ -193,16 +195,28 @@ fun DayContent(
                             .padding(vertical = 10.dp),
                     )
                 }
-                untimed.forEach { item ->
-                    DayItemRow(
-                        item,
-                        state.lists,
-                        state.goalTitles,
-                        onToggle,
-                        onCompleteOccurrence,
-                        onEdit,
-                        onEditRule
+                // Без точного времени — по частям дня, как на «Сегодня»: «утро», «день», «вечер»,
+                // «в любое время». Раньше всё это шло одним разделом «без времени», и задача,
+                // которой поставили «день», выглядела так, будто изменение не сохранилось.
+                // groupBy собирает строки по части дня; null — «в любое время», он последний
+                val byPart = untimed.groupBy { it.partOfDay }
+                (PartOfDay.entries + null).forEach { part ->
+                    val partItems = byPart[part] ?: return@forEach
+                    SectionLabel(
+                        stringResource(part?.labelRes() ?: R.string.part_anytime),
+                        modifier = Modifier.padding(top = 8.dp),
                     )
+                    partItems.forEach { item ->
+                        DayItemRow(
+                            item,
+                            state.lists,
+                            state.goalTitles,
+                            onToggle,
+                            onCompleteOccurrence,
+                            onEdit,
+                            onEditRule
+                        )
+                    }
                 }
             }
             items(HOURS.toList(), key = { it }) { hour ->
