@@ -24,15 +24,51 @@ import androidx.core.net.toUri
 object ReminderHealth {
 
     /**
-     * Включены ли уведомления-напоминания. Учитывает всё сразу: разрешение Android 13+,
-     * общий выключатель уведомлений приложения и отдельный выключатель канала «Напоминания» —
+     * Включены ли напоминания о делах. Учитывает всё сразу: разрешение Android 13+,
+     * общий выключатель уведомлений приложения и отдельный выключатель канала дел —
      * в настройках Android его можно выключить, оставив остальные уведомления.
+     *
+     * Канал привычек не считаем: выключить тихие напоминания о привычках — обычный выбор, а не поломка.
      */
-    fun notificationsOn(context: Context): Boolean {
+    fun notificationsOn(context: Context): Boolean =
+        channelState(context, ReminderNotifications.CHANNEL_TASKS) != ChannelState.OFF
+
+    /**
+     * Со звуком ли приходят напоминания о делах. Без звука их легко не заметить,
+     * а некоторые телефоны (например, Xiaomi) сами выключают звук у новых приложений.
+     */
+    fun soundOn(context: Context): Boolean =
+        channelState(context, ReminderNotifications.CHANNEL_TASKS) == ChannelState.SOUND
+
+    /**
+     * Как сейчас приходят уведомления канала [channelId] — так, как его настроил человек.
+     *
+     * «Важность» (importance) канала определяет, как он себя ведёт: NONE — выключен,
+     * LOW и ниже — тихо, только в шторке, DEFAULT и выше — со звуком. Но звук можно выключить
+     * и отдельно, оставив важность, — тогда у канала нет мелодии (sound == null).
+     */
+    fun channelState(context: Context, channelId: String): ChannelState {
         val manager = NotificationManagerCompat.from(context)
-        val channel = manager.getNotificationChannelCompat(ReminderNotifications.CHANNEL_REMINDERS)
-        return manager.areNotificationsEnabled() && channel?.importance != NotificationManager.IMPORTANCE_NONE
+        val channel = manager.getNotificationChannelCompat(channelId)
+        return when {
+            !manager.areNotificationsEnabled() -> ChannelState.OFF
+            // Канала ещё нет (его создают при запуске) — значит, будет таким, каким его создадут
+            channel == null -> ChannelState.SOUND
+            channel.importance == NotificationManager.IMPORTANCE_NONE -> ChannelState.OFF
+            channel.importance >= NotificationManager.IMPORTANCE_DEFAULT && channel.sound != null ->
+                ChannelState.SOUND
+
+            else -> ChannelState.SILENT
+        }
     }
+
+    /**
+     * Телефон Xiaomi (в том числе Redmi и POCO — у них производитель тоже «Xiaomi»).
+     * Их прошивка MIUI / HyperOS строже других закрывает приложения в фоне,
+     * и у неё свои пункты «Автозапуск» и «Контроль активности», о которых стоит подсказать.
+     */
+    val isXiaomi: Boolean
+        get() = Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
 
     /**
      * Можно ли ставить будильники на точное время («Будильники и напоминания» в настройках).
@@ -63,6 +99,12 @@ object ReminderHealth {
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
 
+    /** Системный экран одного канала [channelId]: там включают и выключают звук, вибрацию, всплывание. */
+    fun channelSettings(context: Context, channelId: String): Intent =
+        Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            .putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
+
     /**
      * Системный экран «Будильники и напоминания» этого приложения (Android 12+).
      * «package:…» в адресе — чтобы открылся переключатель именно нашего приложения, а не список всех.
@@ -85,3 +127,6 @@ object ReminderHealth {
             "package:${context.packageName}".toUri()
         )
 }
+
+/** Как приходят уведомления канала: со звуком, тихо (только в шторке) или никак. См. [ReminderHealth.channelState]. */
+enum class ChannelState { SOUND, SILENT, OFF }

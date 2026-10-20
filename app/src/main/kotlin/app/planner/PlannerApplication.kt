@@ -24,12 +24,13 @@ class PlannerApplication : Application() {
     // Поля с @Inject Hilt заполняет сам — к моменту onCreate они уже готовы
     @Inject
     lateinit var reminderNotifications: ReminderNotifications
+
     @Inject
     lateinit var reminderSync: ReminderSync
 
     override fun onCreate() {
         super.onCreate()
-        reminderNotifications.createChannel()
+        reminderNotifications.createChannels()
         reminderSync.start()
     }
 }

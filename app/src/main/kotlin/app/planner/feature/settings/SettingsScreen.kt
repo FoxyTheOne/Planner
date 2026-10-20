@@ -1,7 +1,9 @@
 package app.planner.feature.settings
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,10 +18,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,7 +57,9 @@ import app.planner.core.domain.model.DarkVariant
 import app.planner.core.domain.model.OverdueMode
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.ThemeMode
+import app.planner.reminders.ChannelState
 import app.planner.reminders.ReminderHealth
+import app.planner.reminders.ReminderNotifications
 import java.time.LocalDate
 
 /** Страница автора на Boosty — та же, что в RadioJourney. */
@@ -82,10 +89,13 @@ fun SettingsScreen(
 
     // Всё ли в порядке с напоминаниями — для подписи под «Надёжностью напоминаний».
     // Перепроверяем при каждом возвращении на экран: человек мог поменять настройки Android
+    // Так же — как сейчас приходят уведомления каждого канала (со звуком, без, выключены)
     val context = LocalContext.current
     var remindersOk by remember { mutableStateOf(ReminderHealth.allGood(context)) }
+    var channels by remember { mutableStateOf(readChannels(context)) }
     LifecycleResumeEffect(Unit) {
         remindersOk = ReminderHealth.allGood(context)
+        channels = readChannels(context)
         onPauseOrDispose { }
     }
 
@@ -105,10 +115,12 @@ fun SettingsScreen(
         settings = settings,
         showDonate = BuildConfig.SHOW_DONATE,
         remindersOk = remindersOk,
+        channels = channels,
         contentPadding = contentPadding,
         onBack = onBack,
         onUpdate = viewModel::update,
         onOpenReliability = onOpenReliability,
+        onOpenChannel = { context.startActivity(ReminderHealth.channelSettings(context, it.id)) },
         onExport = { exportLauncher.launch("planner-${LocalDate.now()}.json") },
         onImport = {
             importLauncher.launch(
@@ -154,6 +166,8 @@ fun SettingsScreen(
  *
  * @param onUpdate изменить настройки: получает текущие, возвращает новые.
  * @param remindersOk всё ли в порядке с напоминаниями (ReminderHealth.allGood) — подпись под строкой «Надёжность».
+ * @param channels каналы уведомлений и как они сейчас звучат — по строке на канал;
+ *   тап по строке ([onOpenChannel]) открывает его системные настройки.
  * @param showDonate показывать ли «Поддержать проект». В приложении это BuildConfig.SHOW_DONATE:
  *   true в сборке для RuStore, false для Google Play — правила Play запрещают вести
  *   пользователя на сторонние способы оплаты, кроме пожертвований на благотворительность.
@@ -164,10 +178,12 @@ fun SettingsContent(
     settings: PlannerSettings,
     showDonate: Boolean,
     remindersOk: Boolean,
+    channels: List<ChannelInfo>,
     contentPadding: PaddingValues,
     onBack: () -> Unit,
     onUpdate: ((PlannerSettings) -> PlannerSettings) -> Unit,
     onOpenReliability: () -> Unit,
+    onOpenChannel: (ChannelInfo) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onDonate: () -> Unit,
@@ -250,6 +266,16 @@ fun SettingsContent(
                     )
                 }
             }
+            channels.forEach { channel ->
+                DashedRule()
+                ChannelRow(channel, onClick = { onOpenChannel(channel) })
+            }
+            Text(
+                stringResource(R.string.settings_channels_hint),
+                color = paper.inkMuted,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp),
+            )
 
             SectionLabel(
                 stringResource(R.string.settings_appearance),
@@ -323,6 +349,53 @@ fun SettingsContent(
                 )
                 ActionRow(Icons.Outlined.LocalCafe, stringResource(R.string.support_link), onDonate)
             }
+        }
+    }
+}
+
+/**
+ * Канал уведомлений для строки в настройках: его [id] в Android, название ([title] — то же,
+ * что видно в настройках Android) и как он сейчас звучит ([state]).
+ */
+data class ChannelInfo(val id: String, @param:StringRes val title: Int, val state: ChannelState)
+
+/** Каналы приложения по порядку — для строк в настройках. */
+private fun readChannels(context: Context): List<ChannelInfo> =
+    listOf(
+        ReminderNotifications.CHANNEL_TASKS to R.string.channel_tasks,
+        ReminderNotifications.CHANNEL_HABITS to R.string.channel_habits,
+    ).map { (id, title) -> ChannelInfo(id, title, ReminderHealth.channelState(context, id)) }
+
+/**
+ * Строка канала: «🔊 Напоминания о делах · Со звуком». Значок повторяет подпись:
+ * 🔊 со звуком, 🔇 без звука, перечёркнутый колокольчик — выключены.
+ */
+@Composable
+private fun ChannelRow(channel: ChannelInfo, onClick: () -> Unit) {
+    val (icon, label) = when (channel.state) {
+        ChannelState.SOUND -> Icons.AutoMirrored.Outlined.VolumeUp to R.string.channel_sound
+        ChannelState.SILENT -> Icons.AutoMirrored.Outlined.VolumeOff to R.string.channel_silent
+        ChannelState.OFF -> Icons.Outlined.NotificationsOff to R.string.channel_off
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+    ) {
+        Icon(icon, null, tint = PlannerTheme.paper.inkMuted)
+        Column(
+            Modifier
+                .padding(start = 16.dp)
+                .weight(1f)
+        ) {
+            Text(stringResource(channel.title))
+            Text(
+                stringResource(label),
+                color = PlannerTheme.paper.inkMuted,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
     }
 }

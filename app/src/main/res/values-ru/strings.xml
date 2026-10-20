@@ -124,10 +124,17 @@
     <string name="exact_offer_text">Сейчас Android может присылать напоминания с опозданием — иногда до часа. Чтобы они приходили минута в минуту, разрешите «Будильники и напоминания». Это можно сделать и позже: Настройки → Надёжность напоминаний.</string>
     <string name="reliability_ok">Всё в порядке</string>
     <string name="reliability_improve">Можно сделать надёжнее</string>
+    <string name="channel_sound">Со звуком</string>
+    <string name="channel_silent">Без звука</string>
+    <string name="channel_off">Выключены</string>
+    <string name="settings_channels_hint">Звук, вибрацию и всплывающие уведомления настраивают в Android: нажмите на строку, чтобы открыть.</string>
     <string name="reliability_intro">Придут ли напоминания вовремя, зависит от нескольких настроек телефона.</string>
     <string name="reliability_notifications">Уведомления</string>
     <string name="reliability_notifications_on">Включены</string>
     <string name="reliability_notifications_off">Выключены — напоминания не придут</string>
+    <string name="reliability_sound">Звук</string>
+    <string name="reliability_sound_on">Напоминания о делах приходят со звуком</string>
+    <string name="reliability_sound_off">Напоминания о делах приходят без звука — их легко не заметить. Если так и задумано, всё в порядке. Некоторые телефоны (например, Xiaomi) сами выключают звук у новых приложений.</string>
     <string name="reliability_exact">Точное время</string>
     <string name="reliability_exact_on">Напоминания приходят минута в минуту</string>
     <string name="reliability_exact_off">Android может присылать напоминания с опозданием — иногда до часа</string>
@@ -135,6 +142,7 @@
     <string name="reliability_background">Работа в фоне</string>
     <string name="reliability_background_on">Без ограничений</string>
     <string name="reliability_background_off">Обычно это не нужно. Но некоторые телефоны (Xiaomi, Huawei, Samsung и другие) ради экономии батареи закрывают приложения в фоне, и напоминания могут не прийти. Если такое было — в сведениях о приложении откройте «Батарея» и выберите «Без ограничений».</string>
+    <string name="reliability_background_xiaomi">На Xiaomi, Redmi и POCO проверьте ещё два пункта в сведениях о приложении: включите «Автозапуск», а в «Контроле активности» выберите «Нет ограничений».</string>
     <string name="reliability_open_settings">Открыть настройки</string>
     <string name="reliability_test">Проверка</string>
     <string name="reliability_test_text">Пришлём пробное напоминание через минуту. Закройте приложение и заблокируйте экран — так проверка честнее.</string>
@@ -335,8 +343,10 @@
     <string name="goal_note_add">Добавить заметку</string>
     <string name="goal_note_hint">Заметки: ссылки, мерки, всё, что нужно под рукой</string>
     <!-- Напоминания -->
-    <string name="channel_reminders">Напоминания</string>
-    <string name="channel_reminders_desc">Напоминания о делах в выбранное время</string>
+    <string name="channel_tasks">Напоминания о делах</string>
+    <string name="channel_tasks_desc">Задачи и повторения в выбранное время</string>
+    <string name="channel_habits">Привычки</string>
+    <string name="channel_habits_desc">Напоминания о привычках. По умолчанию тихие: без звука, только в шторке</string>
     <string name="notification_snooze">Отложить на 10 минут</string>
     <string name="reminder_add">Напомнить</string>
     <string name="reminder_value">Напомнить: %1$s</string>

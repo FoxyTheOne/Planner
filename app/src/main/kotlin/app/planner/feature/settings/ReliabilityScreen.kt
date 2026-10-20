@@ -41,32 +41,40 @@ import app.planner.common.DateTexts
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.reminders.ReminderHealth
+import app.planner.reminders.ReminderNotifications
 import java.time.LocalTime
 
 /**
  * Что сейчас с настройками телефона, от которых зависят напоминания (см. ReminderHealth).
  *
+ * @param soundOn звучат ли напоминания о делах (канал не сделали тихим).
  * @param exactAlarmsAsked есть ли на этом телефоне вообще разрешение «точное время» (Android 12+).
  *   На старых его нет — точные будильники можно всегда, и пункт не показываем.
+ * @param xiaomi телефон Xiaomi / Redmi / POCO — для них есть подсказка про «Автозапуск».
  */
 data class ReliabilityState(
     val notificationsOn: Boolean,
+    val soundOn: Boolean,
     val exactAlarmsOn: Boolean,
     val exactAlarmsAsked: Boolean,
     val unrestricted: Boolean,
+    val xiaomi: Boolean,
 ) {
     companion object {
         fun read(context: Context) = ReliabilityState(
             notificationsOn = ReminderHealth.notificationsOn(context),
+            soundOn = ReminderHealth.soundOn(context),
             exactAlarmsOn = ReminderHealth.exactAlarmsOn(context),
             exactAlarmsAsked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
             unrestricted = ReminderHealth.unrestrictedInBackground(context),
+            xiaomi = ReminderHealth.isXiaomi,
         )
     }
 }
 
 /**
- * Страница «Надёжность напоминаний»: три проверки и пробное напоминание.
+ * Страница «Надёжность напоминаний»: проверки (уведомления, звук, точное время, работа в фоне)
+ * и пробное напоминание.
  *
  * У каждой проверки — что сейчас и кнопка, ведущая прямо в нужное место настроек Android.
  * Приложение само эти настройки поменять не может (и не должно): решает человек.
@@ -93,6 +101,11 @@ fun ReliabilityScreen(
         contentPadding = contentPadding,
         onBack = onBack,
         onOpenNotifications = { context.startActivity(ReminderHealth.notificationSettings(context)) },
+        onOpenSound = {
+            context.startActivity(
+                ReminderHealth.channelSettings(context, ReminderNotifications.CHANNEL_TASKS)
+            )
+        },
         onOpenExactAlarms = {
             // Кнопка есть только на Android 12+, но компилятор этого не знает — проверяем ещё раз
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -115,6 +128,7 @@ fun ReliabilityContent(
     contentPadding: PaddingValues,
     onBack: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenSound: () -> Unit,
     onOpenExactAlarms: () -> Unit,
     onOpenAppSettings: () -> Unit,
     onSendTest: () -> Unit,
@@ -157,6 +171,21 @@ fun ReliabilityContent(
                 action = stringResource(R.string.reminder_notifications_enable),
                 onAction = onOpenNotifications,
             )
+            // Звук — только когда уведомления вообще приходят. И «по желанию»: тихие напоминания
+            // тоже бывают нужны, поэтому не «не в порядке», а спокойное «к сведению»
+            if (state.notificationsOn) {
+                DashedRule()
+                CheckItem(
+                    title = stringResource(R.string.reliability_sound),
+                    ok = state.soundOn,
+                    optional = true,
+                    text = stringResource(
+                        if (state.soundOn) R.string.reliability_sound_on else R.string.reliability_sound_off,
+                    ),
+                    action = stringResource(R.string.reliability_open_settings),
+                    onAction = onOpenSound,
+                )
+            }
             if (state.exactAlarmsAsked) {
                 DashedRule()
                 CheckItem(
@@ -171,14 +200,17 @@ fun ReliabilityContent(
             }
             DashedRule()
             // Фоновая работа — «по желанию»: на большинстве телефонов она не нужна,
-            // поэтому вместо «не в порядке» — спокойный значок «к сведению»
+            // поэтому вместо «не в порядке» — спокойный значок «к сведению».
+            // У Xiaomi ещё свои «Автозапуск» и «Контроль активности», а проверить их приложение
+            // не может — поэтому там подсказка и кнопка видны всегда
             CheckItem(
                 title = stringResource(R.string.reliability_background),
-                ok = state.unrestricted,
+                ok = state.unrestricted && !state.xiaomi,
                 optional = true,
                 text = stringResource(
                     if (state.unrestricted) R.string.reliability_background_on else R.string.reliability_background_off,
                 ),
+                note = if (state.xiaomi) stringResource(R.string.reliability_background_xiaomi) else null,
                 action = stringResource(R.string.reliability_open_settings),
                 onAction = onOpenAppSettings,
             )
@@ -222,6 +254,8 @@ fun ReliabilityContent(
  *
  * Значки без красного (см. мягкий тон приложения): в порядке — галочка, не в порядке — «!»
  * цветом акцента, а для необязательного ([optional]) — нейтральное «i».
+ *
+ * @param note ещё один абзац под [text] — подсказка для особых телефонов.
  */
 @Composable
 private fun CheckItem(
@@ -231,6 +265,7 @@ private fun CheckItem(
     action: String,
     onAction: () -> Unit,
     optional: Boolean = false,
+    note: String? = null,
 ) {
     val paper = PlannerTheme.paper
     val (icon: ImageVector, tint) = when {
@@ -247,6 +282,14 @@ private fun CheckItem(
         ) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(text, color = paper.inkMuted, style = MaterialTheme.typography.bodyMedium)
+            note?.let {
+                Text(
+                    it,
+                    color = paper.inkMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
             if (!ok) {
                 // offset — сдвинуть кнопку влево на её собственный отступ, чтобы слово
                 // стояло ровно под текстом, а не уезжало вправо

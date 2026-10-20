@@ -19,6 +19,8 @@ import app.planner.common.DateTexts
 import app.planner.common.notePreview
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
+import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_HABITS
+import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_TASKS
 import app.planner.reminders.ReminderNotifications.Companion.TAG_RULE
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
@@ -28,10 +30,21 @@ import javax.inject.Singleton
 /**
  * Уведомления-напоминания о задачах ([show]) и о днях повторений и привычек ([showRuleDay]).
  *
- * КАНАЛ. С Android 8 каждое уведомление принадлежит «каналу» — группе, которую человек может
- * отдельно настроить в системных настройках (звук, вибрация, выключить совсем). У нас пока
- * один канал — «Напоминания». Создать канал можно сколько угодно раз: если он уже есть,
- * Android просто ничего не делает, поэтому [createChannel] вызывается при каждом запуске.
+ * КАНАЛЫ. С Android 8 каждое уведомление принадлежит «каналу» — группе, которую человек может
+ * отдельно настроить в системных настройках (звук, вибрация, всплывать ли, выключить совсем).
+ * У нас их два:
+ * - [CHANNEL_TASKS] «Напоминания о делах» — задачи и повторения. Со звуком и всплывают поверх экрана:
+ *   напоминание о деле должно быть замечено;
+ * - [CHANNEL_HABITS] «Привычки» — тихие: без звука, просто появляются в шторке. Привычка — не срочное
+ *   дело, а мягкий повод: напомнить, но не навязывать.
+ *
+ * Звук принадлежит каналу, а не уведомлению: приложение задаёт его только при создании канала,
+ * дальше решает человек в настройках Android. Поэтому своего переключателя «со звуком / без»
+ * в приложении нет — строки в настройках открывают системный экран канала (см. ReminderHealth).
+ *
+ * Создать канал можно сколько угодно раз: если он уже есть, Android обновит только название
+ * и описание, а звук и всё, что настроил человек, не тронет. Поэтому [createChannels]
+ * вызывается при каждом запуске.
  *
  * РАЗРЕШЕНИЕ. С Android 13 показывать уведомления можно только с разрешения человека
  * (POST_NOTIFICATIONS). Спрашиваем его, когда человек впервые выбирает напоминание (ReminderRow),
@@ -43,7 +56,14 @@ class ReminderNotifications @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
     companion object {
-        const val CHANNEL_REMINDERS = "reminders"
+        /**
+         * Канал задач и повторений. Идентификатор старый, «reminders»: так назывался канал,
+         * когда был единственным, — если человек его уже настроил, настройки сохранятся.
+         */
+        const val CHANNEL_TASKS = "reminders"
+
+        /** Канал привычек — тихий. */
+        const val CHANNEL_HABITS = "habits"
 
         /** Номер пробного уведомления. У задач номера с 1, поэтому 0 ни с одной не совпадёт. */
         const val TEST_NOTIFICATION_ID = 0
@@ -57,16 +77,27 @@ class ReminderNotifications @Inject constructor(
 
         /** Какой день повторения в уведомлении — в его «дополнительных данных» (extras). */
         private const val EXTRA_DAY = "planner.day"
+
+        /** Каналы напоминаний: их уведомления [dismissAllExcept] убирает, когда те больше не нужны. */
+        private val REMINDER_CHANNELS = setOf(CHANNEL_TASKS, CHANNEL_HABITS)
     }
 
-    fun createChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_REMINDERS,
-            context.getString(R.string.channel_reminders),
-            // HIGH — уведомление всплывает поверх экрана и звучит: напоминание должно быть замечено
+    /** Создать оба канала (или обновить их названия). Зовёт PlannerApplication при каждом запуске. */
+    fun createChannels() {
+        val tasks = NotificationChannel(
+            CHANNEL_TASKS,
+            context.getString(R.string.channel_tasks),
+            // HIGH — уведомление звучит и всплывает поверх экрана
             NotificationManager.IMPORTANCE_HIGH,
-        ).apply { description = context.getString(R.string.channel_reminders_desc) }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        ).apply { description = context.getString(R.string.channel_tasks_desc) }
+        val habits = NotificationChannel(
+            CHANNEL_HABITS,
+            context.getString(R.string.channel_habits),
+            // LOW — без звука и не всплывает, но видно в шторке и значком в строке состояния
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply { description = context.getString(R.string.channel_habits_desc) }
+        context.getSystemService(NotificationManager::class.java)
+            .createNotificationChannels(listOf(tasks, habits))
     }
 
     /**
@@ -76,14 +107,13 @@ class ReminderNotifications @Inject constructor(
     fun show(task: Task) {
         val text =
             listOfNotNull(task.time?.let(DateTexts::time), task.notePreview).joinToString(" · ")
-        val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+        val notification = NotificationCompat.Builder(context, CHANNEL_TASKS)
             .setSmallIcon(R.drawable.ic_stat_reminder)
             .setContentTitle(task.title)
             .setContentText(text.ifEmpty { null })
             .setContentIntent(openApp(task.id))
             .setAutoCancel(true) // нажали — уведомление убирается
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setPriority(NotificationCompat.PRIORITY_HIGH) // для Android 7 и старше, где каналов нет
             // Кнопки под текстом. Иконка 0 — без значка: в уведомлениях Android 7+ у кнопок
             // значки всё равно не рисуются, только подписи
             .addAction(
@@ -106,14 +136,14 @@ class ReminderNotifications @Inject constructor(
      * Без кнопок и без задачи; тап открывает приложение.
      */
     fun showTest() {
-        val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+        // В канал дел: проверяем те напоминания, которые должны звучать
+        val notification = NotificationCompat.Builder(context, CHANNEL_TASKS)
             .setSmallIcon(R.drawable.ic_stat_reminder)
             .setContentTitle(context.getString(R.string.test_notification_title))
             .setContentText(context.getString(R.string.test_notification_text))
             .setContentIntent(openApp(TEST_NOTIFICATION_ID.toLong()))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
         post(tag = null, id = TEST_NOTIFICATION_ID, notification)
     }
@@ -122,19 +152,21 @@ class ReminderNotifications @Inject constructor(
      * Напоминание о дне повторения или привычки: «Полить цветы» и ниже «18:00 · фикус»
      * (время и дела этого дня у цикла). Кнопки те же, что у задачи: «Готово» отмечает день,
      * «Отложить» — напомнит через 10 минут.
+     *
+     * Привычки идут в тихий канал [CHANNEL_HABITS], остальные повторения — в канал дел [CHANNEL_TASKS].
      */
     fun showRuleDay(occurrence: Occurrence) {
         val rule = occurrence.rule
         val text =
             listOfNotNull(rule.time?.let(DateTexts::time), occurrence.details).joinToString(" · ")
-        val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+        val channel = if (rule.isHabit) CHANNEL_HABITS else CHANNEL_TASKS
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_stat_reminder)
             .setContentTitle(rule.title)
             .setContentText(text.ifEmpty { null })
             .setContentIntent(openApp(rule.id))
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
             // Запоминаем день: по нему ReminderSync поймёт, что день уже отметили, и уберёт уведомление
             .addExtras(Bundle().apply { putLong(EXTRA_DAY, occurrence.date.toEpochDay()) })
             .addAction(
@@ -190,7 +222,7 @@ class ReminderNotifications @Inject constructor(
      * не перенесли, напоминание у повторения не убрали).
      *
      * activeNotifications — уведомления нашего приложения, которые сейчас висят в шторке.
-     * Берём только из канала напоминаний: если позже появятся другие (вечерняя сводка), их не трогаем.
+     * Берём только из каналов напоминаний: если позже появятся другие (вечерняя сводка), их не трогаем.
      */
     fun dismissAllExcept(
         keepTaskIds: Set<Long>,
@@ -199,7 +231,7 @@ class ReminderNotifications @Inject constructor(
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.activeNotifications
             // Пробное уведомление не трогаем: задачи у него нет, но оно должно повисеть, пока его не увидят
-            .filter { it.notification.channelId == CHANNEL_REMINDERS && it.id != TEST_NOTIFICATION_ID }
+            .filter { it.notification.channelId in REMINDER_CHANNELS && it.id != TEST_NOTIFICATION_ID }
             .forEach { shown ->
                 val keep = if (shown.tag == TAG_RULE) {
                     val day = LocalDate.ofEpochDay(shown.notification.extras.getLong(EXTRA_DAY))

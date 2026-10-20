@@ -130,10 +130,17 @@
     <string name="exact_offer_text">Right now Android may deliver reminders late — sometimes by up to an hour. To get them right on the minute, allow “Alarms &amp; reminders”. You can always do this later in Settings → Reliable reminders.</string>
     <string name="reliability_ok">All set</string>
     <string name="reliability_improve">Could be more reliable</string>
+    <string name="channel_sound">With sound</string>
+    <string name="channel_silent">Silent</string>
+    <string name="channel_off">Off</string>
+    <string name="settings_channels_hint">Sound, vibration and pop-ups are set in Android: tap a row to open its settings.</string>
     <string name="reliability_intro">Whether reminders arrive on time depends on a few phone settings.</string>
     <string name="reliability_notifications">Notifications</string>
     <string name="reliability_notifications_on">On</string>
     <string name="reliability_notifications_off">Off — reminders won\'t arrive</string>
+    <string name="reliability_sound">Sound</string>
+    <string name="reliability_sound_on">Task reminders come with sound</string>
+    <string name="reliability_sound_off">Task reminders come without sound and are easy to miss. If that’s what you want, all is well. Some phones (Xiaomi, for example) turn off sound for new apps by themselves.</string>
     <string name="reliability_exact">Exact time</string>
     <string name="reliability_exact_on">Reminders arrive right on the minute</string>
     <string name="reliability_exact_off">Android may deliver reminders late — sometimes by up to an hour</string>
@@ -141,6 +148,7 @@
     <string name="reliability_background">Background work</string>
     <string name="reliability_background_on">Unrestricted</string>
     <string name="reliability_background_off">Usually not needed. But some phones (Xiaomi, Huawei, Samsung and others) close apps in the background to save battery, and reminders may not arrive. If that has happened, open App info → Battery and choose “Unrestricted”.</string>
+    <string name="reliability_background_xiaomi">On Xiaomi, Redmi and POCO, check two more items in app info: turn on “Autostart”, and under “Battery saver” choose “No restrictions”.</string>
     <string name="reliability_open_settings">Open settings</string>
     <string name="reliability_test">Check</string>
     <string name="reliability_test_text">We\'ll send a test reminder in a minute. Close the app and lock the screen — that makes the check more honest.</string>
@@ -330,8 +338,10 @@
     <string name="goal_note_add">Add a note</string>
     <string name="goal_note_hint">Notes: links, measurements, anything to keep at hand</string>
     <!-- Напоминания -->
-    <string name="channel_reminders">Reminders</string>
-    <string name="channel_reminders_desc">Reminders about tasks at the time you chose</string>
+    <string name="channel_tasks">Task reminders</string>
+    <string name="channel_tasks_desc">Tasks and repeats at the time you chose</string>
+    <string name="channel_habits">Habits</string>
+    <string name="channel_habits_desc">Habit reminders. Quiet by default: no sound, just in the notification shade</string>
     <string name="notification_snooze">Snooze 10 min</string>
     <string name="reminder_add">Remind me</string>
     <string name="reminder_value">Remind: %1$s</string>
