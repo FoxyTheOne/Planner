@@ -184,4 +184,18 @@ class RemindersTest {
         assertEquals(monday.plusDays(3), Reminders.nextForRule(paused, emptyList(), monday.atTime(9, 0))?.first)
         assertNull(Reminders.nextForRule(water.copy(reminder = null), emptyList(), monday.atTime(9, 0)))
     }
+    @Test
+    fun `snoozed repeat day rings again until it is done`() {
+        val fired = LocalDateTime.of(2026, 10, 19, 10, 0) // полив сегодня в 10:00
+        val now = fired.plusMinutes(1)
+        val snooze = Snooze(original = fired, until = fired.plusMinutes(10), date = monday)
+
+        // Отложили — звоним через 10 минут о сегодняшнем поливе
+        assertEquals(monday to snooze.until, Reminders.alarmForRule(water, emptyList(), now, snooze))
+        // Тем временем отметили сегодняшний полив — отложенное ни к чему, следующее завтра
+        val done = Task(title = "Полить цветы", date = monday, ruleId = 1, occurrenceDate = monday, status = TaskStatus.DONE)
+        assertEquals(monday.plusDays(1), Reminders.alarmForRule(water, listOf(done), now, snooze)?.first)
+        // Отложенное время прошло — тоже обычное следующее
+        assertEquals(monday.plusDays(1), Reminders.alarmForRule(water, emptyList(), snooze.until, snooze)?.first)
+    }
 }

@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 import javax.inject.Inject
@@ -57,6 +58,36 @@ class ReminderScheduler @Inject constructor(
             it.cancel()
         }
     }
+
+    /**
+     * Поставить (или переставить) будильник повторения [ruleId]: напомнить о его дне [date] в [at].
+     * У повторения будильник один — на ближайший день; когда он сработает, ReminderSync поставит
+     * следующий. Номер (requestCode) тот же, что у задачи с таким id, но Android различает их
+     * по действию (ACTION_REMIND_RULE), так что будильники задачи 5 и повторения 5 не путаются.
+     */
+    fun scheduleRule(ruleId: Long, date: LocalDate, at: LocalDateTime) {
+        rulePendingIntent(ruleId, date, PendingIntent.FLAG_UPDATE_CURRENT)?.let { setAlarm(at, it) }
+    }
+
+    /** Снять будильник повторения [ruleId], если он стоит. */
+    fun cancelRule(ruleId: Long) {
+        rulePendingIntent(ruleId, date = null, PendingIntent.FLAG_NO_CREATE)?.let {
+            alarms.cancel(it)
+            it.cancel()
+        }
+    }
+
+    private fun rulePendingIntent(ruleId: Long, date: LocalDate?, flags: Int): PendingIntent? =
+        PendingIntent.getBroadcast(
+            context,
+            ruleId.toInt(),
+            Intent(context, ReminderReceiver::class.java)
+                .setAction(ReminderReceiver.ACTION_REMIND_RULE)
+                .putExtra(ReminderReceiver.EXTRA_RULE_ID, ruleId)
+                // День — числом дней от 1970 года: в Intent удобно класть простые числа
+                .apply { date?.let { putExtra(ReminderReceiver.EXTRA_DATE, it.toEpochDay()) } },
+            flags or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun setAlarm(at: LocalDateTime, intent: PendingIntent) {
         // AlarmManager считает в миллисекундах от 1970 года по всемирному времени, поэтому

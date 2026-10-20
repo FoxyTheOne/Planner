@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -16,7 +17,9 @@ import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.notePreview
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.recurrence.Occurrence
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,6 +44,16 @@ class ReminderNotifications @Inject constructor(
 
         /** Номер пробного уведомления. У задач номера с 1, поэтому 0 ни с одной не совпадёт. */
         const val TEST_NOTIFICATION_ID = 0
+
+        /**
+         * Метка (tag) уведомлений о днях повторений. Уведомление в Android узнаётся по паре
+         * «метка + номер»: у задачи 5 и повторения 5 номер один, а метки разные — они не заменят друг друга.
+         * У уведомлений задач метки нет (null).
+         */
+        private const val TAG_RULE = "rule"
+
+        /** Какой день повторения в уведомлении — в его «дополнительных данных» (extras). */
+        private const val EXTRA_DAY = "planner.day"
     }
 
     fun createChannel() {
@@ -114,8 +127,51 @@ class ReminderNotifications @Inject constructor(
         NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION_ID, notification)
     }
 
+    /**
+     * Напоминание о дне повторения или привычки: «Полить цветы» и ниже «18:00 · фикус»
+     * (время и дела этого дня у цикла). Кнопки те же, что у задачи: «Готово» отмечает день,
+     * «Отложить» — напомнит через 10 минут.
+     */
+    fun showRuleDay(occurrence: Occurrence) {
+        // Та же проверка разрешения, что в show(): lint видит её только рядом с notify
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        val rule = occurrence.rule
+        val text =
+            listOfNotNull(rule.time?.let(DateTexts::time), occurrence.details).joinToString(" · ")
+        val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
+            .setSmallIcon(R.drawable.ic_stat_reminder)
+            .setContentTitle(rule.title)
+            .setContentText(text.ifEmpty { null })
+            .setContentIntent(openApp(rule.id))
+            .setAutoCancel(true)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // Запоминаем день: по нему ReminderSync поймёт, что день уже отметили, и уберёт уведомление
+            .addExtras(Bundle().apply { putLong(EXTRA_DAY, occurrence.date.toEpochDay()) })
+            .addAction(
+                0,
+                context.getString(R.string.action_done),
+                ruleAction(rule.id, occurrence.date, ReminderReceiver.ACTION_RULE_DONE),
+            )
+            .addAction(
+                0,
+                context.getString(R.string.notification_snooze),
+                ruleAction(rule.id, occurrence.date, ReminderReceiver.ACTION_RULE_SNOOZE),
+            )
+            .build()
+        // Метка + id правила: следующее напоминание того же повторения заменит это, а не добавит второе
+        NotificationManagerCompat.from(context).notify(TAG_RULE, rule.id.toInt(), notification)
+    }
+
     /** Убрать уведомление задачи [taskId] — после нажатия на его кнопку. */
     fun dismiss(taskId: Long) = NotificationManagerCompat.from(context).cancel(taskId.toInt())
+
+    /** Убрать уведомление повторения [ruleId] — после нажатия на его кнопку. */
+    fun dismissRuleDay(ruleId: Long) =
+        NotificationManagerCompat.from(context).cancel(TAG_RULE, ruleId.toInt())
 
     /**
      * Убрать уведомления о задачах, о которых напоминать больше не нужно: всех, кроме [keepTaskIds].
@@ -124,16 +180,29 @@ class ReminderNotifications @Inject constructor(
      * убрали напоминание). Уведомление про уже сделанное дело в шторке ни к чему. Зовёт ReminderSync
      * при каждом изменении — он как раз знает, у каких задач напоминание ещё в силе.
      *
+     * С днями повторений так же: [keepRuleDay] отвечает, ещё ли актуален день (его не отметили,
+     * не перенесли, напоминание у повторения не убрали).
+     *
      * activeNotifications — уведомления нашего приложения, которые сейчас висят в шторке.
      * Берём только из канала напоминаний: если позже появятся другие (вечерняя сводка), их не трогаем.
      */
-    fun dismissAllExcept(keepTaskIds: Set<Long>) {
+    fun dismissAllExcept(
+        keepTaskIds: Set<Long>,
+        keepRuleDay: (ruleId: Long, date: LocalDate) -> Boolean
+    ) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.activeNotifications
             // Пробное уведомление не трогаем: задачи у него нет, но оно должно повисеть, пока его не увидят
             .filter { it.notification.channelId == CHANNEL_REMINDERS && it.id != TEST_NOTIFICATION_ID }
-            .filter { it.id.toLong() !in keepTaskIds }
-            .forEach { manager.cancel(it.id) }
+            .forEach { shown ->
+                val keep = if (shown.tag == TAG_RULE) {
+                    val day = LocalDate.ofEpochDay(shown.notification.extras.getLong(EXTRA_DAY))
+                    keepRuleDay(shown.id.toLong(), day)
+                } else {
+                    shown.id.toLong() in keepTaskIds
+                }
+                if (!keep) manager.cancel(shown.tag, shown.id)
+            }
     }
 
     /**
@@ -148,6 +217,18 @@ class ReminderNotifications @Inject constructor(
             Intent(context, ReminderReceiver::class.java)
                 .setAction(action)
                 .putExtra(ReminderReceiver.EXTRA_TASK_ID, taskId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    /** Кнопка уведомления о дне повторения — тот же приёмник, но с правилом и днём вместо задачи. */
+    private fun ruleAction(ruleId: Long, date: LocalDate, action: String): PendingIntent =
+        PendingIntent.getBroadcast(
+            context,
+            ruleId.toInt(),
+            Intent(context, ReminderReceiver::class.java)
+                .setAction(action)
+                .putExtra(ReminderReceiver.EXTRA_RULE_ID, ruleId)
+                .putExtra(ReminderReceiver.EXTRA_DATE, date.toEpochDay()),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 

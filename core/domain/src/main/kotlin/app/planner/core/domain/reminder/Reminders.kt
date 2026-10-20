@@ -8,6 +8,7 @@ import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.reminder.Reminders.LOOKAHEAD_DAYS
 import app.planner.core.domain.reminder.Reminders.alarmAt
 import app.planner.core.domain.reminder.Reminders.fireAt
+import app.planner.core.domain.reminder.Reminders.nextForRule
 import app.planner.core.domain.reminder.Reminders.upcoming
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -151,5 +152,28 @@ object Reminders {
                 )?.let { occurrence.date to it }
             }
             .firstOrNull { (_, at) -> at > now }
+    }
+
+    /**
+     * Когда звенеть будильнику повторения [rule]: день и момент; null — не нужно.
+     *
+     * Обычно это [nextForRule]. Но если напоминание дня отложили ([snooze]) — звоним в [Snooze.until],
+     * пока это ещё имеет смысл: тот день не отметили и не перенесли, а его напоминание не поменяли
+     * (fireAt дня всё тот же [Snooze.original]). Так же, как у задачи (см. [alarmAt]).
+     */
+    fun alarmForRule(
+        rule: RecurrenceRule,
+        instances: List<Task>,
+        now: LocalDateTime,
+        snooze: Snooze? = null,
+    ): Pair<LocalDate, LocalDateTime>? {
+        val day = snooze?.date
+        if (day != null && snooze.until > now) {
+            val handled = instances.any { it.ruleId == rule.id && it.occurrenceDate == day }
+            val stillDue = Recurrence.occurrence(rule, day)
+                ?.let { fireAt(Recurrence.toTask(it, TaskStatus.OPEN)) } == snooze.original
+            if (!handled && stillDue) return day to snooze.until
+        }
+        return nextForRule(rule, instances, now)
     }
 }
