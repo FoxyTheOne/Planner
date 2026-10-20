@@ -34,6 +34,14 @@ object ReminderHealth {
         channelState(context, ReminderNotifications.CHANNEL_TASKS) != ChannelState.OFF
 
     /**
+     * Разрешены ли уведомления приложению вообще — неважно, какого канала. Нет, если человек
+     * выключил их в настройках Android или ещё не дал разрешения: с Android 13 приложение
+     * спрашивает его, только когда человек впервые ставит напоминание.
+     */
+    fun appNotificationsOn(context: Context): Boolean =
+        NotificationManagerCompat.from(context).areNotificationsEnabled()
+
+    /**
      * Со звуком ли приходят напоминания о делах. Без звука их легко не заметить,
      * а некоторые телефоны (например, Xiaomi) сами выключают звук у новых приложений.
      */
@@ -48,10 +56,9 @@ object ReminderHealth {
      * и отдельно, оставив важность, — тогда у канала нет мелодии (sound == null).
      */
     fun channelState(context: Context, channelId: String): ChannelState {
-        val manager = NotificationManagerCompat.from(context)
-        val channel = manager.getNotificationChannelCompat(channelId)
+        val channel = NotificationManagerCompat.from(context).getNotificationChannelCompat(channelId)
         return when {
-            !manager.areNotificationsEnabled() -> ChannelState.OFF
+            !appNotificationsOn(context) -> ChannelState.OFF
             // Канала ещё нет (его создают при запуске) — значит, будет таким, каким его создадут
             channel == null -> ChannelState.SOUND
             channel.importance == NotificationManager.IMPORTANCE_NONE -> ChannelState.OFF

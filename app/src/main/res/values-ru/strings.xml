@@ -125,8 +125,10 @@
     <string name="reliability_ok">Всё в порядке</string>
     <string name="reliability_improve">Можно сделать надёжнее</string>
     <string name="channel_sound">Со звуком</string>
-    <string name="channel_silent">Без звука</string>
-    <string name="channel_off">Выключены</string>
+    <string name="channel_silent">Без звука, только в шторке</string>
+    <string name="channel_off">Выключены: не приходят совсем</string>
+    <string name="settings_app_notifications">Уведомления приложения</string>
+    <string name="settings_app_notifications_off">Выключены, поэтому напоминания не приходят. Нажмите, чтобы включить</string>
     <string name="settings_channels_hint">Звук, вибрацию и всплывающие уведомления настраивают в Android: нажмите на строку, чтобы открыть.</string>
     <string name="reliability_intro">Придут ли напоминания вовремя, зависит от нескольких настроек телефона.</string>
     <string name="reliability_notifications">Уведомления</string>

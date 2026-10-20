@@ -23,6 +23,7 @@ private fun SettingsPreview() {
             settings = PlannerSettings(),
             showDonate = true,
             remindersOk = false,
+            appNotificationsOn = true,
             channels = listOf(
                 ChannelInfo(
                     ReminderNotifications.CHANNEL_TASKS,
@@ -39,6 +40,7 @@ private fun SettingsPreview() {
             onBack = {},
             onUpdate = {},
             onOpenReliability = {},
+            onOpenNotifications = {},
             onOpenChannel = {},
             onExport = {},
             onImport = {},

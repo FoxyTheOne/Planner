@@ -126,8 +126,10 @@
     <string name="reliability_ok">Усё ў парадку</string>
     <string name="reliability_improve">Можна зрабіць надзейней</string>
     <string name="channel_sound">З гукам</string>
-    <string name="channel_silent">Без гуку</string>
-    <string name="channel_off">Выключаны</string>
+    <string name="channel_silent">Без гуку, толькі ў шторцы</string>
+    <string name="channel_off">Выключаны: не прыходзяць зусім</string>
+    <string name="settings_app_notifications">Апавяшчэнні праграмы</string>
+    <string name="settings_app_notifications_off">Выключаны, таму напаміны не прыходзяць. Націсніце, каб уключыць</string>
     <string name="settings_channels_hint">Гук, вібрацыю і ўсплывальныя апавяшчэнні наладжваюць у Android: націсніце на радок, каб адкрыць.</string>
     <string name="reliability_intro">Ці прыйдуць напаміны своечасова, залежыць ад некалькіх налад тэлефона.</string>
     <string name="reliability_notifications">Апавяшчэнні</string>

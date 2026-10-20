@@ -89,12 +89,15 @@ fun SettingsScreen(
 
     // Всё ли в порядке с напоминаниями — для подписи под «Надёжностью напоминаний».
     // Перепроверяем при каждом возвращении на экран: человек мог поменять настройки Android
-    // Так же — как сейчас приходят уведомления каждого канала (со звуком, без, выключены)
+    // Так же — разрешены ли уведомления приложению вообще и как приходят уведомления
+    // каждого канала (со звуком, без, выключены)
     val context = LocalContext.current
     var remindersOk by remember { mutableStateOf(ReminderHealth.allGood(context)) }
+    var appNotificationsOn by remember { mutableStateOf(ReminderHealth.appNotificationsOn(context)) }
     var channels by remember { mutableStateOf(readChannels(context)) }
     LifecycleResumeEffect(Unit) {
         remindersOk = ReminderHealth.allGood(context)
+        appNotificationsOn = ReminderHealth.appNotificationsOn(context)
         channels = readChannels(context)
         onPauseOrDispose { }
     }
@@ -115,11 +118,13 @@ fun SettingsScreen(
         settings = settings,
         showDonate = BuildConfig.SHOW_DONATE,
         remindersOk = remindersOk,
+        appNotificationsOn = appNotificationsOn,
         channels = channels,
         contentPadding = contentPadding,
         onBack = onBack,
         onUpdate = viewModel::update,
         onOpenReliability = onOpenReliability,
+        onOpenNotifications = { context.startActivity(ReminderHealth.notificationSettings(context)) },
         onOpenChannel = { context.startActivity(ReminderHealth.channelSettings(context, it.id)) },
         onExport = { exportLauncher.launch("planner-${LocalDate.now()}.json") },
         onImport = {
@@ -166,6 +171,9 @@ fun SettingsScreen(
  *
  * @param onUpdate изменить настройки: получает текущие, возвращает новые.
  * @param remindersOk всё ли в порядке с напоминаниями (ReminderHealth.allGood) — подпись под строкой «Надёжность».
+ * @param appNotificationsOn разрешены ли уведомления приложению вообще. Если нет — вместо строк
+ *   каналов одна строка «Уведомления приложения · Выключены», и тап ([onOpenNotifications])
+ *   ведёт туда, где их включают: пока всё приложение молчит, звук отдельных каналов ни при чём.
  * @param channels каналы уведомлений и как они сейчас звучат — по строке на канал;
  *   тап по строке ([onOpenChannel]) открывает его системные настройки.
  * @param showDonate показывать ли «Поддержать проект». В приложении это BuildConfig.SHOW_DONATE:
@@ -178,11 +186,13 @@ fun SettingsContent(
     settings: PlannerSettings,
     showDonate: Boolean,
     remindersOk: Boolean,
+    appNotificationsOn: Boolean,
     channels: List<ChannelInfo>,
     contentPadding: PaddingValues,
     onBack: () -> Unit,
     onUpdate: ((PlannerSettings) -> PlannerSettings) -> Unit,
     onOpenReliability: () -> Unit,
+    onOpenNotifications: () -> Unit,
     onOpenChannel: (ChannelInfo) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
@@ -266,16 +276,26 @@ fun SettingsContent(
                     )
                 }
             }
-            channels.forEach { channel ->
-                DashedRule()
-                ChannelRow(channel, onClick = { onOpenChannel(channel) })
+            DashedRule()
+            if (appNotificationsOn) {
+                channels.forEachIndexed { index, channel ->
+                    if (index > 0) DashedRule()
+                    ChannelRow(channel, onClick = { onOpenChannel(channel) })
+                }
+                Text(
+                    stringResource(R.string.settings_channels_hint),
+                    color = paper.inkMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            } else {
+                NotificationRow(
+                    icon = Icons.Outlined.NotificationsOff,
+                    title = stringResource(R.string.settings_app_notifications),
+                    subtitle = stringResource(R.string.settings_app_notifications_off),
+                    onClick = onOpenNotifications,
+                )
             }
-            Text(
-                stringResource(R.string.settings_channels_hint),
-                color = paper.inkMuted,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp),
-            )
 
             SectionLabel(
                 stringResource(R.string.settings_appearance),
@@ -377,6 +397,12 @@ private fun ChannelRow(channel: ChannelInfo, onClick: () -> Unit) {
         ChannelState.SILENT -> Icons.AutoMirrored.Outlined.VolumeOff to R.string.channel_silent
         ChannelState.OFF -> Icons.Outlined.NotificationsOff to R.string.channel_off
     }
+    NotificationRow(icon, stringResource(channel.title), stringResource(label), onClick)
+}
+
+/** Строка раздела «уведомления»: значок, название и подпись мельче. */
+@Composable
+private fun NotificationRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -390,9 +416,9 @@ private fun ChannelRow(channel: ChannelInfo, onClick: () -> Unit) {
                 .padding(start = 16.dp)
                 .weight(1f)
         ) {
-            Text(stringResource(channel.title))
+            Text(title)
             Text(
-                stringResource(label),
+                subtitle,
                 color = PlannerTheme.paper.inkMuted,
                 style = MaterialTheme.typography.bodySmall,
             )
