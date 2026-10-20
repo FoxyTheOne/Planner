@@ -2,12 +2,10 @@ package app.planner.feature.settings
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import app.planner.R
 import app.planner.core.designsystem.preview.PlannerScreenPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.reminders.ChannelState
-import app.planner.reminders.ReminderNotifications
 import java.time.LocalTime
 
 /*
@@ -24,18 +22,7 @@ private fun SettingsPreview() {
             showDonate = true,
             remindersOk = false,
             appNotificationsOn = true,
-            channels = listOf(
-                ChannelInfo(
-                    ReminderNotifications.CHANNEL_TASKS,
-                    R.string.channel_tasks,
-                    ChannelState.SOUND
-                ),
-                ChannelInfo(
-                    ReminderNotifications.CHANNEL_HABITS,
-                    R.string.channel_habits,
-                    ChannelState.SILENT
-                ),
-            ),
+            channels = ChannelStates(tasks = ChannelState.SOUND, habits = ChannelState.SOUND),
             contentPadding = PaddingValues(),
             onBack = {},
             onUpdate = {},
@@ -57,6 +44,7 @@ private fun ReliabilityPreview() {
         ReliabilityContent(
             state = ReliabilityState(
                 notificationsOn = true,
+                soundWanted = true,
                 soundOn = false,
                 exactAlarmsOn = false,
                 exactAlarmsAsked = true,

@@ -127,17 +127,17 @@
     <string name="reliability_improve">Можна зрабіць надзейней</string>
     <string name="channel_sound">З гукам</string>
     <string name="channel_silent">Без гуку, толькі ў шторцы</string>
-    <string name="channel_off">Выключаны: не прыходзяць зусім</string>
+    <string name="channel_off">Выключаны ў наладах тэлефона. Націсніце, каб адкрыць</string>
+    <string name="channel_muted_by_phone">Тэлефон зрабіў іх бязгучнымі. Націсніце, каб выправіць</string>
     <string name="settings_app_notifications">Апавяшчэнні праграмы</string>
     <string name="settings_app_notifications_off">Выключаны, таму напаміны не прыходзяць. Націсніце, каб уключыць</string>
-    <string name="settings_channels_hint">Гук, вібрацыю і ўсплывальныя апавяшчэнні наладжваюць у Android: націсніце на радок, каб адкрыць.</string>
     <string name="reliability_intro">Ці прыйдуць напаміны своечасова, залежыць ад некалькіх налад тэлефона.</string>
     <string name="reliability_notifications">Апавяшчэнні</string>
     <string name="reliability_notifications_on">Уключаны</string>
     <string name="reliability_notifications_off">Выключаны — напаміны не прыйдуць</string>
     <string name="reliability_sound">Гук</string>
     <string name="reliability_sound_on">Напаміны пра справы прыходзяць з гукам</string>
-    <string name="reliability_sound_off">Напаміны пра справы прыходзяць без гуку — іх лёгка не заўважыць. Калі так і задумана, усё ў парадку. Некаторыя тэлефоны (напрыклад, Xiaomi) самі выключаюць гук у новых праграм.</string>
+    <string name="reliability_sound_off">У праграме выбраны гук, але тэлефон дасылае напаміны пра справы ціха — так бывае, напрыклад, на Xiaomi. Адкрыйце налады і ўключыце гук.</string>
     <string name="reliability_exact">Дакладны час</string>
     <string name="reliability_exact_on">Напаміны прыходзяць хвіліна ў хвіліну</string>
     <string name="reliability_exact_off">Android можа дасылаць напаміны са спазненнем — часам да гадзіны</string>
@@ -347,9 +347,9 @@
     <string name="goal_note_hint">Нататкі: спасылкі, меркі, усё, што трэба пад рукой</string>
     <!-- Напаміны -->
     <string name="channel_tasks">Напаміны пра справы</string>
-    <string name="channel_tasks_desc">Задачы і паўтарэнні ў абраны час</string>
+    <string name="channel_tasks_desc">Задачы і паўтарэнні ў абраны час. Гук выбіраюць у наладах праграмы</string>
     <string name="channel_habits">Звычкі</string>
-    <string name="channel_habits_desc">Напаміны пра звычкі. Па змаўчанні ціхія: без гуку, толькі ў шторцы</string>
+    <string name="channel_habits_desc">Напаміны пра звычкі. Гук выбіраюць у наладах праграмы</string>
     <string name="notification_snooze">Адкласці на 10 хвілін</string>
     <string name="reminder_add">Нагадаць</string>
     <string name="reminder_value">Нагадаць: %1$s</string>

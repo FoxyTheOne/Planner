@@ -17,12 +17,15 @@ import app.planner.MainActivity
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.common.notePreview
+import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
+import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_HABITS
 import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_TASKS
 import app.planner.reminders.ReminderNotifications.Companion.TAG_RULE
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,14 +36,16 @@ import javax.inject.Singleton
  * КАНАЛЫ. С Android 8 каждое уведомление принадлежит «каналу» — группе, которую человек может
  * отдельно настроить в системных настройках (звук, вибрация, всплывать ли, выключить совсем).
  * У нас их два:
- * - [CHANNEL_TASKS] «Напоминания о делах» — задачи и повторения. Со звуком и всплывают поверх экрана:
- *   напоминание о деле должно быть замечено;
- * - [CHANNEL_HABITS] «Привычки» — тихие: без звука, просто появляются в шторке. Привычка — не срочное
- *   дело, а мягкий повод: напомнить, но не навязывать.
+ * - [CHANNEL_TASKS] «Напоминания о делах» — задачи и повторения. Звучат и всплывают поверх экрана;
+ * - [CHANNEL_HABITS] «Привычки» — звучат, но не всплывают: привычка — мягкий повод, а не срочное дело.
  *
- * Звук принадлежит каналу, а не уведомлению: приложение задаёт его только при создании канала,
- * дальше решает человек в настройках Android. Поэтому своего переключателя «со звуком / без»
- * в приложении нет — строки в настройках открывают системный экран канала (см. ReminderHealth).
+ * ЗВУК. У канала звук задаётся один раз, при создании, — дальше его меняет только человек
+ * в настройках Android. А там на каждом телефоне всё по-своему: на Xiaomi, например, выключить
+ * звук канала почти невозможно найти. Поэтому «со звуком / без звука» выбирают в настройках
+ * приложения ([PlannerSettings.tasksSound], [PlannerSettings.habitsSound]), а мы выполняем выбор
+ * у каждого уведомления: «без звука» — setSilent(true). Такое уведомление не звучит, не вибрирует
+ * и не всплывает, что бы ни было выбрано у канала, — просто тихо появляется в шторке.
+ * Каналы же создаём «звучащими», чтобы «со звуком» тоже работало.
  *
  * Создать канал можно сколько угодно раз: если он уже есть, Android обновит только название
  * и описание, а звук и всё, что настроил человек, не тронет. Поэтому [createChannels]
@@ -54,6 +59,7 @@ import javax.inject.Singleton
 @Singleton
 class ReminderNotifications @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val settingsRepository: ISettingsRepository,
 ) {
     companion object {
         /**
@@ -62,8 +68,14 @@ class ReminderNotifications @Inject constructor(
          */
         const val CHANNEL_TASKS = "reminders"
 
-        /** Канал привычек — тихий. */
-        const val CHANNEL_HABITS = "habits"
+        /**
+         * Канал привычек. Новый идентификатор: первый канал привычек («habits») был тихим,
+         * а поднять громкость канала приложение не может — только удалить его и создать новый.
+         */
+        const val CHANNEL_HABITS = "habit_reminders"
+
+        /** Прежний, тихий канал привычек — удаляем при запуске (см. [createChannels]). */
+        private const val OLD_CHANNEL_HABITS = "habits"
 
         /** Номер пробного уведомления. У задач номера с 1, поэтому 0 ни с одной не совпадёт. */
         const val TEST_NOTIFICATION_ID = 0
@@ -93,27 +105,47 @@ class ReminderNotifications @Inject constructor(
         val habits = NotificationChannel(
             CHANNEL_HABITS,
             context.getString(R.string.channel_habits),
-            // LOW — без звука и не всплывает, но видно в шторке и значком в строке состояния
-            NotificationManager.IMPORTANCE_LOW,
+            // DEFAULT — звучит, но не всплывает поверх экрана
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply { description = context.getString(R.string.channel_habits_desc) }
-        context.getSystemService(NotificationManager::class.java)
-            .createNotificationChannels(listOf(tasks, habits))
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannels(listOf(tasks, habits))
+        // Нет такого канала — Android просто ничего не сделает, поэтому удалять можно при каждом запуске
+        manager.deleteNotificationChannel(OLD_CHANNEL_HABITS)
     }
+
+    /**
+     * Общая основа всех напоминаний: значок, текст, «нажали — убралось», тап открывает приложение.
+     * [sound] — выбор человека в настройках приложения: false — тихо, только в шторке (см. описание класса).
+     */
+    private fun builder(
+        channel: String,
+        title: String,
+        text: String?,
+        tapId: Long,
+        sound: Boolean,
+    ): NotificationCompat.Builder =
+        NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_stat_reminder)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setContentIntent(openApp(tapId))
+            .setAutoCancel(true) // нажали — уведомление убирается
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setSilent(!sound)
 
     /**
      * Показать напоминание о [task]: заголовок — название задачи, ниже — её время и начало заметки
      * («10:30 · каб. 214»). Тап по уведомлению открывает приложение.
+     *
+     * `suspend` — потому что сначала читаем настройки (со звуком или без), а это не мгновенно.
      */
-    fun show(task: Task) {
+    suspend fun show(task: Task) {
         val text =
             listOfNotNull(task.time?.let(DateTexts::time), task.notePreview).joinToString(" · ")
-        val notification = NotificationCompat.Builder(context, CHANNEL_TASKS)
-            .setSmallIcon(R.drawable.ic_stat_reminder)
-            .setContentTitle(task.title)
-            .setContentText(text.ifEmpty { null })
-            .setContentIntent(openApp(task.id))
-            .setAutoCancel(true) // нажали — уведомление убирается
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+        val notification = builder(
+            CHANNEL_TASKS, task.title, text.ifEmpty { null }, task.id, sound = settings().tasksSound,
+        )
             // Кнопки под текстом. Иконка 0 — без значка: в уведомлениях Android 7+ у кнопок
             // значки всё равно не рисуются, только подписи
             .addAction(
@@ -135,16 +167,15 @@ class ReminderNotifications @Inject constructor(
      * Пробное напоминание со страницы «Надёжность напоминаний»: «Если вы это видите — напоминания доходят».
      * Без кнопок и без задачи; тап открывает приложение.
      */
-    fun showTest() {
-        // В канал дел: проверяем те напоминания, которые должны звучать
-        val notification = NotificationCompat.Builder(context, CHANNEL_TASKS)
-            .setSmallIcon(R.drawable.ic_stat_reminder)
-            .setContentTitle(context.getString(R.string.test_notification_title))
-            .setContentText(context.getString(R.string.test_notification_text))
-            .setContentIntent(openApp(TEST_NOTIFICATION_ID.toLong()))
-            .setAutoCancel(true)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .build()
+    suspend fun showTest() {
+        // Как напоминание о деле: тот же канал и тот же выбор звука — проверка должна быть честной
+        val notification = builder(
+            CHANNEL_TASKS,
+            context.getString(R.string.test_notification_title),
+            context.getString(R.string.test_notification_text),
+            TEST_NOTIFICATION_ID.toLong(),
+            sound = settings().tasksSound,
+        ).build()
         post(tag = null, id = TEST_NOTIFICATION_ID, notification)
     }
 
@@ -153,20 +184,21 @@ class ReminderNotifications @Inject constructor(
      * (время и дела этого дня у цикла). Кнопки те же, что у задачи: «Готово» отмечает день,
      * «Отложить» — напомнит через 10 минут.
      *
-     * Привычки идут в тихий канал [CHANNEL_HABITS], остальные повторения — в канал дел [CHANNEL_TASKS].
+     * Привычки идут в канал [CHANNEL_HABITS] и звучат, только если так выбрано ([PlannerSettings.habitsSound]);
+     * остальные повторения — как задачи: канал дел [CHANNEL_TASKS] и [PlannerSettings.tasksSound].
      */
-    fun showRuleDay(occurrence: Occurrence) {
+    suspend fun showRuleDay(occurrence: Occurrence) {
         val rule = occurrence.rule
         val text =
             listOfNotNull(rule.time?.let(DateTexts::time), occurrence.details).joinToString(" · ")
-        val channel = if (rule.isHabit) CHANNEL_HABITS else CHANNEL_TASKS
-        val notification = NotificationCompat.Builder(context, channel)
-            .setSmallIcon(R.drawable.ic_stat_reminder)
-            .setContentTitle(rule.title)
-            .setContentText(text.ifEmpty { null })
-            .setContentIntent(openApp(rule.id))
-            .setAutoCancel(true)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+        val settings = settings()
+        val notification = builder(
+            channel = if (rule.isHabit) CHANNEL_HABITS else CHANNEL_TASKS,
+            title = rule.title,
+            text = text.ifEmpty { null },
+            tapId = rule.id,
+            sound = if (rule.isHabit) settings.habitsSound else settings.tasksSound,
+        )
             // Запоминаем день: по нему ReminderSync поймёт, что день уже отметили, и уберёт уведомление
             .addExtras(Bundle().apply { putLong(EXTRA_DAY, occurrence.date.toEpochDay()) })
             .addAction(
@@ -195,6 +227,9 @@ class ReminderNotifications @Inject constructor(
      * @param tag метка: у задач null, у дней повторений [TAG_RULE] — по паре «метка + номер»
      *   Android узнаёт уведомление, чтобы заменить или убрать его.
      */
+    /** Настройки как сейчас — один раз, без подписки (first — «первое значение потока»). */
+    private suspend fun settings(): PlannerSettings = settingsRepository.settings.first()
+
     private fun post(tag: String?, id: Int, notification: Notification) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=

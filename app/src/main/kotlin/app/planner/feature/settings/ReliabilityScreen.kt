@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.R
 import app.planner.common.DateTexts
 import app.planner.core.designsystem.component.DashedRule
@@ -47,13 +48,16 @@ import java.time.LocalTime
 /**
  * Что сейчас с настройками телефона, от которых зависят напоминания (см. ReminderHealth).
  *
- * @param soundOn звучат ли напоминания о делах (канал не сделали тихим).
+ * @param soundWanted в настройках приложения выбрано «напоминания о делах — со звуком».
+ *   Только тогда и проверяем звук: выбрали «без звука» — тишина и есть то, что нужно.
+ * @param soundOn телефон не сделал канал дел тихим (см. ReminderHealth.soundOn).
  * @param exactAlarmsAsked есть ли на этом телефоне вообще разрешение «точное время» (Android 12+).
  *   На старых его нет — точные будильники можно всегда, и пункт не показываем.
  * @param xiaomi телефон Xiaomi / Redmi / POCO — для них есть подсказка про «Автозапуск».
  */
 data class ReliabilityState(
     val notificationsOn: Boolean,
+    val soundWanted: Boolean,
     val soundOn: Boolean,
     val exactAlarmsOn: Boolean,
     val exactAlarmsAsked: Boolean,
@@ -61,8 +65,9 @@ data class ReliabilityState(
     val xiaomi: Boolean,
 ) {
     companion object {
-        fun read(context: Context) = ReliabilityState(
+        fun read(context: Context, soundWanted: Boolean) = ReliabilityState(
             notificationsOn = ReminderHealth.notificationsOn(context),
+            soundWanted = soundWanted,
             soundOn = ReminderHealth.soundOn(context),
             exactAlarmsOn = ReminderHealth.exactAlarmsOn(context),
             exactAlarmsAsked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
@@ -87,9 +92,11 @@ fun ReliabilityScreen(
     viewModel: ReliabilityViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
-    var state by remember { mutableStateOf(ReliabilityState.read(context)) }
-    LifecycleResumeEffect(Unit) {
-        state = ReliabilityState.read(context)
+    val tasksSound by viewModel.tasksSound.collectAsStateWithLifecycle()
+    // remember(tasksSound) — перечитать, когда настройки звука загрузятся или поменяются
+    var state by remember(tasksSound) { mutableStateOf(ReliabilityState.read(context, tasksSound)) }
+    LifecycleResumeEffect(tasksSound) {
+        state = ReliabilityState.read(context, tasksSound)
         onPauseOrDispose { }
     }
     // Когда ждать пробное напоминание — чтобы написать «Ждите уведомление около 10:31»
@@ -171,14 +178,13 @@ fun ReliabilityContent(
                 action = stringResource(R.string.reminder_notifications_enable),
                 onAction = onOpenNotifications,
             )
-            // Звук — только когда уведомления вообще приходят. И «по желанию»: тихие напоминания
-            // тоже бывают нужны, поэтому не «не в порядке», а спокойное «к сведению»
-            if (state.notificationsOn) {
+            // Звук — только когда уведомления вообще приходят и человек выбрал «со звуком».
+            // Тогда тихий канал — уже не выбор, а то, что телефон сделал сам (так бывает на Xiaomi)
+            if (state.notificationsOn && state.soundWanted) {
                 DashedRule()
                 CheckItem(
                     title = stringResource(R.string.reliability_sound),
                     ok = state.soundOn,
-                    optional = true,
                     text = stringResource(
                         if (state.soundOn) R.string.reliability_sound_on else R.string.reliability_sound_off,
                     ),

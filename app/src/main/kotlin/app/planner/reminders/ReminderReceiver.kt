@@ -83,12 +83,12 @@ class ReminderReceiver : BroadcastReceiver() {
     lateinit var sync: ReminderSync
 
     override fun onReceive(context: Context, intent: Intent) {
-        // Пробное — без задачи и без базы: просто показать уведомление
-        if (intent.action == ACTION_TEST) return notifications.showTest()
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 when (intent.action) {
+                    // Пробное — без задачи: просто показать уведомление (с выбранным в настройках звуком)
+                    ACTION_TEST -> notifications.showTest()
                     ACTION_REMIND, ACTION_DONE, ACTION_SNOOZE -> onTask(intent)
                     ACTION_REMIND_RULE, ACTION_RULE_DONE, ACTION_RULE_SNOOZE -> onRuleDay(intent)
                 }

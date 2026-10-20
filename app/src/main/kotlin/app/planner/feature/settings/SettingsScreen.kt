@@ -125,7 +125,7 @@ fun SettingsScreen(
         onUpdate = viewModel::update,
         onOpenReliability = onOpenReliability,
         onOpenNotifications = { context.startActivity(ReminderHealth.notificationSettings(context)) },
-        onOpenChannel = { context.startActivity(ReminderHealth.channelSettings(context, it.id)) },
+        onOpenChannel = { context.startActivity(ReminderHealth.channelSettings(context, it)) },
         onExport = { exportLauncher.launch("planner-${LocalDate.now()}.json") },
         onImport = {
             importLauncher.launch(
@@ -174,8 +174,9 @@ fun SettingsScreen(
  * @param appNotificationsOn разрешены ли уведомления приложению вообще. Если нет — вместо строк
  *   каналов одна строка «Уведомления приложения · Выключены», и тап ([onOpenNotifications])
  *   ведёт туда, где их включают: пока всё приложение молчит, звук отдельных каналов ни при чём.
- * @param channels каналы уведомлений и как они сейчас звучат — по строке на канал;
- *   тап по строке ([onOpenChannel]) открывает его системные настройки.
+ * @param channels как каналы напоминаний настроены в Android. Звук выбирают переключателями
+ *   (это настройки приложения), а в системные настройки канала ([onOpenChannel]) ведём, только если
+ *   телефон выключил канал или сам сделал его тихим.
  * @param showDonate показывать ли «Поддержать проект». В приложении это BuildConfig.SHOW_DONATE:
  *   true в сборке для RuStore, false для Google Play — правила Play запрещают вести
  *   пользователя на сторонние способы оплаты, кроме пожертвований на благотворительность.
@@ -187,13 +188,13 @@ fun SettingsContent(
     showDonate: Boolean,
     remindersOk: Boolean,
     appNotificationsOn: Boolean,
-    channels: List<ChannelInfo>,
+    channels: ChannelStates,
     contentPadding: PaddingValues,
     onBack: () -> Unit,
     onUpdate: ((PlannerSettings) -> PlannerSettings) -> Unit,
     onOpenReliability: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenChannel: (ChannelInfo) -> Unit,
+    onOpenChannel: (channelId: String) -> Unit,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onDonate: () -> Unit,
@@ -278,15 +279,20 @@ fun SettingsContent(
             }
             DashedRule()
             if (appNotificationsOn) {
-                channels.forEachIndexed { index, channel ->
-                    if (index > 0) DashedRule()
-                    ChannelRow(channel, onClick = { onOpenChannel(channel) })
-                }
-                Text(
-                    stringResource(R.string.settings_channels_hint),
-                    color = paper.inkMuted,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 4.dp),
+                SoundRow(
+                    title = R.string.channel_tasks,
+                    sound = settings.tasksSound,
+                    state = channels.tasks,
+                    onToggle = { on -> onUpdate { it.copy(tasksSound = on) } },
+                    onOpenSystem = { onOpenChannel(ReminderNotifications.CHANNEL_TASKS) },
+                )
+                DashedRule()
+                SoundRow(
+                    title = R.string.channel_habits,
+                    sound = settings.habitsSound,
+                    state = channels.habits,
+                    onToggle = { on -> onUpdate { it.copy(habitsSound = on) } },
+                    onOpenSystem = { onOpenChannel(ReminderNotifications.CHANNEL_HABITS) },
                 )
             } else {
                 NotificationRow(
@@ -374,35 +380,64 @@ fun SettingsContent(
 }
 
 /**
- * Канал уведомлений для строки в настройках: его [id] в Android, название ([title] — то же,
- * что видно в настройках Android) и как он сейчас звучит ([state]).
+ * Как сейчас настроены каналы в Android (см. ReminderHealth.channelState) — чтобы заметить,
+ * если телефон выключил канал или сам сделал его тихим.
  */
-data class ChannelInfo(val id: String, @param:StringRes val title: Int, val state: ChannelState)
+data class ChannelStates(val tasks: ChannelState, val habits: ChannelState)
 
-/** Каналы приложения по порядку — для строк в настройках. */
-private fun readChannels(context: Context): List<ChannelInfo> =
-    listOf(
-        ReminderNotifications.CHANNEL_TASKS to R.string.channel_tasks,
-        ReminderNotifications.CHANNEL_HABITS to R.string.channel_habits,
-    ).map { (id, title) -> ChannelInfo(id, title, ReminderHealth.channelState(context, id)) }
+private fun readChannels(context: Context) = ChannelStates(
+    tasks = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_TASKS),
+    habits = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_HABITS),
+)
 
 /**
- * Строка канала: «🔊 Напоминания о делах · Со звуком». Значок повторяет подпись:
- * 🔊 со звуком, 🔇 без звука, перечёркнутый колокольчик — выключены.
+ * Строка «🔊 Напоминания о делах · Со звуком» с переключателем звука.
+ *
+ * Обычно тап просто переключает звук ([onToggle]) — это настройка приложения, она работает на любом
+ * телефоне. Но если канал выключен в Android или телефон сам сделал его тихим, хотя выбран звук,
+ * переключатель не поможет: тогда подпись говорит, что случилось, а тап ведёт в настройки Android
+ * ([onOpenSystem]).
+ *
+ * @param sound выбран ли звук в приложении; [state] — как канал настроен в Android.
  */
 @Composable
-private fun ChannelRow(channel: ChannelInfo, onClick: () -> Unit) {
-    val (icon, label) = when (channel.state) {
-        ChannelState.SOUND -> Icons.AutoMirrored.Outlined.VolumeUp to R.string.channel_sound
-        ChannelState.SILENT -> Icons.AutoMirrored.Outlined.VolumeOff to R.string.channel_silent
-        ChannelState.OFF -> Icons.Outlined.NotificationsOff to R.string.channel_off
+private fun SoundRow(
+    @StringRes title: Int,
+    sound: Boolean,
+    state: ChannelState,
+    onToggle: (Boolean) -> Unit,
+    onOpenSystem: () -> Unit,
+) {
+    val mutedByPhone = sound && state == ChannelState.SILENT
+    val (icon, label) = when {
+        state == ChannelState.OFF -> Icons.Outlined.NotificationsOff to R.string.channel_off
+        mutedByPhone -> Icons.AutoMirrored.Outlined.VolumeOff to R.string.channel_muted_by_phone
+        sound -> Icons.AutoMirrored.Outlined.VolumeUp to R.string.channel_sound
+        else -> Icons.AutoMirrored.Outlined.VolumeOff to R.string.channel_silent
     }
-    NotificationRow(icon, stringResource(channel.title), stringResource(label), onClick)
+    NotificationRow(
+        icon = icon,
+        title = stringResource(title),
+        subtitle = stringResource(label),
+        onClick = if (state == ChannelState.OFF || mutedByPhone) onOpenSystem else ({ onToggle(!sound) }),
+    ) {
+        // Выключенному каналу переключатель звука ни к чему — его сначала включают в Android
+        if (state != ChannelState.OFF) Switch(checked = sound, onCheckedChange = onToggle)
+    }
 }
 
-/** Строка раздела «уведомления»: значок, название и подпись мельче. */
+/**
+ * Строка раздела «уведомления»: значок, название, подпись мельче и, по желанию,
+ * что-то справа ([trailing] — например, переключатель).
+ */
 @Composable
-private fun NotificationRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+private fun NotificationRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    trailing: @Composable () -> Unit = {},
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -423,6 +458,7 @@ private fun NotificationRow(icon: ImageVector, title: String, subtitle: String, 
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+        trailing()
     }
 }
 
