@@ -23,6 +23,7 @@ import java.time.DayOfWeek
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * Тест миграций базы. Запускается на эмуляторе или телефоне (папка androidTest),
@@ -267,6 +268,31 @@ class MigrationTest {
             // Переставили — порядок записался
             repo.reorder(listOf(2, 1))
             assertEquals(listOf("Зарядка", "Вода"), repo.observeRules().first().map { it.title })
+        } finally {
+            db.close()
+        }
+    }
+    @Test
+    fun migrate9To10_oldRulesHaveNoReminder() = runBlocking {
+        val oct5 = LocalDate.of(2026, 10, 5).toEpochDay()
+        helper.createDatabase(dbName, 9).apply {
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, pauses, isHabit, position) " +
+                    "VALUES (1, 'Полив', $oct5, 'DAILY', '[]', 0, 0)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 10, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            val repo = RoomRecurrenceRepository(db)
+            assertEquals(null, repo.getRule(1)!!.reminder)
+            // А новое напоминание записывается и читается обратно
+            repo.save(repo.getRule(1)!!.copy(reminder = Reminder.AtTime(LocalTime.of(9, 0))))
+            assertEquals(Reminder.AtTime(LocalTime.of(9, 0)), repo.getRule(1)!!.reminder)
         } finally {
             db.close()
         }

@@ -1,8 +1,11 @@
 package app.planner.core.domain.reminder
 
+import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
+import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.reminder.Reminders.LOOKAHEAD_DAYS
 import app.planner.core.domain.reminder.Reminders.alarmAt
 import app.planner.core.domain.reminder.Reminders.fireAt
 import app.planner.core.domain.reminder.Reminders.upcoming
@@ -17,6 +20,9 @@ import java.time.LocalTime
  * а здесь только ответ на вопрос «в какой момент». Проверяется тестами (RemindersTest).
  */
 object Reminders {
+
+    /** На сколько дней вперёд ищем следующий день повторения: год с небольшим — хватит и «раз в год». */
+    const val LOOKAHEAD_DAYS = 400
 
     /**
      * Когда сработает напоминание [task]; null — не сработает:
@@ -104,5 +110,46 @@ object Reminders {
         val at = fireAt(task) ?: return null
         if (snooze != null && snooze.original == at && snooze.until > now) return snooze.until
         return at.takeIf { it > now }
+    }
+
+    /**
+     * Следующее напоминание повторения [rule] после [now]: какой это день и когда звонить.
+     * null — напоминать не о чем (напоминания нет или повторение закончилось).
+     *
+     * Идём по дням правила начиная с сегодня и берём первый, чьё напоминание ещё впереди.
+     * Сегодняшний день тоже годится: «полив в 18:00, напомнить за 30 минут» в 17:00 — ещё не поздно.
+     * Дни на паузе правило и так не выдаёт (см. Recurrence.occurrence).
+     *
+     * Пропускаем дни, которые уже стали задачами ([instances]: отмеченные, пропущенные, перенесённые):
+     * - сделали или пропустили — напоминать не о чем;
+     * - перенесли — у задачи своё напоминание на новый день (она взяла его у правила, см. Recurrence.toTask),
+     *   и о ней напомнит обычный будильник задачи. Иначе пришло бы два напоминания.
+     *
+     * Смотрим не дальше [LOOKAHEAD_DAYS] дней вперёд — с запасом и для «раз в год».
+     */
+    fun nextForRule(
+        rule: RecurrenceRule,
+        instances: List<Task>,
+        now: LocalDateTime
+    ): Pair<LocalDate, LocalDateTime>? {
+        if (rule.reminder == null) return null
+        // Дни правила, которые уже стали задачами, — их пропускаем
+        val handled =
+            instances.filter { it.ruleId == rule.id }.mapNotNull { it.occurrenceDate }.toSet()
+        val today = now.toLocalDate()
+        return generateSequence(today) { it.plusDays(1) }
+            .take(LOOKAHEAD_DAYS)
+            .mapNotNull { Recurrence.occurrence(rule, it) }
+            .filter { it.date !in handled }
+            .mapNotNull { occurrence ->
+                // Напоминание дня — по тем же правилам, что у задачи: день повторения как задача
+                fireAt(
+                    Recurrence.toTask(
+                        occurrence,
+                        TaskStatus.OPEN
+                    )
+                )?.let { occurrence.date to it }
+            }
+            .firstOrNull { (_, at) -> at > now }
     }
 }

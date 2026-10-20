@@ -8,6 +8,7 @@ import androidx.room.PrimaryKey
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -89,6 +90,12 @@ data class RecurrenceRuleEntity(
     /** Место в ряду привычек (см. RecurrenceRule.position). Колонка появилась в версии базы 9. */
     @ColumnInfo(defaultValue = "0")
     val position: Int = 0,
+    /**
+     * Напоминание каждого дня повторения — как у задачи, в двух колонках (см. TaskEntity):
+     * «за N минут до времени» или «в этот час». Колонки появились в версии базы 10; у старых правил пустые.
+     */
+    val reminderMinutesBefore: Int? = null,
+    val reminderAt: LocalTime? = null,
 )
 
 // Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей
@@ -116,6 +123,8 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
         isHabit = isHabit,
         goalId = goalId,
         position = position,
+        reminderMinutesBefore = (reminder as? Reminder.BeforeTime)?.minutes,
+        reminderAt = (reminder as? Reminder.AtTime)?.time,
         repeatType = "",
         weekdays = null,
         everyNDays = null,
@@ -173,6 +182,8 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
         },
         time = time, partOfDay = partOfDay, listId = listId, isHabit = isHabit, goalId = goalId,
         position = position,
+        reminder = reminderMinutesBefore?.let { Reminder.BeforeTime(it) }
+            ?: reminderAt?.let { Reminder.AtTime(it) },
     )
 }
 

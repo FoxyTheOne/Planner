@@ -1,7 +1,10 @@
 package app.planner.core.domain.reminder
 
+import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Reminder
+import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
 import org.junit.Assert.assertEquals
@@ -9,6 +12,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -128,5 +132,56 @@ class RemindersTest {
         )
         // Задачу отметили — не звоним совсем
         assertNull(Reminders.alarmAt(doctor.copy(status = TaskStatus.DONE), now, snooze))
+    }
+
+    // --- Повторения ---
+
+    private val water = RecurrenceRule(
+        id = 1, title = "Полить цветы", repeat = Repeat.Daily, startDate = monday.minusDays(7),
+        time = LocalTime.of(10, 0), reminder = Reminder.BeforeTime(0),
+    )
+
+    @Test
+    fun `repeat reminds on its next day that is still ahead`() {
+        // Понедельник, 9:00 — сегодняшнее напоминание в 10:00 ещё впереди
+        assertEquals(
+            monday to LocalDateTime.of(2026, 10, 19, 10, 0),
+            Reminders.nextForRule(water, emptyList(), monday.atTime(9, 0)),
+        )
+        // Уже 11:00 — сегодняшнее прошло, следующее завтра
+        assertEquals(
+            monday.plusDays(1) to LocalDateTime.of(2026, 10, 20, 10, 0),
+            Reminders.nextForRule(water, emptyList(), monday.atTime(11, 0)),
+        )
+    }
+
+    @Test
+    fun `day already done or moved is skipped`() {
+        // Сегодняшний полив отметили (или перенесли) — он стал задачей; напоминание — о завтрашнем
+        val doneToday = Task(title = "Полить цветы", date = monday, ruleId = 1, occurrenceDate = monday, status = TaskStatus.DONE)
+        assertEquals(
+            monday.plusDays(1),
+            Reminders.nextForRule(water, listOf(doneToday), monday.atTime(9, 0))?.first,
+        )
+    }
+
+    @Test
+    fun `untimed repeat on weekdays reminds at the chosen hour of its day`() {
+        val pool = water.copy(
+            repeat = Repeat.OnWeekdays(setOf(DayOfWeek.TUESDAY, DayOfWeek.THURSDAY)),
+            time = null,
+            reminder = Reminder.AtTime(LocalTime.of(9, 0)),
+        )
+        assertEquals(
+            LocalDateTime.of(2026, 10, 20, 9, 0), // вторник
+            Reminders.nextForRule(pool, emptyList(), monday.atTime(12, 0))?.second,
+        )
+    }
+
+    @Test
+    fun `paused days are skipped, no reminder means nothing`() {
+        val paused = water.copy(pauses = listOf(Pause(monday, monday.plusDays(2))))
+        assertEquals(monday.plusDays(3), Reminders.nextForRule(paused, emptyList(), monday.atTime(9, 0))?.first)
+        assertNull(Reminders.nextForRule(water.copy(reminder = null), emptyList(), monday.atTime(9, 0)))
     }
 }

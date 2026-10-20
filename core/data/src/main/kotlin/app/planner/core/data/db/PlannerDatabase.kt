@@ -40,7 +40,11 @@ import androidx.room.migration.AutoMigrationSpec
  * - 6 — цели: таблицы goals и goal_stages; у задач колонки goalId и stageId (шаг цели и его этап),
  *   у правил goalId (привычка помогает цели). У старых строк они пустые — к целям ничего не привязано;
  * - 7 — у задач колонка position: порядок шагов цели (у старых строк 0 — порядок добавления, как и было);
- * - 8 — у задач напоминание: колонки reminderMinutesBefore и reminderAt (у старых строк пустые — без напоминания).
+ * - 8 — у задач напоминание: колонки reminderMinutesBefore и reminderAt (у старых строк пустые — без напоминания);
+ * - 9 — у правил колонка position: место в ряду привычек, которое задают перетаскиванием на экране
+ *   «Привычки». У старых правил 0 — и они идут, как раньше, по порядку создания (ORDER BY position, id);
+ * - 10 — у правил напоминание, как у задач в версии 8: колонки reminderMinutesBefore и reminderAt
+ *   (у старых правил пустые — повторения без напоминаний, как и было).
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
@@ -50,7 +54,7 @@ import androidx.room.migration.AutoMigrationSpec
         TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class,
         GoalEntity::class, GoalStageEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -61,6 +65,7 @@ import androidx.room.migration.AutoMigrationSpec
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
+        AutoMigration(from = 9, to = 10),
     ],
 )
 @TypeConverters(Converters::class)

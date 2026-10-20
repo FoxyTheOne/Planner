@@ -2,6 +2,7 @@ package app.planner.core.data.backup
 
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -154,6 +155,24 @@ class BackupFormatTest {
             backupJson.encodeToString(RuleDto.serializer(), moved.toDto()),
         ).toDomain()
         assertEquals(moved, back)
+    }
+
+    @Test
+    fun `rule from format 9 has no reminder, reminder survives export`() {
+        // В формате 9 напоминаний у правил ещё не было
+        val v9 = """
+            {"formatVersion":9,"exportedAt":"2026-10-20T10:00:00Z","lists":[],"tasks":[],
+             "rules":[{"id":1,"title":"Полив","startDate":"2026-10-05","repeat":{"type":"DAILY"},"time":"18:00"}]}
+        """.trimIndent()
+        val old = backupJson.decodeFromString(BackupSnapshot.serializer(), v9).rules.single().toDomain()
+        assertEquals(null, old.reminder)
+
+        val withReminder = old.copy(reminder = Reminder.BeforeTime(30))
+        val back = backupJson.decodeFromString(
+            RuleDto.serializer(),
+            backupJson.encodeToString(RuleDto.serializer(), withReminder.toDto()),
+        ).toDomain()
+        assertEquals(withReminder, back)
     }
 
     @Test

@@ -127,6 +127,7 @@ object Recurrence {
         goalId = goalId.takeIf { isHabit },
         // Место в ряду не меняется от правки: переставляют его только перетаскиванием
         position = existing?.position ?: 0,
+        reminder = draft.reminder,
     )
 
     /**
@@ -178,6 +179,8 @@ object Recurrence {
             doneAt = if (status == TaskStatus.DONE) Instant.now() else null,
             ruleId = rule.id,
             occurrenceDate = occurrence.date,
+            // Напоминание — как у правила: перенесли день или поправили — он помнит, что о нём напоминать
+            reminder = rule.reminder,
         )
     }
 

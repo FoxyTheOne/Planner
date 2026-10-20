@@ -12,6 +12,7 @@ import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.TaskStatus
 import kotlinx.serialization.Serializable
@@ -44,6 +45,7 @@ import javax.inject.Singleton
  * - 8 — у задач напоминание: `reminderMinutesBefore` или `reminderAt` (время текстом, «09:00»).
  *   В старых файлах их нет — значит, напоминаний нет.
  * - 9 — у правил `position` (порядок привычек). В старых файлах его нет — 0, порядок создания.
+ * - 10 — у правил напоминание, как у задач: `reminderMinutesBefore` или `reminderAt`. В старых файлах нет.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -53,7 +55,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 9
+        const val FORMAT_VERSION = 10
     }
 
     private val json = backupJson
@@ -273,6 +275,8 @@ data class RuleDto(
     val isHabit: Boolean = false,
     val goalId: Long? = null,
     val position: Int = 0,
+    val reminderMinutesBefore: Int? = null,
+    val reminderAt: String? = null,
 )
 
 /**
@@ -321,6 +325,8 @@ internal fun RecurrenceRule.toDto() = RuleDto(
     isHabit = isHabit,
     goalId = goalId,
     position = position,
+    reminderMinutesBefore = (reminder as? Reminder.BeforeTime)?.minutes,
+    reminderAt = (reminder as? Reminder.AtTime)?.time?.toString(),
 )
 
 internal fun RuleDto.toDomain() = RecurrenceRule(
@@ -350,4 +356,6 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
     isHabit = isHabit,
     goalId = goalId,
     position = position,
+    reminder = reminderMinutesBefore?.let { Reminder.BeforeTime(it) }
+        ?: reminderAt?.let { Reminder.AtTime(LocalTime.parse(it)) },
 )

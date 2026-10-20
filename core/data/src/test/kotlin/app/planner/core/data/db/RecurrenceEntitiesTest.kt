@@ -3,6 +3,7 @@ package app.planner.core.data.db
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -35,6 +36,7 @@ class RecurrenceEntitiesTest {
         listId = 3,
         goalId = 2,
         position = 4, // место в ряду тоже должно пережить перевод
+        reminder = Reminder.AtTime(LocalTime.of(8, 45)),
     )
 
     private fun assertRoundTrip(rule: RecurrenceRule) = assertEquals(rule, rule.toEntity().toDomain())
