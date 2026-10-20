@@ -59,6 +59,8 @@ data class EditorTarget(
  * @param isHabit показывать повторение привычкой. Без повторения не имеет смысла и всегда false.
  * @param habitGoalId цель, которой помогает привычка. Только у привычки, иначе null.
  * (Не путать с task.goalId: тот — у шага цели, а это — у правила-привычки.)
+ * @param applyToAllDays правили один день повторения и на вопрос «Только этот раз или все дни?»
+ *   ответили «Все дни»: название и время этого дня переносятся и в само правило.
  */
 data class EditorResult(
     val task: Task,
@@ -66,6 +68,7 @@ data class EditorResult(
     val repeat: Repeat? = null,
     val isHabit: Boolean = false,
     val habitGoalId: Long? = null,
+    val applyToAllDays: Boolean = false,
 )
 
 /**

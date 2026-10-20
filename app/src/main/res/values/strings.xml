@@ -73,6 +73,9 @@
     <string name="schedule_title">Plan</string>
     <string name="occurrence_only_this">Only this time</string>
     <string name="occurrence_edit_all">Change all days</string>
+    <string name="occurrence_all_days">All days</string>
+    <string name="occurrence_scope_title">Change the repeat?</string>
+    <string name="occurrence_scope_text">“%1$s” repeats. Change only this time or all days?</string>
     <string name="schedule_part_of_day">Time of day</string>
     <string name="schedule_exact_time">Exact time</string>
     <string name="time_add">Add time</string>

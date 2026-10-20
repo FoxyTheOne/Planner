@@ -73,6 +73,9 @@
     <string name="schedule_title">Запланаваць</string>
     <string name="occurrence_only_this">Толькі гэты раз</string>
     <string name="occurrence_edit_all">Змяніць усе дні</string>
+    <string name="occurrence_all_days">Усе дні</string>
+    <string name="occurrence_scope_title">Змяніць паўтор?</string>
+    <string name="occurrence_scope_text">«%1$s» паўтараецца. Змяніць толькі гэты раз ці ўсе дні?</string>
     <string name="schedule_part_of_day">Калі на працягу дня</string>
     <string name="schedule_exact_time">Дакладны час</string>
     <string name="time_add">Дадаць час</string>

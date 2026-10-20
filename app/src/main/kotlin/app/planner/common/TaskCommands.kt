@@ -133,9 +133,27 @@ class TaskCommands @Inject constructor(
                 val before = task.id.takeIf { it != 0L }?.let { tasks.getTask(it) }
                 tasks.addOrUpdate(saved)
                 before?.let { askAboutReminder(it, saved) }
+                // Правили один день повторения и ответили «Все дни» — то же и в правило
+                if (result.applyToAllDays) applyDayToRule(saved)
             }
         }
         return listId
+    }
+
+    /**
+     * «Все дни»: название и время дня [day] переносятся в его правило — и все остальные дни
+     * по правилу становятся такими же. Сам день уже сохранён с новыми значениями.
+     *
+     * Другие отделившиеся дни (перенесённые, ещё не сделанные) получают новое название, но время
+     * у них остаётся своё: их переносили нарочно (так же, как при правке правила, см. save).
+     */
+    private suspend fun applyDayToRule(day: Task) {
+        val rule = day.ruleId?.let { rules.getRule(it) } ?: return
+        val updated = rule.copy(title = day.title, time = day.time, partOfDay = day.partOfDay)
+        rules.save(updated)
+        tasks.getOccurrenceTasks(rule.id)
+            .filter { it.status == TaskStatus.OPEN && it.id != day.id }
+            .forEach { tasks.addOrUpdate(Recurrence.syncInstance(it, updated)) }
     }
 
     /**

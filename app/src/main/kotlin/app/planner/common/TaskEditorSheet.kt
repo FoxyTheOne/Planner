@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.SelfImprovement
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -265,7 +266,10 @@ fun TaskEditorSheetBody(
     // Сохранить можно, когда есть название задачи и, если создаётся список, — его название
     val canSave = title.isNotBlank() && newListName?.isNotBlank() != false
 
-    fun save() {
+    // Открыт вопрос «Только этот раз или все дни?» (см. requestSave)
+    var askScope by rememberSaveable { mutableStateOf(false) }
+
+    fun save(allDays: Boolean) {
         if (!canSave) return
         onSave(
             EditorResult(
@@ -286,8 +290,22 @@ fun TaskEditorSheetBody(
                 isHabit = isHabit && repeat != null,
                 // Цель — только у привычки: выключили «Привычка» или убрали повторение — связь не сохраняем
                 habitGoalId = habitGoalId.takeIf { isHabit && repeat != null },
+                applyToAllDays = allDays,
             ),
         )
+    }
+
+    /**
+     * «Сохранить». У одного дня повторения, если поменяли то, что общее для всех дней, —
+     * название или время, — сначала спрашиваем, к чему это относится. Так делают календари:
+     * правка одного раза не должна молча менять всё, и наоборот.
+     * Перенос на другую дату не спрашиваем: это и так «только этот раз».
+     */
+    fun requestSave() {
+        if (!canSave) return
+        val sharedChanged = title.trim() != initial.title ||
+                slot?.time != initial.time || slot?.partOfDay != initial.partOfDay
+        if (onEditAllDays != null && sharedChanged) askScope = true else save(allDays = false)
     }
 
     Column(
@@ -297,6 +315,19 @@ fun TaskEditorSheetBody(
             .imePadding()
             .padding(bottom = 16.dp),
     ) {
+        // --- Один день повторения: сразу сверху видно, что меняется только он, и в один тап —
+        // всё повторение. Тот же вид, что в шторке «Запланировать»: «Только этот раз · Изменить все дни» ---
+        if (onEditAllDays != null) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Repeat, null, tint = PlannerTheme.paper.inkMuted)
+                Text(
+                    stringResource(R.string.occurrence_only_this),
+                    color = PlannerTheme.paper.inkMuted,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+                TextButton(onClick = onEditAllDays) { Text(stringResource(R.string.occurrence_edit_all)) }
+            }
+        }
         // --- Список: первым делом видно, куда попадёт задача.
         // Выпадающее меню, а не ряд кнопок: так удобно и при 3 списках, и при 50 ---
         // Шаг цели живёт в своей цели, а не в списке — выбирать список ему не нужно.
@@ -385,7 +416,7 @@ fun TaskEditorSheetBody(
                 capitalization = KeyboardCapitalization.Sentences,
                 imeAction = ImeAction.Done
             ),
-            keyboardActions = KeyboardActions(onDone = { save() }),
+            keyboardActions = KeyboardActions(onDone = { requestSave() }),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 16.dp)
@@ -436,18 +467,6 @@ fun TaskEditorSheetBody(
                 reminder = Reminders.fitting(reminder, current.date, current.time),
                 timed = current.time != null,
                 onChange = { reminder = it },
-            )
-        }
-        // День повторения: своего «Повторять» у него нет, но всё повторение можно открыть отсюда.
-        // Без этой строки было непонятно, как поменять, например, время у всех дней, а не только у этого
-        if (onEditAllDays != null) {
-            EditorActionRow(
-                icon = Icons.Outlined.Repeat,
-                value = null,
-                action = stringResource(R.string.occurrence_edit_all),
-                onClick = onEditAllDays,
-                onClear = null,
-                clearDescription = "",
             )
         }
         // У дня повторения (отмечен, перенесён) своего повторения нет — оно у правила.
@@ -516,13 +535,33 @@ fun TaskEditorSheetBody(
                 }
             }
             Row(Modifier.weight(1f)) {}
-            Button(onClick = ::save, enabled = canSave) {
+            Button(onClick = ::requestSave, enabled = canSave) {
                 Text(stringResource(if (isNew) R.string.action_add else R.string.action_save))
             }
         }
     }
 
     if (isNew) LaunchedEffect(Unit) { focus.requestFocus() }
+
+    // «Только этот раз или все дни?» — после «Сохранить» у одного дня повторения (см. requestSave).
+    // Закрыли окно, не выбрав, — ничего не сохраняем, редактор остаётся открытым
+    if (askScope) {
+        AlertDialog(
+            onDismissRequest = { askScope = false },
+            title = { Text(stringResource(R.string.occurrence_scope_title)) },
+            text = { Text(stringResource(R.string.occurrence_scope_text, title.trim())) },
+            confirmButton = {
+                TextButton(onClick = { askScope = false; save(allDays = true) }) {
+                    Text(stringResource(R.string.occurrence_all_days))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { askScope = false; save(allDays = false) }) {
+                    Text(stringResource(R.string.occurrence_only_this))
+                }
+            },
+        )
+    }
 
     if (showPause && onPause != null) {
         PauseSheet(
