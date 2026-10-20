@@ -210,6 +210,9 @@
     <string name="repeat_weekdays">Па днях тыдня</string>
     <string name="repeat_weekdays_summary">Па днях: %1$s</string>
     <string name="repeat_every_n">Раз у N дзён</string>
+    <string name="repeat_yearly">Раз у год</string>
+    <string name="repeat_yearly_summary">Кожны год, %1$s</string>
+    <string name="repeat_yearly_hint">Іншы дзень — у радку з датай</string>
     <plurals name="repeat_every_n_summary">
         <item quantity="one">Раз у %d дзень</item>
         <item quantity="few">Раз у %d дні</item>

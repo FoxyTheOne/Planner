@@ -23,6 +23,7 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.MonthDay
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -46,6 +47,8 @@ import javax.inject.Singleton
  *   В старых файлах их нет — значит, напоминаний нет.
  * - 9 — у правил `position` (порядок привычек). В старых файлах его нет — 0, порядок создания.
  * - 10 — у правил напоминание, как у задач: `reminderMinutesBefore` или `reminderAt`. В старых файлах нет.
+ * - 11 — повторение «раз в год» (`"type":"YEARLY"`; день в году — это `startDate`).
+ *   Старое приложение такой тип не знает, поэтому номер формата растёт: оно честно скажет «файл новее».
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -55,7 +58,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 10
+        const val FORMAT_VERSION = 11
     }
 
     private val json = backupJson
@@ -280,7 +283,7 @@ data class RuleDto(
 )
 
 /**
- * «Как часто» в файле. [type]: DAILY, WEEKDAYS, EVERY_N_DAYS или CYCLE.
+ * «Как часто» в файле. [type]: DAILY, WEEKDAYS, EVERY_N_DAYS, CYCLE или YEARLY.
  * Дни недели — названиями (`"MONDAY"`), а не битами, как в базе: так файл понятен человеку.
  */
 @Serializable
@@ -313,6 +316,8 @@ internal fun RecurrenceRule.toDto() = RuleDto(
         Repeat.Daily -> RepeatDto("DAILY")
         is Repeat.OnWeekdays -> RepeatDto("WEEKDAYS", days = r.days.sorted().map { it.name })
         is Repeat.EveryNDays -> RepeatDto("EVERY_N_DAYS", n = r.n)
+        // Как в базе: день в году — это день начала правила (startDate)
+        is Repeat.Yearly -> RepeatDto("YEARLY")
         is Repeat.Cycle -> RepeatDto(
             "CYCLE",
             weeks = r.weeks.map { week -> week.mapKeys { it.key.name } },
@@ -336,6 +341,7 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
         "DAILY" -> Repeat.Daily
         "WEEKDAYS" -> Repeat.OnWeekdays(repeat.days.orEmpty().map(DayOfWeek::valueOf).toSet())
         "EVERY_N_DAYS" -> Repeat.EveryNDays(repeat.n ?: 1)
+        "YEARLY" -> Repeat.Yearly(MonthDay.from(LocalDate.parse(startDate)))
         "CYCLE" -> Repeat.Cycle(
             weeks = repeat.weeks.orEmpty()
                 .map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },

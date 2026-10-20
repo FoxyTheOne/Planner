@@ -56,6 +56,10 @@ object Recurrence {
                 if (activeDays % repeat.n == 0L) Occurrence(rule, date) else null
             }
 
+            // Тот же день и месяц в году этой даты (29 февраля в невисокосный год — 28-е)
+            is Repeat.Yearly ->
+                if (date == repeat.day.atYear(date.year)) Occurrence(rule, date) else null
+
             is Repeat.Cycle -> {
                 val week = repeat.weeks[cycleWeekIndex(repeat, date, rule.pauses)]
                 // Дела этой недели цикла на этот день недели; нет дел — нет и выпадения

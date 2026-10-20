@@ -209,6 +209,9 @@
     <string name="repeat_weekdays">По дням недели</string>
     <string name="repeat_weekdays_summary">По дням: %1$s</string>
     <string name="repeat_every_n">Раз в N дней</string>
+    <string name="repeat_yearly">Раз в год</string>
+    <string name="repeat_yearly_summary">Каждый год, %1$s</string>
+    <string name="repeat_yearly_hint">Другой день — в строке с датой</string>
     <plurals name="repeat_every_n_summary">
         <item quantity="one">Раз в %d день</item>
         <item quantity="few">Раз в %d дня</item>

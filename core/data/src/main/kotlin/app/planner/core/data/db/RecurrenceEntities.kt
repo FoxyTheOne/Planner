@@ -15,13 +15,15 @@ import kotlinx.serialization.json.Json
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.MonthDay
 
 /**
  * Строка таблицы `recurrence_rules` — правило повторения в базе.
  *
  * В домене «как часто» — это [Repeat] с четырьмя вариантами, у каждого свои данные.
  * В таблице так нельзя: у всех строк одинаковые колонки. Поэтому раскладываем так:
- * - [repeatType] — какой это вариант: DAILY, WEEKDAYS, EVERY_N_DAYS или CYCLE;
+ * - [repeatType] — какой это вариант: DAILY, WEEKDAYS, EVERY_N_DAYS, CYCLE или YEARLY
+ *   (у YEARLY своих колонок нет: день в году — это [startDate]);
  * - колонки под данные каждого варианта; у «чужих» вариантов они пустые (null).
  *   Например, у «по дням недели» заполнено [weekdays], а [everyNDays] и cycle… — null.
  *
@@ -103,6 +105,7 @@ private const val TYPE_DAILY = "DAILY"
 private const val TYPE_WEEKDAYS = "WEEKDAYS"
 private const val TYPE_EVERY_N_DAYS = "EVERY_N_DAYS"
 private const val TYPE_CYCLE = "CYCLE"
+private const val TYPE_YEARLY = "YEARLY"
 
 /** Как пауза лежит внутри JSON. Отдельная модель уровня data, чтобы модель уровня domain не зависела от формата хранения. */
 @Serializable
@@ -148,6 +151,8 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
             repeatType = TYPE_EVERY_N_DAYS,
             everyNDays = r.n
         ) // результат, если r — это вариант EveryNDays. EveryNDays - это data class, проверка с is: это какой-нибудь EveryNDays?
+        // День в году отдельно не храним: это день начала правила (startDate)
+        is Repeat.Yearly -> base.copy(repeatType = TYPE_YEARLY)
         is Repeat.Cycle -> base.copy(
             repeatType = TYPE_CYCLE,
             // Ключи словаря — названия дней (MONDAY…), чтобы JSON было легко прочитать глазами
@@ -165,6 +170,7 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
         TYPE_DAILY -> Repeat.Daily
         TYPE_WEEKDAYS -> Repeat.OnWeekdays(bitsToDays(weekdays!!))
         TYPE_EVERY_N_DAYS -> Repeat.EveryNDays(everyNDays!!)
+        TYPE_YEARLY -> Repeat.Yearly(MonthDay.from(startDate))
         TYPE_CYCLE -> Repeat.Cycle(
             weeks = json.decodeFromString<List<Map<String, String>>>(cycleWeeks!!)
                 .map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },

@@ -70,6 +70,7 @@ import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.reminder.Reminders
 import java.time.LocalDate
+import java.time.MonthDay
 
 /**
  * Шторка создания и редактирования задачи.
@@ -452,9 +453,17 @@ fun TaskEditorSheetBody(
             date = current?.date,
             today = today,
             // Поменяли день — часть дня и время остаются: «утро» переезжает вместе с задачей
-            onPick = { day -> slot = Slot(day, current?.partOfDay, current?.time) },
+            onPick = { day ->
+                slot = Slot(day, current?.partOfDay, current?.time)
+                // «Раз в год» идёт за днём: выбрали 15 марта — и повторяется каждый год 15 марта
+                if (repeat is Repeat.Yearly) repeat = Repeat.Yearly(MonthDay.from(day))
+            },
             // Убрать можно только выбранный день; «С сегодня» у повторения без даты — не выбор, а подсказка
-            onClear = if (current != null) ({ slot = null }) else null,
+            onClear = if (current != null) ({
+                slot = null
+                // Без даты повторение начинается сегодня — значит, и «раз в год» теперь сегодня
+                if (repeat is Repeat.Yearly) repeat = Repeat.Yearly(MonthDay.from(today))
+            }) else null,
             modifier = Modifier.padding(top = 12.dp),
         )
         // Время — когда есть день. У повторения день есть всегда: без даты оно начинается сегодня
@@ -579,6 +588,8 @@ fun TaskEditorSheetBody(
         RepeatSheet(
             initial = repeat,
             today = today,
+            // «Раз в год» — в день из строки «📅» (у повторения без даты — сегодня)
+            date = slot?.date ?: today,
             pauses = rulePauses,
             onDismiss = { showRepeat = false },
             onDone = { repeat = it; showRepeat = false },

@@ -42,12 +42,13 @@ import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Repeat
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.MonthDay
 
 /** Какой вариант выбран в шторке «Повторять» — отдельно от данных (дней, числа N). */
-private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, CYCLE }
+private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, YEARLY, CYCLE }
 
 /**
- * Шторка «Повторять»: не повторять / каждый день / по дням недели / раз в N дней / цикл по неделям.
+ * Шторка «Повторять»: не повторять / каждый день / по дням недели / раз в N дней / раз в год / цикл по неделям.
  * Открывается из редактора задачи по строке «↻». Возвращает выбранное повторение
  * (null — «Не повторять») в [onDone].
  *
@@ -61,6 +62,7 @@ private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, CYCLE }
 fun RepeatSheet(
     initial: Repeat?,
     today: LocalDate,
+    date: LocalDate = today,
     pauses: List<Pause> = emptyList(),
     onDismiss: () -> Unit,
     onDone: (Repeat?) -> Unit,
@@ -69,7 +71,13 @@ fun RepeatSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
-        RepeatSheetBody(initial = initial, today = today, pauses = pauses, onDone = onDone)
+        RepeatSheetBody(
+            initial = initial,
+            today = today,
+            date = date,
+            pauses = pauses,
+            onDone = onDone
+        )
     }
 }
 
@@ -79,6 +87,7 @@ fun RepeatSheet(
 fun RepeatSheetBody(
     initial: Repeat?,
     today: LocalDate,
+    date: LocalDate = today,
     pauses: List<Pause> = emptyList(),
     onDone: (Repeat?) -> Unit,
 ) {
@@ -91,6 +100,7 @@ fun RepeatSheetBody(
                 Repeat.Daily -> RepeatKind.DAILY
                 is Repeat.OnWeekdays -> RepeatKind.WEEKDAYS
                 is Repeat.EveryNDays -> RepeatKind.EVERY_N
+                is Repeat.Yearly -> RepeatKind.YEARLY
                 is Repeat.Cycle -> RepeatKind.CYCLE
             },
         )
@@ -111,6 +121,8 @@ fun RepeatSheetBody(
         RepeatKind.DAILY -> Repeat.Daily
         RepeatKind.WEEKDAYS -> days.takeIf { it.isNotEmpty() }?.let { Repeat.OnWeekdays(it) }
         RepeatKind.EVERY_N -> Repeat.EveryNDays(n)
+        // День в году — день повторения из строки «📅» (редактор держит их одинаковыми)
+        RepeatKind.YEARLY -> Repeat.Yearly(MonthDay.from(date))
         RepeatKind.CYCLE -> cycle
     }
     val canFinish = kind == RepeatKind.NONE || result != null
@@ -173,6 +185,21 @@ fun RepeatSheetBody(
             }
         }
 
+        // Раз в год — в день из строки «📅». Под вариантом видно, какой это день и где его поменять
+        KindOption(stringResource(R.string.repeat_yearly), kind == RepeatKind.YEARLY) {
+            kind = RepeatKind.YEARLY
+        }
+        if (kind == RepeatKind.YEARLY) {
+            Column(Modifier.padding(start = 48.dp, bottom = 4.dp)) {
+                Text(repeatSummary(Repeat.Yearly(MonthDay.from(date))), color = paper.ink)
+                Text(
+                    stringResource(R.string.repeat_yearly_hint),
+                    color = paper.inkMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+
         // Цикл: выбрали впервые — сразу открываем таблицу, иначе показываем «Цикл: 4 недели · Настроить таблицу»
         KindOption(stringResource(R.string.repeat_cycle), kind == RepeatKind.CYCLE) {
             kind = RepeatKind.CYCLE
@@ -196,9 +223,11 @@ fun RepeatSheetBody(
             }
         }
 
-        Row(Modifier
-            .fillMaxWidth()
-            .padding(top = 16.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp)
+        ) {
             Spacer(Modifier.weight(1f))
             Button(onClick = { onDone(result) }, enabled = canFinish) {
                 Text(stringResource(R.string.action_done))
@@ -239,7 +268,7 @@ private fun weekOrder(): List<DayOfWeek> {
     return (0L..6L).map { first.plus(it) }
 }
 
-/** «Каждый день», «По дням: ср, сб», «Раз в 3 дня», «Цикл: 4 недели» — повторение словами. */
+/** «Каждый день», «По дням: ср, сб», «Раз в 3 дня», «Каждый год, 15 октября», «Цикл: 4 недели» — повторение словами. */
 @Composable
 fun repeatSummary(repeat: Repeat?): String = when (repeat) {
     null -> stringResource(R.string.repeat_none)
@@ -254,6 +283,12 @@ fun repeatSummary(repeat: Repeat?): String = when (repeat) {
         R.plurals.repeat_every_n_summary,
         repeat.n,
         repeat.n
+    )
+
+    // Год любой високосный (2000): так у 29 февраля тоже есть дата, и подпись получится «29 февраля»
+    is Repeat.Yearly -> stringResource(
+        R.string.repeat_yearly_summary,
+        DateTexts.dayMonth(repeat.day.atYear(2000))
     )
 
     is Repeat.Cycle -> pluralStringResource(

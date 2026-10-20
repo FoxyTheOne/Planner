@@ -14,6 +14,7 @@ import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.MonthDay
 
 /*
  * «Сохранятели» (Saver) для rememberSaveable — чтобы открытые шторки и введённый текст
@@ -126,6 +127,7 @@ val RepeatSaver: Saver<Repeat?, Any> = Saver(
             Repeat.Daily -> arrayListOf<Any?>("D")
             is Repeat.OnWeekdays -> arrayListOf<Any?>("W", ArrayList(repeat.days))
             is Repeat.EveryNDays -> arrayListOf<Any?>("N", repeat.n)
+            is Repeat.Yearly -> arrayListOf<Any?>("Y", repeat.day.monthValue, repeat.day.dayOfMonth)
             is Repeat.Cycle -> arrayListOf<Any?>(
                 "C", ArrayList(repeat.weeks.map { HashMap(it) }),
                 repeat.anchorWeekStart, repeat.anchorWeekNumber, repeat.weekStart,
@@ -139,6 +141,7 @@ val RepeatSaver: Saver<Repeat?, Any> = Saver(
             "D" -> Repeat.Daily
             "W" -> Repeat.OnWeekdays((v[1] as List<DayOfWeek>).toSet())
             "N" -> Repeat.EveryNDays(v[1] as Int)
+            "Y" -> Repeat.Yearly(MonthDay.of(v[1] as Int, v[2] as Int))
             else -> Repeat.Cycle(
                 weeks = v[1] as List<Map<DayOfWeek, String>>,
                 anchorWeekStart = v[2] as LocalDate,

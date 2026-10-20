@@ -4,6 +4,7 @@ import app.planner.core.domain.recurrence.Recurrence
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.MonthDay
 
 /**
  * Правило повторения: «что делать» + «как часто» + «с какого и до какого дня».
@@ -102,6 +103,15 @@ sealed interface Repeat {
             require(n >= 1) { "N должно быть не меньше 1" }
         }
     }
+
+    /**
+     * Раз в год, в один и тот же день: дни рождения, годовщины, «продлить страховку».
+     * [day] — день и месяц без года (MonthDay). В базе отдельно не хранится: это день начала
+     * правила (startDate), редактор держит их одинаковыми.
+     *
+     * 29 февраля в невисокосный год выпадает на 28-е: MonthDay.atYear сам так и делает.
+     */
+    data class Yearly(val day: MonthDay) : Repeat
 
     /**
      * Цикл из нескольких недель, у каждой недели — свои дела по дням.

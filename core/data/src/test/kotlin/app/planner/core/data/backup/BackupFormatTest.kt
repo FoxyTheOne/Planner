@@ -14,6 +14,7 @@ import java.time.DayOfWeek.SUNDAY
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.MonthDay
 
 /**
  * Формат файла бэкапа: старые копии читаются, правила повторения сохраняются без потерь.
@@ -182,5 +183,18 @@ class BackupFormatTest {
         )
         // В файле — понятные названия по порядку недели, а не число-маска, как в базе
         assertEquals(listOf("MONDAY", "WEDNESDAY"), rule.toDto().repeat.days)
+    }
+    @Test
+    fun `yearly rule survives export`() {
+        val oct15 = LocalDate.of(2026, 10, 15)
+        val birthday = RecurrenceRule(
+            id = 3, title = "День рождения мамы",
+            repeat = Repeat.Yearly(MonthDay.from(oct15)), startDate = oct15,
+        )
+        val back = backupJson.decodeFromString(
+            RuleDto.serializer(),
+            backupJson.encodeToString(RuleDto.serializer(), birthday.toDto()),
+        ).toDomain()
+        assertEquals(birthday, back)
     }
 }

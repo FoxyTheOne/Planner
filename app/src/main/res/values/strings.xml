@@ -214,6 +214,9 @@
     <string name="repeat_weekdays">On days of the week</string>
     <string name="repeat_weekdays_summary">On %1$s</string>
     <string name="repeat_every_n">Every N days</string>
+    <string name="repeat_yearly">Every year</string>
+    <string name="repeat_yearly_summary">Every year, %1$s</string>
+    <string name="repeat_yearly_hint">To pick another day, change the date row</string>
     <plurals name="repeat_every_n_summary">
         <item quantity="one">Every %d day</item>
         <item quantity="other">Every %d days</item>

@@ -14,6 +14,7 @@ import java.time.DayOfWeek.SUNDAY
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.MonthDay
 
 /**
  * Правило → строка таблицы → правило должно получиться тем же самым.
@@ -50,6 +51,11 @@ class RecurrenceEntitiesTest {
 
     @Test
     fun `every n days survives the round trip`() = assertRoundTrip(base(Repeat.EveryNDays(3)))
+
+    @Test
+    fun `yearly survives the round trip`() =
+        // День в году в базе не хранится отдельно — он берётся из startDate (5 октября)
+        assertRoundTrip(base(Repeat.Yearly(MonthDay.from(oct5))))
 
     @Test
     fun `cycle survives the round trip`() = assertRoundTrip(

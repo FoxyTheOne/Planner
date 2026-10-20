@@ -14,6 +14,7 @@ import java.time.DayOfWeek.MONDAY
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.MonthDay
 
 /**
  * Тесты движка повторений. Даты настоящие: 5 октября 2026 — понедельник.
@@ -231,5 +232,22 @@ class RecurrenceTest {
     fun `weekdays rule without days is not allowed`() {
         // require в init не даст создать «по дням недели» без единого дня
         Repeat.OnWeekdays(emptySet())
+    }
+    @Test
+    fun `yearly occurs once a year on its day`() {
+        val oct15 = LocalDate.of(2026, 10, 15)
+        val birthday = RecurrenceRule(title = "День рождения мамы", repeat = Repeat.Yearly(MonthDay.from(oct15)), startDate = oct15)
+        val dates = Recurrence.occurrences(birthday, oct15.minusDays(1), oct15.plusYears(2)).map { it.date }
+        assertEquals(listOf(oct15, oct15.plusYears(1), oct15.plusYears(2)), dates)
+    }
+
+    @Test
+    fun `february 29 falls on the 28th in a common year`() {
+        val feb29 = LocalDate.of(2028, 2, 29)
+        val rule = RecurrenceRule(title = "Годовщина", repeat = Repeat.Yearly(MonthDay.from(feb29)), startDate = feb29)
+        assertTrue(Recurrence.occursOn(rule, LocalDate.of(2029, 2, 28)))
+        assertFalse(Recurrence.occursOn(rule, LocalDate.of(2029, 3, 1)))
+        assertTrue(Recurrence.occursOn(rule, LocalDate.of(2032, 2, 29))) // високосный — снова 29-е
+        assertFalse(Recurrence.occursOn(rule, LocalDate.of(2032, 2, 28)))
     }
 }
