@@ -794,7 +794,6 @@ fun dayText(date: LocalDate, today: LocalDate): String = when (date) {
 @Composable
 fun slotText(slot: Slot, today: LocalDate): String {
     val day = dayText(slot.date, today)
-    val detail =
-        slot.time?.let(DateTexts::time) ?: slot.partOfDay?.let { stringResource(it.labelRes()) }
+    val detail = timeOfDayText(slot.time, slot.partOfDay)
     return listOfNotNull(day, detail).joinToString(" · ")
 }

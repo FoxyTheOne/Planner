@@ -115,6 +115,18 @@ class TaskCommands @Inject constructor(
                     tasks.getOccurrenceTasks(rule.id)
                         .filter { it.status == TaskStatus.OPEN }
                         .forEach { tasks.addOrUpdate(Recurrence.syncInstance(it, rule)) }
+                    // Несделанная подготовка к дню «раз в год» — тоже: переименовали «ДР мамы» в «День рождения
+                    // мамы» — и задача-подготовка называется так же. День, к которому она готовит, не трогаем
+                    tasks.getPrepTasks()
+                        .filter { it.prepRuleId == rule.id && it.status == TaskStatus.OPEN }
+                        .forEach {
+                            tasks.addOrUpdate(
+                                it.copy(
+                                    title = rule.title,
+                                    listId = rule.listId
+                                )
+                            )
+                        }
                 }
                 // Обычная задача из базы стала повторяющейся — сама по себе она больше не нужна
                 if (task.id != 0L && !task.isOccurrence) tasks.delete(task)

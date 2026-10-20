@@ -1,6 +1,7 @@
 package app.planner.reminders
 
 import android.Manifest
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -18,13 +19,14 @@ import app.planner.common.DateTexts
 import app.planner.common.notePreview
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
+import app.planner.reminders.ReminderNotifications.Companion.TAG_RULE
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Уведомления-напоминания о задачах.
+ * Уведомления-напоминания о задачах ([show]) и о днях повторений и привычек ([showRuleDay]).
  *
  * КАНАЛ. С Android 8 каждое уведомление принадлежит «каналу» — группе, которую человек может
  * отдельно настроить в системных настройках (звук, вибрация, выключить совсем). У нас пока
@@ -33,7 +35,8 @@ import javax.inject.Singleton
  *
  * РАЗРЕШЕНИЕ. С Android 13 показывать уведомления можно только с разрешения человека
  * (POST_NOTIFICATIONS). Спрашиваем его, когда человек впервые выбирает напоминание (ReminderRow),
- * а включены ли уведомления, проверяет ReminderHealth. Без разрешения [show] просто ничего не показывает.
+ * а включены ли уведомления, проверяет ReminderHealth. Без разрешения уведомление просто не показывается
+ * (проверка одна на всех — в [post]).
  */
 @Singleton
 class ReminderNotifications @Inject constructor(
@@ -71,13 +74,6 @@ class ReminderNotifications @Inject constructor(
      * («10:30 · каб. 214»). Тап по уведомлению открывает приложение.
      */
     fun show(task: Task) {
-        // Проверка разрешения — прямо здесь, рядом с notify, а не в отдельной функции:
-        // Android Studio (проверка Lint «MissingPermission») видит проверку, только если она
-        // в той же функции, что и вызов, которому разрешение нужно. Через свойство она её «не видит»
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) return
         val text =
             listOfNotNull(task.time?.let(DateTexts::time), task.notePreview).joinToString(" · ")
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
@@ -102,7 +98,7 @@ class ReminderNotifications @Inject constructor(
             )
             .build()
         // id уведомления = id задачи: повторное напоминание о той же задаче заменит старое, а не добавит второе
-        NotificationManagerCompat.from(context).notify(task.id.toInt(), notification)
+        post(tag = null, id = task.id.toInt(), notification)
     }
 
     /**
@@ -110,11 +106,6 @@ class ReminderNotifications @Inject constructor(
      * Без кнопок и без задачи; тап открывает приложение.
      */
     fun showTest() {
-        // Та же проверка разрешения, что в show(): lint видит её только рядом с notify
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) return
         val notification = NotificationCompat.Builder(context, CHANNEL_REMINDERS)
             .setSmallIcon(R.drawable.ic_stat_reminder)
             .setContentTitle(context.getString(R.string.test_notification_title))
@@ -124,7 +115,7 @@ class ReminderNotifications @Inject constructor(
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
-        NotificationManagerCompat.from(context).notify(TEST_NOTIFICATION_ID, notification)
+        post(tag = null, id = TEST_NOTIFICATION_ID, notification)
     }
 
     /**
@@ -133,11 +124,6 @@ class ReminderNotifications @Inject constructor(
      * «Отложить» — напомнит через 10 минут.
      */
     fun showRuleDay(occurrence: Occurrence) {
-        // Та же проверка разрешения, что в show(): lint видит её только рядом с notify
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) return
         val rule = occurrence.rule
         val text =
             listOfNotNull(rule.time?.let(DateTexts::time), occurrence.details).joinToString(" · ")
@@ -163,7 +149,26 @@ class ReminderNotifications @Inject constructor(
             )
             .build()
         // Метка + id правила: следующее напоминание того же повторения заменит это, а не добавит второе
-        NotificationManagerCompat.from(context).notify(TAG_RULE, rule.id.toInt(), notification)
+        post(tag = TAG_RULE, id = rule.id.toInt(), notification)
+    }
+
+    /**
+     * Показать готовое уведомление. Единственное место, где мы зовём notify, — поэтому и проверка
+     * разрешения (Android 13+) здесь одна на всех. Без разрешения просто ничего не показываем.
+     *
+     * Проверка — прямо здесь, рядом с notify, а не в отдельной функции: Android Studio
+     * (проверка Lint «MissingPermission») видит её, только если она в той же функции, что и вызов,
+     * которому разрешение нужно.
+     *
+     * @param tag метка: у задач null, у дней повторений [TAG_RULE] — по паре «метка + номер»
+     *   Android узнаёт уведомление, чтобы заменить или убрать его.
+     */
+    private fun post(tag: String?, id: Int, notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) return
+        NotificationManagerCompat.from(context).notify(tag, id, notification)
     }
 
     /** Убрать уведомление задачи [taskId] — после нажатия на его кнопку. */
@@ -174,7 +179,8 @@ class ReminderNotifications @Inject constructor(
         NotificationManagerCompat.from(context).cancel(TAG_RULE, ruleId.toInt())
 
     /**
-     * Убрать уведомления о задачах, о которых напоминать больше не нужно: всех, кроме [keepTaskIds].
+     * Убрать уведомления, о которых напоминать больше не нужно: о задачах — всех, кроме [keepTaskIds];
+     * о днях повторений — тех, для которых [keepRuleDay] ответит «нет».
      *
      * Зачем: пришло «Позвонить бабушке», а отметили её в приложении (или удалили, вернули в список,
      * убрали напоминание). Уведомление про уже сделанное дело в шторке ни к чему. Зовёт ReminderSync

@@ -117,7 +117,7 @@ fun TimeRow(
     Box(modifier) {
         EditorActionRow(
             icon = Icons.Outlined.Schedule,
-            value = time?.let(DateTexts::time) ?: partOfDay?.let { stringResource(it.labelRes()) },
+            value = timeOfDayText(time, partOfDay),
             action = stringResource(R.string.time_add),
             onClick = { menuOpen = true },
             onClear = { onChange(null, null) },

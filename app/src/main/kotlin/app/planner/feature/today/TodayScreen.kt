@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,7 +19,6 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -52,6 +50,7 @@ import app.planner.common.DayItemRow
 import app.planner.common.EditorResult
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
+import app.planner.common.RuleRow
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
@@ -69,7 +68,6 @@ import app.planner.core.domain.recurrence.HabitDay
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 
 /**
  * Экран «Сегодня» — главный экран приложения.
@@ -285,7 +283,17 @@ fun TodayContent(
             if (state.paused.isNotEmpty()) {
                 item(key = "s_paused") { SectionLabel(stringResource(R.string.section_paused)) }
                 items(state.paused, key = { "paused_${it.id}" }) { rule ->
-                    PausedRuleRow(rule, state.today, onClick = { onEditRule(rule) })
+                    // «⏸ Полив · на паузе до 20 октября» — бледнее обычного: сегодня его нет, но открыть,
+                    // чтобы продолжить, можно
+                    Recurrence.activePause(rule, state.today)?.let { pause ->
+                        RuleRow(
+                            rule = rule,
+                            today = state.today,
+                            subtitle = pausedText(pause),
+                            onClick = { onEditRule(rule) },
+                            faded = true,
+                        )
+                    }
                 }
             }
 
@@ -457,33 +465,6 @@ fun SwipeablePlanRow(
         Column(Modifier.background(paper.paper)) {
             content()
             DashedRule()
-        }
-    }
-}
-
-/** «⏸ Полив · на паузе до 20 октября» — строка повторения, которое сейчас на паузе. */
-@Composable
-private fun PausedRuleRow(rule: RecurrenceRule, today: LocalDate, onClick: () -> Unit) {
-    val paper = PlannerTheme.paper
-    val pause = Recurrence.activePause(rule, today) ?: return
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-    ) {
-        // Та же ширина 40dp, что у чекбокса в строке задачи — названия стоят ровно
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(Icons.Outlined.PauseCircle, null, tint = paper.inkFaint)
-        }
-        Column(Modifier.padding(start = 10.dp)) {
-            Text(rule.title, color = paper.inkMuted, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                pausedText(pause),
-                color = paper.inkFaint,
-                style = MaterialTheme.typography.bodyMedium
-            )
         }
     }
 }

@@ -1,13 +1,11 @@
 package app.planner.feature.habits
 
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,9 +14,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.PauseCircle
-import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,16 +42,15 @@ import app.planner.common.DateTexts
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
 import app.planner.common.HabitHistoryView
+import app.planner.common.RuleRow
 import app.planner.common.TaskEditorSheet
-import app.planner.common.labelRes
 import app.planner.common.pausedText
-import app.planner.common.repeatSummary
+import app.planner.common.ruleScheduleText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Recurrence
-import app.planner.core.domain.reminder.Reminders
 import java.time.LocalDate
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -244,8 +238,8 @@ fun HabitsContent(
 }
 
 /**
- * Одна привычка: название, как часто («Каждый день · утро») и как идёт.
- * «Как идёт» зависит от того, что с ней сейчас:
+ * Одна привычка — общая строка повторения (RuleRow): название, как часто («Каждый день · утро»)
+ * и как идёт. «Как идёт» зависит от того, что с ней сейчас:
  * - на паузе — «На паузе до 12 октября» (и значок паузы);
  * - ещё не началась — «С 4 октября»;
  * - идёт — мягкая статистика: «За 30 дней — 18 раз» и полоска квадратиков.
@@ -258,66 +252,31 @@ private fun HabitRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
-    val paper = PlannerTheme.paper
     val rule = item.rule
     val pause = Recurrence.activePause(rule, today)
-    val startsLater = rule.startDate > today
     val upLabel = stringResource(R.string.action_move_up)
     val downLabel = stringResource(R.string.action_move_down)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            // Для TalkBack — «Выше» и «Ниже» в меню действий: тащить пальцем, не видя экрана, неудобно.
-            // true — «выполнено»: так TalkBack понимает, что нажатие сработало
-            .semantics {
-                customActions = listOf(
-                    CustomAccessibilityAction(upLabel) { onMoveUp(); true },
-                    CustomAccessibilityAction(downLabel) { onMoveDown(); true },
-                )
-            }
-            .padding(vertical = 12.dp),
+    RuleRow(
+        rule = rule,
+        today = today,
+        subtitle = ruleScheduleText(rule),
+        onClick = onClick,
+        // Для TalkBack — «Выше» и «Ниже» в меню действий: тащить пальцем, не видя экрана, неудобно.
+        // true — «выполнено»: так TalkBack понимает, что нажатие сработало
+        modifier = Modifier.semantics {
+            customActions = listOf(
+                CustomAccessibilityAction(upLabel) { onMoveUp(); true },
+                CustomAccessibilityAction(downLabel) { onMoveDown(); true },
+            )
+        },
     ) {
-        // Та же ширина 40dp, что у чекбокса в строке задачи — названия стоят ровно
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                if (pause != null) Icons.Outlined.PauseCircle else Icons.Outlined.SelfImprovement,
-                null,
-                tint = paper.inkMuted,
+        when {
+            pause != null -> StatusText(pausedText(pause))
+            rule.startDate > today -> StatusText(
+                stringResource(R.string.repeat_starting, DateTexts.dayMonth(rule.startDate)),
             )
-        }
-        Column(
-            Modifier
-                .padding(start = 10.dp, end = 8.dp)
-                .weight(1f)
-        ) {
-            Text(rule.title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                listOfNotNull(
-                    repeatSummary(rule.repeat),
-                    rule.time?.let(DateTexts::time) ?: rule.partOfDay?.let { stringResource(it.labelRes()) },
-                ).joinToString(" · "),
-                color = paper.inkMuted,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            when {
-                pause != null -> StatusText(pausedText(pause))
-                startsLater -> StatusText(
-                    stringResource(R.string.repeat_starting, DateTexts.dayMonth(rule.startDate)),
-                )
-                else -> HabitHistoryView(item.history, Modifier.padding(top = 8.dp))
-            }
-        }
-        // Колокольчик — как у задач: о привычке напомнят
-        if (Reminders.hasReminder(rule)) {
-            Icon(
-                Icons.Outlined.NotificationsNone,
-                null,
-                tint = paper.inkMuted,
-                modifier = Modifier
-                    .padding(top = 4.dp)
-                    .size(16.dp),
-            )
+
+            else -> HabitHistoryView(item.history, Modifier.padding(top = 8.dp))
         }
     }
 }

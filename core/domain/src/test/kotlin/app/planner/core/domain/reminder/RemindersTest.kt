@@ -17,7 +17,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
-/** Когда срабатывает напоминание задачи. 19 октября 2026 — понедельник. */
+/** Когда срабатывает напоминание задачи и повторения. 19 октября 2026 — понедельник. */
 class RemindersTest {
 
     private val monday = LocalDate.of(2026, 10, 19)

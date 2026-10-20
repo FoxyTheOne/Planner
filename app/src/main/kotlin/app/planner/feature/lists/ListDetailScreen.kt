@@ -1,6 +1,5 @@
 package app.planner.feature.lists
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,7 +7,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -16,9 +14,6 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.PauseCircle
-import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,15 +37,15 @@ import app.planner.common.DateTexts
 import app.planner.common.EditorResult
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
+import app.planner.common.RuleRow
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskListSaver
 import app.planner.common.TaskSaver
-import app.planner.common.labelRes
 import app.planner.common.listName
 import app.planner.common.notePreview
 import app.planner.common.pausedText
-import app.planner.common.repeatSummary
+import app.planner.common.ruleScheduleText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.component.TaskRow
@@ -61,7 +56,6 @@ import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.reminder.Reminders
-import java.time.LocalDate
 
 /**
  * Экран одного списка — второй уровень вкладки «Списки».
@@ -278,7 +272,15 @@ fun ListDetailContent(
                     }
                     items(state.rules, key = { "rule_${it.id}" }) { rule ->
                         Column(Modifier.animateItem()) {
-                            RuleRow(rule, state.today, onClick = { onEditRule(rule) })
+                            RuleRow(
+                                rule,
+                                state.today,
+                                // На паузе — до какого дня, иначе — как часто и когда
+                                subtitle = Recurrence.activePause(rule, state.today)
+                                    ?.let { pausedText(it) }
+                                    ?: ruleScheduleText(rule),
+                                onClick = { onEditRule(rule) },
+                            )
                             DashedRule()
                         }
                     }
@@ -296,53 +298,5 @@ fun ListDetailContent(
                 .align(Alignment.BottomEnd)
                 .padding(20.dp),
         )
-    }
-}
-
-/**
- * Строка повторения в списке: ↻, название и как часто — «Каждый день · вечер».
- * Если повторение сейчас на паузе — значок паузы и «На паузе до 12 октября».
- * Без галочки: отмечают дни повторения в «Сегодня» и «Неделе», а здесь — само расписание.
- */
-@Composable
-private fun RuleRow(rule: RecurrenceRule, today: LocalDate, onClick: () -> Unit) {
-    val paper = PlannerTheme.paper
-    val pause = Recurrence.activePause(rule, today)
-    val subtitle = pause?.let { pausedText(it) } ?: listOfNotNull(
-        repeatSummary(rule.repeat),
-        rule.time?.let(DateTexts::time) ?: rule.partOfDay?.let { stringResource(it.labelRes()) },
-    ).joinToString(" · ")
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-    ) {
-        // Та же ширина 40dp, что у чекбокса в строке задачи — названия стоят ровно
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                if (pause != null) Icons.Outlined.PauseCircle else Icons.Outlined.Repeat,
-                null,
-                tint = paper.inkMuted,
-            )
-        }
-        Column(
-            Modifier
-                .padding(start = 10.dp)
-                .weight(1f)
-        ) {
-            Text(rule.title, style = MaterialTheme.typography.bodyLarge)
-            Text(subtitle, color = paper.inkMuted, style = MaterialTheme.typography.bodyMedium)
-        }
-        // Колокольчик — как у задач: у дней этого повторения будет напоминание
-        if (Reminders.hasReminder(rule)) {
-            Icon(
-                Icons.Outlined.NotificationsNone,
-                null,
-                tint = paper.inkMuted,
-                modifier = Modifier.size(16.dp)
-            )
-        }
     }
 }

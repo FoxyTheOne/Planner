@@ -7,8 +7,10 @@ import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.reminder.Reminders.LOOKAHEAD_DAYS
 import app.planner.core.domain.reminder.Reminders.alarmAt
+import app.planner.core.domain.reminder.Reminders.alarmForRule
 import app.planner.core.domain.reminder.Reminders.fireAt
 import app.planner.core.domain.reminder.Reminders.fitting
+import app.planner.core.domain.reminder.Reminders.hasReminder
 import app.planner.core.domain.reminder.Reminders.nextForRule
 import app.planner.core.domain.reminder.Reminders.upcoming
 import java.time.LocalDate
@@ -16,7 +18,8 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 /**
- * Правила напоминаний: когда именно должно сработать напоминание задачи.
+ * Правила напоминаний: когда именно должно сработать напоминание — задачи ([fireAt], [upcoming])
+ * и повторения или привычки ([nextForRule], [alarmForRule]), и показывать ли колокольчик ([hasReminder]).
  *
  * Чистая логика — без Android: сам «будильник» (AlarmManager) ставит модуль app,
  * а здесь только ответ на вопрос «в какой момент». Проверяется тестами (RemindersTest).

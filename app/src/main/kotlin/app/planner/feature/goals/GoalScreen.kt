@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -67,6 +66,7 @@ import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
 import app.planner.common.GoalSaver
 import app.planner.common.PlannerDatePickerDialog
+import app.planner.common.RuleRow
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
@@ -90,7 +90,6 @@ import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.reminder.Reminders
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
-import java.time.LocalDate
 
 /**
  * Экран одной цели: «Зачем», срок и прогресс, а ниже — шаги по этапам.
@@ -398,7 +397,16 @@ fun GoalContent(
                 )
             }
             items(state.habits, key = { "habit_${it.rule.id}" }) { habit ->
-                LinkedHabitRow(habit, state.today, onClick = { onOpenHabit(habit.rule) })
+                // Привычка цели: под названием — мягкая статистика «за 30 дней — 18 раз» (или пауза).
+                // Отмечают её по-прежнему «таблеткой» на «Сегодня» — здесь только посмотреть, как она идёт
+                RuleRow(
+                    rule = habit.rule,
+                    today = state.today,
+                    subtitle = Recurrence.activePause(habit.rule, state.today)
+                        ?.let { pausedText(it) }
+                        ?: habitHistoryText(habit.history),
+                    onClick = { onOpenHabit(habit.rule) },
+                )
             }
             item(key = "add_habit") {
                 AddRow(
@@ -432,37 +440,6 @@ fun GoalContent(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * Привычка цели: название и под ним — мягкая статистика «за 30 дней — 18 раз»
- * (или «на паузе до …», если она сейчас на паузе). Тап открывает привычку в редакторе.
- * Отмечают привычку по-прежнему «таблеткой» в «Сегодня» — здесь только посмотреть, как она идёт.
- */
-@Composable
-private fun LinkedHabitRow(habit: LinkedHabit, today: LocalDate, onClick: () -> Unit) {
-    val paper = PlannerTheme.paper
-    val pause = Recurrence.activePause(habit.rule, today)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-    ) {
-        // Та же ширина 40dp, что у квадратика шага: названия стоят ровно под шагами
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-            Icon(Icons.Outlined.SelfImprovement, null, tint = paper.inkMuted)
-        }
-        Column(Modifier.padding(start = 10.dp)) {
-            Text(habit.rule.title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                if (pause != null) pausedText(pause) else habitHistoryText(habit.history),
-                color = paper.inkMuted,
-                style = MaterialTheme.typography.bodyMedium,
-            )
         }
     }
 }
