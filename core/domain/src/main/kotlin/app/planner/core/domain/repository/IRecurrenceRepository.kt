@@ -20,4 +20,10 @@ interface IRecurrenceRepository {
     suspend fun save(rule: RecurrenceRule): Long
 
     suspend fun delete(rule: RecurrenceRule)
+
+    /**
+     * Новый порядок правил: [ids] в том порядке, в каком их расставили (первое — наверху).
+     * Правила, которых нет в [ids], не трогаем. Пишется весь список сразу, одной транзакцией.
+     */
+    suspend fun reorder(ids: List<Long>)
 }

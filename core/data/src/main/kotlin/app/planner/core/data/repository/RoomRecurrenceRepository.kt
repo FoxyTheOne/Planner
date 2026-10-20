@@ -33,4 +33,10 @@ class RoomRecurrenceRepository @Inject constructor(
     }
 
     override suspend fun delete(rule: RecurrenceRule) = recurrenceRuleDao.delete(rule.id)
+
+    override suspend fun reorder(ids: List<Long>) {
+        val byId = recurrenceRuleDao.getAll().associateBy { it.id }
+        // mapIndexedNotNull — как map, но с номером элемента; null (правило уже удалили) отбрасывает
+        recurrenceRuleDao.upsertAll(ids.mapIndexedNotNull { index, id -> byId[id]?.copy(position = index) })
+    }
 }

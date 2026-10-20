@@ -43,6 +43,7 @@ import javax.inject.Singleton
  * - 7 — у задач `position` (порядок шагов цели). В старых файлах его нет — 0, порядок добавления.
  * - 8 — у задач напоминание: `reminderMinutesBefore` или `reminderAt` (время текстом, «09:00»).
  *   В старых файлах их нет — значит, напоминаний нет.
+ * - 9 — у правил `position` (порядок привычек). В старых файлах его нет — 0, порядок создания.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -52,7 +53,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 8
+        const val FORMAT_VERSION = 9
     }
 
     private val json = backupJson
@@ -271,6 +272,7 @@ data class RuleDto(
     val pauses: List<PauseDto> = emptyList(),
     val isHabit: Boolean = false,
     val goalId: Long? = null,
+    val position: Int = 0,
 )
 
 /**
@@ -318,6 +320,7 @@ internal fun RecurrenceRule.toDto() = RuleDto(
     pauses = pauses.map { PauseDto(it.from.toString(), it.until?.toString()) },
     isHabit = isHabit,
     goalId = goalId,
+    position = position,
 )
 
 internal fun RuleDto.toDomain() = RecurrenceRule(
@@ -346,4 +349,5 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
     listId = listId,
     isHabit = isHabit,
     goalId = goalId,
+    position = position,
 )

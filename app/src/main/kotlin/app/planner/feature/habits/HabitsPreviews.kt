@@ -42,6 +42,7 @@ private fun HabitsPreview() {
             onBack = {},
             onOpen = {},
             onAdd = {},
+            onReorder = {},
         )
     }
 }

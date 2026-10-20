@@ -182,6 +182,7 @@
     <string name="habit_open">Настроить привычку</string>
     <string name="habits_title">Привычки</string>
     <string name="habits_all">Все привычки</string>
+    <string name="habits_reorder_hint">В том же порядке, что на «Сегодня». Чтобы переставить, подержите привычку.</string>
     <string name="habits_empty">Привычек пока нет. Любое повторение можно сделать привычкой — переключатель «Привычка» в редакторе — или нажмите «+ Привычка».</string>
     <string name="habit_switch">Привычка</string>
     <string name="habit_switch_hint">Кнопкой над планом дня, без переносов</string>

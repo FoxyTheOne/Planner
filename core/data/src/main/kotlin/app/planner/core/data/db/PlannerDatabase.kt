@@ -50,7 +50,7 @@ import androidx.room.migration.AutoMigrationSpec
         TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class,
         GoalEntity::class, GoalStageEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -60,6 +60,7 @@ import androidx.room.migration.AutoMigrationSpec
         AutoMigration(from = 5, to = 6),
         AutoMigration(from = 6, to = 7),
         AutoMigration(from = 7, to = 8),
+        AutoMigration(from = 8, to = 9),
     ],
 )
 @TypeConverters(Converters::class)

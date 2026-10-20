@@ -125,6 +125,8 @@ object Recurrence {
         listId = draft.listId,
         isHabit = isHabit,
         goalId = goalId.takeIf { isHabit },
+        // Место в ряду не меняется от правки: переставляют его только перетаскиванием
+        position = existing?.position ?: 0,
     )
 
     /**

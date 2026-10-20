@@ -1,5 +1,6 @@
 package app.planner.feature.habits
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
@@ -20,15 +22,22 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,6 +56,8 @@ import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Recurrence
 import java.time.LocalDate
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * Экран «Привычки» — все привычки в одном месте. Открывается кнопкой «Все привычки» в конце
@@ -56,6 +67,7 @@ import java.time.LocalDate
  * или та, что на паузе, оттуда не видна — и поправить её было негде. Здесь видно всё:
  * как часто, как идёт (мягкая статистика за 30 дней), когда начнётся, до какого дня пауза.
  * Тап — редактор привычки; «+ Привычка» — новая.
+ * Порядок — как у «таблеток» на «Сегодня»: подержать привычку и перетащить.
  *
  * Привычки живут здесь, а не в списках: списки — это темы («Дом», «Работа»), а привычки —
  * отдельный вид вещей, их не планируют и не закрывают. В блоке «Лекарства» тут появится второй раздел.
@@ -83,6 +95,7 @@ fun HabitsScreen(
                 isHabit = true,
             )
         },
+        onReorder = viewModel::reorder,
     )
 
     editing?.let { target ->
@@ -113,8 +126,40 @@ fun HabitsContent(
     onBack: () -> Unit,
     onOpen: (HabitItem) -> Unit,
     onAdd: () -> Unit,
+    onReorder: (ids: List<Long>) -> Unit,
 ) {
     val paper = PlannerTheme.paper
+
+    // ПЕРЕТАСКИВАНИЕ (библиотека Reorderable, как у шагов цели).
+    // Пока привычку тащат, порядок меняется только здесь, в памяти экрана; в базу он записывается
+    // один раз — когда привычку отпустили (onReorder). remember(state.habits): пришли новые данные
+    // из базы (добавили привычку, переименовали) — порядок берётся заново из них
+    var habits by remember(state.habits) { mutableStateOf(state.habits) }
+    val lazyListState = rememberLazyListState()
+    // Лёгкая вибрация: «взяли», «сдвинулась на строку», «отпустили»
+    val haptic = LocalHapticFeedback.current
+    val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        // from / to — элементы LazyColumn; их key — id правил. На подсказку (key — строка) не встаём
+        val fromIndex = habits.indexOfFirst { it.rule.id == from.key }
+        val toIndex = habits.indexOfFirst { it.rule.id == to.key }
+        if (fromIndex >= 0 && toIndex >= 0) {
+            habits = habits.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
+            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+        }
+    }
+
+    fun commit(newOrder: List<HabitItem>) {
+        habits = newOrder
+        onReorder(newOrder.map { it.rule.id })
+    }
+
+    /** Сдвинуть привычку на одно место (для TalkBack: «Выше» / «Ниже»). */
+    fun moved(index: Int, by: Int): List<HabitItem> {
+        val target = index + by
+        if (target !in habits.indices) return habits
+        return habits.toMutableList().apply { add(target, removeAt(index)) }
+    }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -128,9 +173,12 @@ fun HabitsContent(
                 Text(stringResource(R.string.habits_title), style = MaterialTheme.typography.titleLarge)
             }
 
-            LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 96.dp)) {
-                if (state.loaded && state.habits.isEmpty()) {
-                    item {
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = PaddingValues(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+            ) {
+                if (state.loaded && habits.isEmpty()) {
+                    item(key = "empty") {
                         Text(
                             stringResource(R.string.habits_empty),
                             color = paper.inkMuted,
@@ -138,10 +186,43 @@ fun HabitsContent(
                         )
                     }
                 }
-                items(state.habits, key = { it.rule.id }) { item ->
-                    Column(Modifier.animateItem()) {
-                        HabitRow(item, state.today, onClick = { onOpen(item) })
-                        DashedRule()
+                // Подсказка, как переставлять, — когда есть что переставлять
+                if (habits.size > 1) {
+                    item(key = "hint") {
+                        Text(
+                            stringResource(R.string.habits_reorder_hint),
+                            color = paper.inkMuted,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp, end = 8.dp),
+                        )
+                    }
+                }
+                itemsIndexed(habits, key = { _, item -> item.rule.id }) { index, item ->
+                    ReorderableItem(reorderState, key = item.rule.id) { isDragging ->
+                        // Взятая привычка чуть приподнимается: тень и бумажный фон под ней
+                        val elevation by animateDpAsState(if (isDragging) 6.dp else 0.dp)
+                        Surface(shadowElevation = elevation, color = paper.paper) {
+                            Column(
+                                // longPressDraggableHandle — тащить после долгого нажатия в любом месте
+                                // строки. Обычный тап по-прежнему открывает привычку
+                                Modifier.longPressDraggableHandle(
+                                    onDragStarted = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                    onDragStopped = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                                        commit(habits)
+                                    },
+                                ),
+                            ) {
+                                HabitRow(
+                                    item,
+                                    state.today,
+                                    onClick = { onOpen(item) },
+                                    onMoveUp = { commit(moved(index, -1)) },
+                                    onMoveDown = { commit(moved(index, +1)) },
+                                )
+                                DashedRule()
+                            }
+                        }
                     }
                 }
             }
@@ -168,15 +249,31 @@ fun HabitsContent(
  * - идёт — мягкая статистика: «За 30 дней — 18 раз» и полоска квадратиков.
  */
 @Composable
-private fun HabitRow(item: HabitItem, today: LocalDate, onClick: () -> Unit) {
+private fun HabitRow(
+    item: HabitItem,
+    today: LocalDate,
+    onClick: () -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
     val paper = PlannerTheme.paper
     val rule = item.rule
     val pause = Recurrence.activePause(rule, today)
     val startsLater = rule.startDate > today
+    val upLabel = stringResource(R.string.action_move_up)
+    val downLabel = stringResource(R.string.action_move_down)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            // Для TalkBack — «Выше» и «Ниже» в меню действий: тащить пальцем, не видя экрана, неудобно.
+            // true — «выполнено»: так TalkBack понимает, что нажатие сработало
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction(upLabel) { onMoveUp(); true },
+                    CustomAccessibilityAction(downLabel) { onMoveDown(); true },
+                )
+            }
             .padding(vertical = 12.dp),
     ) {
         // Та же ширина 40dp, что у чекбокса в строке задачи — названия стоят ровно

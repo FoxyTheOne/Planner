@@ -30,6 +30,8 @@ import java.time.LocalTime
  *   класс, а один флажок у правила.
  * @param goalId цель, которой помогает привычка («Испанский» ← «10 минут Duolingo»).
  *   Видна на экране цели, но в процент цели не входит: процент — это шаги, а привычка не «закрывается».
+ * @param position место в ряду: привычки на «Сегодня» и на экране «Привычки» идут по нему —
+ *   как человек их расставил, перетаскивая. Новые правила встают в конец (см. TaskCommands.save).
  */
 data class RecurrenceRule(
     val id: Long = 0,
@@ -43,6 +45,7 @@ data class RecurrenceRule(
     val listId: Long? = null,
     val isHabit: Boolean = false,
     val goalId: Long? = null,
+    val position: Int = 0,
 )
 
 /**

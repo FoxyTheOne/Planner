@@ -34,6 +34,7 @@ class RecurrenceEntitiesTest {
         partOfDay = PartOfDay.MORNING,
         listId = 3,
         goalId = 2,
+        position = 4, // место в ряду тоже должно пережить перевод
     )
 
     private fun assertRoundTrip(rule: RecurrenceRule) = assertEquals(rule, rule.toEntity().toDomain())

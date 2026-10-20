@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import app.planner.core.data.repository.RoomRecurrenceRepository
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.Pause
@@ -12,6 +13,7 @@ import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -238,6 +240,33 @@ class MigrationTest {
             val withReminder = db.taskDao().get(10)!!.toDomain().copy(reminder = Reminder.BeforeTime(15))
             db.taskDao().addOrUpdate(withReminder.toEntity())
             assertEquals(Reminder.BeforeTime(15), db.taskDao().get(10)!!.toDomain().reminder)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun migrate8To9_oldRulesKeepCreationOrder() = runBlocking {
+        val oct5 = LocalDate.of(2026, 10, 5).toEpochDay()
+        helper.createDatabase(dbName, 8).apply {
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, pauses, isHabit) " +
+                    "VALUES (1, 'Вода', $oct5, 'DAILY', '[]', 1), (2, 'Зарядка', $oct5, 'DAILY', '[]', 1)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 9, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            val repo = RoomRecurrenceRepository(db)
+            // У старых правил места ещё нет (0) — идут по порядку создания
+            assertEquals(listOf("Вода", "Зарядка"), repo.observeRules().first().map { it.title })
+            // Переставили — порядок записался
+            repo.reorder(listOf(2, 1))
+            assertEquals(listOf("Зарядка", "Вода"), repo.observeRules().first().map { it.title })
         } finally {
             db.close()
         }

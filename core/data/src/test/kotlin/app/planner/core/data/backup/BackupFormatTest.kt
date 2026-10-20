@@ -139,6 +139,24 @@ class BackupFormatTest {
     }
 
     @Test
+    fun `rule from format 8 has no place yet, place survives export`() {
+        // В формате 8 поля position у правил ещё не было
+        val v8 = """
+            {"formatVersion":8,"exportedAt":"2026-10-19T10:00:00Z","lists":[],"tasks":[],
+             "rules":[{"id":1,"title":"Вода","startDate":"2026-10-05","repeat":{"type":"DAILY"},"isHabit":true}]}
+        """.trimIndent()
+        val old = backupJson.decodeFromString(BackupSnapshot.serializer(), v8).rules.single().toDomain()
+        assertEquals(0, old.position)
+
+        val moved = old.copy(position = 3)
+        val back = backupJson.decodeFromString(
+            RuleDto.serializer(),
+            backupJson.encodeToString(RuleDto.serializer(), moved.toDto()),
+        ).toDomain()
+        assertEquals(moved, back)
+    }
+
+    @Test
     fun `weekdays are written as names in the file`() {
         val rule = RecurrenceRule(
             title = "Бассейн", repeat = Repeat.OnWeekdays(setOf(WEDNESDAY, MONDAY)), startDate = LocalDate.of(2026, 10, 5),

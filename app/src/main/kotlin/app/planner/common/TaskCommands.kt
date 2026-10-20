@@ -103,7 +103,10 @@ class TaskCommands @Inject constructor(
                         isHabit,
                         habitGoalId
                     )
-                rules.save(rule)
+                // Новое правило встаёт в конец ряда: новая привычка — последней «таблеткой»,
+                // а не первой (иначе она сдвинула бы всё, что человек уже расставил)
+                val position = if (existing == null) nextRulePosition() else rule.position
+                rules.save(rule.copy(position = position))
                 // Правило поменяли — его перенесённые, ещё не сделанные дни получают новое название и список
                 // (дата и время остаются: это перенос). Сделанные дни не трогаем — это история
                 if (existing != null) {
@@ -159,6 +162,16 @@ class TaskCommands @Inject constructor(
             )
         )
     }
+
+    /** Место для нового правила — после всех, что уже есть. */
+    private suspend fun nextRulePosition(): Int =
+        rules.observeRules().first().maxOfOrNull { it.position }?.plus(1) ?: 0
+
+    /**
+     * Новый порядок привычек — как их расставили перетаскиванием на экране «Привычки».
+     * «Отменить» здесь не нужно: порядок видно сразу, и переставить обратно — тем же движением.
+     */
+    suspend fun reorderRules(ids: List<Long>) = rules.reorder(ids)
 
     /** Ответ на вопрос про напоминание: новое напоминание или null — «убрать напоминание». */
     suspend fun setReminder(taskId: Long, reminder: Reminder?) {

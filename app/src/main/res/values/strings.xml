@@ -190,6 +190,7 @@
     <string name="habit_open">Edit habit</string>
     <string name="habits_title">Habits</string>
     <string name="habits_all">All habits</string>
+    <string name="habits_reorder_hint">In the same order as on Today. Press and hold a habit to move it.</string>
     <string name="habits_empty">No habits yet. Make any repeat a habit — the “Habit” switch in the editor — or tap “+ Habit”.</string>
     <string name="habit_switch">Habit</string>
     <string name="habit_switch_hint">A button above the day plan, never carried over</string>

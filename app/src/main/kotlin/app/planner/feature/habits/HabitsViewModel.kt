@@ -88,4 +88,7 @@ class HabitsViewModel @Inject constructor(
     fun delete(task: Task) = viewModelScope.launch { commands.delete(task) }
     fun pauseRule(ruleId: Long, until: LocalDate?) = viewModelScope.launch { commands.pauseRule(ruleId, until) }
     fun resumeRule(ruleId: Long) = viewModelScope.launch { commands.resumeRule(ruleId) }
+
+    /** Новый порядок привычек (перетащили) — так же пойдут и «таблетки» на «Сегодня». */
+    fun reorder(ids: List<Long>) = viewModelScope.launch { commands.reorderRules(ids) }
 }

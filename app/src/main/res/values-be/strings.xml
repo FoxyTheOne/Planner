@@ -183,6 +183,7 @@
     <string name="habit_open">Наладзіць звычку</string>
     <string name="habits_title">Звычкі</string>
     <string name="habits_all">Усе звычкі</string>
+    <string name="habits_reorder_hint">У тым жа парадку, што на «Сёння». Каб пераставіць, патрымайце звычку.</string>
     <string name="habits_empty">Звычак пакуль няма. Любы паўтор можна зрабіць звычкай — пераключальнік «Звычка» ў рэдактары — або націсніце «+ Звычка».</string>
     <string name="habit_switch">Звычка</string>
     <string name="habit_switch_hint">Кнопкай над планам дня, без пераносаў</string>

@@ -86,6 +86,9 @@ data class RecurrenceRuleEntity(
     val isHabit: Boolean = false,
     /** Цель, которой помогает привычка (см. RecurrenceRule.goalId). Колонка появилась в версии базы 6. */
     val goalId: Long? = null,
+    /** Место в ряду привычек (см. RecurrenceRule.position). Колонка появилась в версии базы 9. */
+    @ColumnInfo(defaultValue = "0")
+    val position: Int = 0,
 )
 
 // Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей
@@ -112,6 +115,7 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
         listId = listId,
         isHabit = isHabit,
         goalId = goalId,
+        position = position,
         repeatType = "",
         weekdays = null,
         everyNDays = null,
@@ -168,6 +172,7 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
             Pause(LocalDate.ofEpochDay(it.from), it.until?.let(LocalDate::ofEpochDay))
         },
         time = time, partOfDay = partOfDay, listId = listId, isHabit = isHabit, goalId = goalId,
+        position = position,
     )
 }
 

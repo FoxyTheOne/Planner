@@ -161,7 +161,8 @@ interface TaskListDao {
 /** DAO таблицы правил повторения. */
 @Dao
 interface RecurrenceRuleDao {
-    @Query("SELECT * FROM recurrence_rules ORDER BY id")
+    // По месту в ряду (как расставил человек), при равном месте — по порядку создания
+    @Query("SELECT * FROM recurrence_rules ORDER BY position, id")
     fun observeAll(): Flow<List<RecurrenceRuleEntity>>
 
     @Query("SELECT * FROM recurrence_rules WHERE id = :id")
@@ -169,6 +170,10 @@ interface RecurrenceRuleDao {
 
     @Upsert
     suspend fun upsert(rule: RecurrenceRuleEntity): Long
+
+    // Список целиком — одной транзакцией (как у шагов цели): новый порядок записывается весь сразу
+    @Upsert
+    suspend fun upsertAll(rules: List<RecurrenceRuleEntity>)
 
     @Query("DELETE FROM recurrence_rules WHERE id = :id")
     suspend fun delete(id: Long)
