@@ -280,9 +280,13 @@ fun TaskEditorSheetBody(
                     date = slot?.date,
                     partOfDay = slot?.partOfDay,
                     time = slot?.time,
-                    // Напоминания у повторений будут в следующем блоке — пока только у задач
-                    reminder = Reminders.fitting(reminder, slot?.date, slot?.time)
-                        .takeIf { repeat == null },
+                    // Подходящее напоминание (см. Reminders.fitting). У повторения без даты день —
+                    // сегодня: с него оно и начинается, значит, напоминать есть о чём
+                    reminder = Reminders.fitting(
+                        reminder,
+                        slot?.date ?: today.takeIf { repeat != null },
+                        slot?.time,
+                    ),
                 ),
                 newListName = newListName?.trim(),
                 repeat = repeat,
@@ -461,11 +465,12 @@ fun TaskEditorSheetBody(
                 onChange = { part, time -> slot = Slot(current?.date ?: today, part, time) },
             )
         }
-        // --- Напомнить: только у задачи с датой (без даты напоминать не о чем) и пока не у повторений ---
-        if (current != null && repeat == null) {
+        // --- Напомнить: у задачи с датой (без даты напоминать не о чем) и у повторения —
+        // тогда напоминание о каждом его дне (у повторения день есть всегда: без даты — с сегодня) ---
+        if (current != null || repeat != null) {
             ReminderRow(
-                reminder = Reminders.fitting(reminder, current.date, current.time),
-                timed = current.time != null,
+                reminder = Reminders.fitting(reminder, current?.date ?: today, current?.time),
+                timed = current?.time != null,
                 onChange = { reminder = it },
             )
         }

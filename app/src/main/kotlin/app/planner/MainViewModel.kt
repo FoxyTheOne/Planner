@@ -11,6 +11,7 @@ import app.planner.common.UiMessage
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.reminder.Reminders
+import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.reminders.ReminderHealth
@@ -46,6 +47,7 @@ class MainViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val settingsRepository: ISettingsRepository,
     tasks: ITaskRepository,
+    recurrenceRepository: IRecurrenceRepository,
     messageBus: MessageBus,
     reminderQuestions: ReminderQuestions,
     private val commands: TaskCommands,
@@ -71,7 +73,7 @@ class MainViewModel @Inject constructor(
     /**
      * Показать ли окно «Точное время» (ExactAlarmOfferDialog). Да, если всё сразу:
      * - его ещё не показывали (показываем один раз);
-     * - есть хотя бы одно напоминание впереди — то есть человек им пользуется;
+     * - есть хотя бы одно напоминание впереди (у задачи или у повторения) — то есть человек им пользуется;
      * - уведомления включены (иначе точное время ничего не даст, а про уведомления подскажет строка
      *   «Напомнить» в редакторе);
      * - точное время выключено.
@@ -83,10 +85,14 @@ class MainViewModel @Inject constructor(
     val showExactAlarmOffer: StateFlow<Boolean> =
         combine(
             tasks.observeTasksWithReminders(),
+            recurrenceRepository.observeRules(),
             settingsRepository.settings
-        ) { withReminders, settings ->
-            !settings.exactAlarmOfferShown &&
-                    Reminders.upcoming(withReminders, LocalDateTime.now()).isNotEmpty() &&
+        ) { withReminders, rules, settings ->
+            // Напоминания впереди — у задачи или у повторения (привычки)
+            val usesReminders =
+                Reminders.upcoming(withReminders, LocalDateTime.now()).isNotEmpty() ||
+                        rules.any(Reminders::hasReminder)
+            !settings.exactAlarmOfferShown && usesReminders &&
                     ReminderHealth.notificationsOn(context) &&
                     !ReminderHealth.exactAlarmsOn(context)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)

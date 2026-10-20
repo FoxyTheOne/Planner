@@ -8,6 +8,7 @@ import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.reminder.Reminders.LOOKAHEAD_DAYS
 import app.planner.core.domain.reminder.Reminders.alarmAt
 import app.planner.core.domain.reminder.Reminders.fireAt
+import app.planner.core.domain.reminder.Reminders.fitting
 import app.planner.core.domain.reminder.Reminders.nextForRule
 import app.planner.core.domain.reminder.Reminders.upcoming
 import java.time.LocalDate
@@ -176,4 +177,15 @@ object Reminders {
         }
         return nextForRule(rule, instances, now)
     }
+
+    /**
+     * Показывать ли у задачи колокольчик: о ней напомнят. Задача ещё не сделана, и напоминание
+     * ей подходит (см. [fitting]: «за 30 минут» у задачи без времени не сработает — значит, и звоночка нет).
+     */
+    fun hasReminder(task: Task): Boolean =
+        task.status == TaskStatus.OPEN && fitting(task.reminder, task.date, task.time) != null
+
+    /** То же для повторения: у его дней будет напоминание. */
+    fun hasReminder(rule: RecurrenceRule): Boolean =
+        fitting(rule.reminder, rule.startDate, rule.time) != null
 }

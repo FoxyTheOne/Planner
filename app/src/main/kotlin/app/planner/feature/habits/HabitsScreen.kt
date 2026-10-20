@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -55,6 +56,7 @@ import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.reminder.Reminders
 import java.time.LocalDate
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -305,6 +307,17 @@ private fun HabitRow(
                 )
                 else -> HabitHistoryView(item.history, Modifier.padding(top = 8.dp))
             }
+        }
+        // Колокольчик — как у задач: о привычке напомнят
+        if (Reminders.hasReminder(rule)) {
+            Icon(
+                Icons.Outlined.NotificationsNone,
+                null,
+                tint = paper.inkMuted,
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .size(16.dp),
+            )
         }
     }
 }

@@ -87,6 +87,7 @@ import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.reminder.Reminders
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDate
@@ -623,6 +624,7 @@ private fun StepRow(
             )
         },
         dimmed = step.isScheduled && !step.isDone,
+        reminder = Reminders.hasReminder(step),
         trailingBadge = step.date?.takeIf { !step.isDone }?.let(DateTexts::shortDay),
         toggleDescription = stringResource(R.string.cd_mark_done),
         trailing = if (step.isDone) null else ({

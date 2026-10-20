@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +53,8 @@ import app.planner.core.designsystem.theme.SectionLabelStyle
  * @param subtitle подпись под названием мелким серым шрифтом: начало заметки («каб. 214»), у цикла — дела
  *   этого дня («фикус, монстера»), у шага цели — его цель. Не больше двух строк: длинное обрезается «…».
  * @param repeating показать справа значок ↻ — это день повторения, а не обычная задача.
+ * @param reminder показать справа колокольчик: об этом напомнят. Чтобы после «Напомнить» было видно,
+ *   что напоминание сохранилось, — не открывая задачу ещё раз.
  * @param trailingBadge плашка даты у запланированной задачи в списке («Пт 25»).
  * @param dimmed приглушить текст (запланированная задача в списке).
  * @param toggleDescription текст для TalkBack (озвучка экрана для незрячих).
@@ -66,6 +69,7 @@ fun TaskRow(
     time: String? = null,
     subtitle: String? = null,
     repeating: Boolean = false,
+    reminder: Boolean = false,
     labelColor: Color? = null,
     trailingBadge: String? = null,
     dimmed: Boolean = false,
@@ -110,6 +114,14 @@ fun TaskRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        if (reminder) {
+            Icon(
+                Icons.Rounded.NotificationsNone,
+                null,
+                tint = paper.inkMuted,
+                modifier = Modifier.size(16.dp)
+            )
         }
         if (repeating) {
             Icon(Icons.Rounded.Repeat, null, tint = paper.inkMuted, modifier = Modifier.size(16.dp))

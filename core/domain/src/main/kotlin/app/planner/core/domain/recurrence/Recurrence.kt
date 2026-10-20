@@ -158,6 +158,7 @@ object Recurrence {
         partOfDay = rule.partOfDay,
         listId = rule.listId,
         ruleId = rule.id,
+        reminder = rule.reminder,
     )
 
     /**

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.PauseCircle
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -59,6 +60,7 @@ import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.reminder.Reminders
 import java.time.LocalDate
 
 /**
@@ -249,6 +251,7 @@ fun ListDetailContent(
                             onClick = { onEdit(task) },
                             subtitle = task.notePreview,
                             dimmed = task.isScheduled,
+                            reminder = Reminders.hasReminder(task),
                             trailingBadge = task.date?.let(DateTexts::shortDay),
                             toggleDescription = stringResource(R.string.cd_mark_done),
                             trailing = {
@@ -324,9 +327,22 @@ private fun RuleRow(rule: RecurrenceRule, today: LocalDate, onClick: () -> Unit)
                 tint = paper.inkMuted,
             )
         }
-        Column(Modifier.padding(start = 10.dp)) {
+        Column(
+            Modifier
+                .padding(start = 10.dp)
+                .weight(1f)
+        ) {
             Text(rule.title, style = MaterialTheme.typography.bodyLarge)
             Text(subtitle, color = paper.inkMuted, style = MaterialTheme.typography.bodyMedium)
+        }
+        // Колокольчик — как у задач: у дней этого повторения будет напоминание
+        if (Reminders.hasReminder(rule)) {
+            Icon(
+                Icons.Outlined.NotificationsNone,
+                null,
+                tint = paper.inkMuted,
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }

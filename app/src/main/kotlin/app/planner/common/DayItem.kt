@@ -13,6 +13,7 @@ import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.reminder.Reminders
 import java.time.LocalTime
 
 /**
@@ -113,6 +114,7 @@ fun DayItemRow(
                         ?.let { stringResource(R.string.goal_step_subtitle, it) },
                 ).joinToString(" · ").ifEmpty { null },
                 repeating = task.isOccurrence,
+                reminder = Reminders.hasReminder(task),
                 labelColor = labelColorOf(task.listId, lists),
                 toggleDescription = description,
             )
@@ -129,6 +131,7 @@ fun DayItemRow(
                 time = rule.time?.let(DateTexts::time),
                 subtitle = item.occurrence.details,
                 repeating = true,
+                reminder = Reminders.hasReminder(rule),
                 labelColor = labelColorOf(rule.listId, lists),
                 toggleDescription = description,
             )

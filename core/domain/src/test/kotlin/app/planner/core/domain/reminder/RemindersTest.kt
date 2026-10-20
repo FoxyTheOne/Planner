@@ -198,4 +198,15 @@ class RemindersTest {
         // Отложенное время прошло — тоже обычное следующее
         assertEquals(monday.plusDays(1), Reminders.alarmForRule(water, emptyList(), snooze.until, snooze)?.first)
     }
+    @Test
+    fun `bell is shown only when the reminder will actually ring`() {
+        assertTrue(Reminders.hasReminder(doctor))
+        // Сделано — напоминать не о чем
+        assertFalse(Reminders.hasReminder(doctor.copy(status = TaskStatus.DONE)))
+        // «За 30 минут», а время убрали — не сработает
+        assertFalse(Reminders.hasReminder(doctor.copy(time = null)))
+        // Повторение: «в момент начала» есть, у правила без напоминания — нет
+        assertTrue(Reminders.hasReminder(water))
+        assertFalse(Reminders.hasReminder(water.copy(reminder = null)))
+    }
 }
