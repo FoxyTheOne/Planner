@@ -44,6 +44,7 @@ class TaskCommands @Inject constructor(
     private val messages: MessageBus,
     private val reminderQuestions: ReminderQuestions,
     private val todayClock: TodayClock,
+    private val prepTasks: PrepTasks,
 ) {
 
     suspend fun toggleDone(task: Task) {
@@ -101,7 +102,8 @@ class TaskCommands @Inject constructor(
                         todayClock.today(),
                         existing,
                         isHabit,
-                        habitGoalId
+                        habitGoalId,
+                        result.prepDays,
                     )
                 // Новое правило встаёт в конец ряда: новая привычка — последней «таблеткой»,
                 // а не первой (иначе она сдвинула бы всё, что человек уже расставил)
@@ -116,6 +118,8 @@ class TaskCommands @Inject constructor(
                 }
                 // Обычная задача из базы стала повторяющейся — сама по себе она больше не нужна
                 if (task.id != 0L && !task.isOccurrence) tasks.delete(task)
+                // «Раз в год» с подготовкой: если готовиться пора уже сейчас — задача появится сразу
+                prepTasks.create(todayClock.today())
             }
 
             ruleDraftId != null -> {
@@ -249,6 +253,17 @@ class TaskCommands @Inject constructor(
         // День повторения не удаляем, а пропускаем: иначе на его день снова появилась бы строка по правилу
         // (человек удалил «полив в четверг», а он вернулся в среду). Для него «удалить» = «этот раз не нужен»
         if (task.isOccurrenceDay) return skipOccurrence(task)
+        // Подготовку к дню «раз в год» тоже не удаляем, а пропускаем: иначе утренняя уборка увидела бы,
+        // что подготовки к этому дню нет, и создала бы её снова
+        if (task.prepFor != null) {
+            tasks.addOrUpdate(task.copy(status = TaskStatus.SKIPPED))
+            messages.post(
+                UiMessage(
+                    UiText.Res(R.string.msg_deleted),
+                    undo = { tasks.addOrUpdate(task) })
+            )
+            return
+        }
         tasks.delete(task)
         messages.post(
             UiMessage(

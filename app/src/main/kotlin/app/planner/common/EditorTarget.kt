@@ -21,6 +21,7 @@ import java.time.LocalDate
  * @param pauses все паузы правила — редактору цикла, чтобы правильно показать, какая неделя идёт сейчас.
  * @param isHabit повторение показывается привычкой («таблеткой»), а не строкой плана.
  * @param habitGoalId какой цели помогает привычка; null — ни к какой не привязана.
+ * @param prepDays у «раз в год»: за сколько дней готовиться; null — без подготовки.
  */
 data class EditorTarget(
     val task: Task,
@@ -29,6 +30,7 @@ data class EditorTarget(
     val pauses: List<Pause> = emptyList(),
     val isHabit: Boolean = false,
     val habitGoalId: Long? = null,
+    val prepDays: Int? = null,
 ) {
     companion object {
         /** Открыть правило повторения: черновик из правила, его повторение, текущая пауза. */
@@ -39,6 +41,7 @@ data class EditorTarget(
             pauses = rule.pauses,
             isHabit = rule.isHabit,
             habitGoalId = rule.goalId,
+            prepDays = rule.prepDays,
         )
     }
 }
@@ -59,6 +62,7 @@ data class EditorTarget(
  * @param isHabit показывать повторение привычкой. Без повторения не имеет смысла и всегда false.
  * @param habitGoalId цель, которой помогает привычка. Только у привычки, иначе null.
  * (Не путать с task.goalId: тот — у шага цели, а это — у правила-привычки.)
+ * @param prepDays у «раз в год»: за сколько дней готовиться (RecurrenceRule.prepDays); null — без подготовки.
  * @param applyToAllDays правили один день повторения и на вопрос «Только этот раз или все дни?»
  *   ответили «Все дни»: название и время этого дня переносятся и в само правило.
  */
@@ -69,6 +73,7 @@ data class EditorResult(
     val isHabit: Boolean = false,
     val habitGoalId: Long? = null,
     val applyToAllDays: Boolean = false,
+    val prepDays: Int? = null,
 )
 
 /**
@@ -87,6 +92,7 @@ val EditorTargetSaver: Saver<EditorTarget?, Any> = Saver(
                 ArrayList(it.pauses.flatMap { p -> listOf(p.from, p.until) }),
                 it.isHabit,
                 it.habitGoalId,
+                it.prepDays,
             )
         }
     },
@@ -104,6 +110,8 @@ val EditorTargetSaver: Saver<EditorTarget?, Any> = Saver(
             },
             isHabit = v[5] as Boolean,
             habitGoalId = v[6] as Long?,
+            // getOrNull: состояние, сохранённое до появления подготовки, короче — тогда её нет
+            prepDays = v.getOrNull(7) as Int?,
         )
     },
 )

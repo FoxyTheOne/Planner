@@ -45,6 +45,8 @@ import androidx.room.migration.AutoMigrationSpec
  *   «Привычки». У старых правил 0 — и они идут, как раньше, по порядку создания (ORDER BY position, id);
  * - 10 — у правил напоминание, как у задач в версии 8: колонки reminderMinutesBefore и reminderAt
  *   (у старых правил пустые — повторения без напоминаний, как и было).
+ * - 11 — подготовка к дню «раз в год»: у задач колонки prepRuleId (какое повторение, ссылка на него)
+ *   и prepFor (к какому дню), у правил prepDays (за сколько дней). У старых строк пустые — без подготовки.
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
@@ -54,7 +56,7 @@ import androidx.room.migration.AutoMigrationSpec
         TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class,
         GoalEntity::class, GoalStageEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -66,6 +68,7 @@ import androidx.room.migration.AutoMigrationSpec
         AutoMigration(from = 7, to = 8),
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
+        AutoMigration(from = 10, to = 11),
     ],
 )
 @TypeConverters(Converters::class)

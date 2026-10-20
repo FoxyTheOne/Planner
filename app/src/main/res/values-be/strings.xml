@@ -209,6 +209,21 @@
     <string name="repeat_daily">Кожны дзень</string>
     <string name="repeat_weekdays">Па днях тыдня</string>
     <string name="repeat_weekdays_summary">Па днях: %1$s</string>
+    <string name="prep_add">Падрыхтавацца загадзя</string>
+    <string name="prep_value">Падрыхтавацца %1$s</string>
+    <string name="prep_month">за месяц</string>
+    <string name="prep_two_weeks">за 2 тыдні</string>
+    <string name="prep_week">за тыдзень</string>
+    <string name="cd_clear_prep">Без падрыхтоўкі</string>
+    <string name="prep_today">%1$s · сёння</string>
+    <string name="prep_tomorrow">%1$s · заўтра</string>
+    <string name="prep_passed">%1$s · ужо прайшло</string>
+    <plurals name="prep_in_days">
+        <item quantity="one">%1$s · праз %2$d дзень</item>
+        <item quantity="few">%1$s · праз %2$d дні</item>
+        <item quantity="many">%1$s · праз %2$d дзён</item>
+        <item quantity="other">%1$s · праз %2$d дня</item>
+    </plurals>
     <string name="repeat_every_n">Раз у N дзён</string>
     <string name="repeat_yearly">Раз у год</string>
     <string name="repeat_yearly_summary">Кожны год, %1$s</string>

@@ -2,11 +2,13 @@ package app.planner.core.domain.recurrence
 
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.DayOfWeek.FRIDAY
@@ -249,5 +251,45 @@ class RecurrenceTest {
         assertFalse(Recurrence.occursOn(rule, LocalDate.of(2029, 3, 1)))
         assertTrue(Recurrence.occursOn(rule, LocalDate.of(2032, 2, 29))) // високосный — снова 29-е
         assertFalse(Recurrence.occursOn(rule, LocalDate.of(2032, 2, 28)))
+    }
+    // --- Подготовка к дню «раз в год» ---
+
+    private val oct15 = LocalDate.of(2026, 10, 15)
+    private val birthday = RecurrenceRule(
+        id = 9, title = "День рождения мамы", repeat = Repeat.Yearly(MonthDay.from(oct15)),
+        startDate = oct15.minusYears(5), prepDays = 14, listId = 2,
+        reminder = Reminder.AtTime(LocalTime.of(10, 0)),
+    )
+
+    @Test
+    fun `prep task appears when preparation starts`() {
+        // За 15 дней — ещё рано
+        assertTrue(Recurrence.prepTasksDue(listOf(birthday), emptyList(), oct15.minusDays(15)).isEmpty())
+        // За 14 дней — пора: обычная задача на сегодня, помнит, к какому дню готовит
+        val prep = Recurrence.prepTasksDue(listOf(birthday), emptyList(), oct15.minusDays(14)).single()
+        assertEquals(oct15.minusDays(14), prep.date)
+        assertEquals(oct15, prep.prepFor)
+        assertEquals(9L, prep.prepRuleId)
+        assertEquals(2L, prep.listId)
+        assertEquals(Reminder.AtTime(LocalTime.of(10, 0)), prep.reminder)
+    }
+
+    @Test
+    fun `prep task is made once, and late if the app was not opened`() {
+        val made = Task(title = "День рождения мамы", date = oct15.minusDays(14), prepRuleId = 9, prepFor = oct15)
+        // Уже есть (даже сделанная или пропущенная) — второй не будет
+        assertTrue(Recurrence.prepTasksDue(listOf(birthday), listOf(made), oct15.minusDays(3)).isEmpty())
+        // Приложение не открывали — задача появится в тот день, когда откроют, на сегодня
+        assertEquals(oct15.minusDays(3), Recurrence.prepTasksDue(listOf(birthday), emptyList(), oct15.minusDays(3)).single().date)
+        // День прошёл — готовимся уже к следующему году, но до этого ещё далеко
+        assertTrue(Recurrence.prepTasksDue(listOf(birthday), listOf(made), oct15.plusDays(1)).isEmpty())
+    }
+
+    @Test
+    fun `no prep without days, and timed reminder does not carry over`() {
+        assertTrue(Recurrence.prepTasksDue(listOf(birthday.copy(prepDays = null)), emptyList(), oct15.minusDays(1)).isEmpty())
+        // «За 30 минут до начала» у подготовки не от чего считать — без напоминания
+        val timed = birthday.copy(time = LocalTime.of(18, 0), reminder = Reminder.BeforeTime(30))
+        assertNull(Recurrence.prepTasksDue(listOf(timed), emptyList(), oct15.minusDays(1)).single().reminder)
     }
 }

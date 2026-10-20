@@ -58,6 +58,13 @@ data class Task(
     val position: Int = 0,
     /** Напоминание о задаче; null — без напоминания (так у большинства задач). См. [Reminder]. */
     val reminder: Reminder? = null,
+    /**
+     * Задача-подготовка к дню «раз в год» (день рождения через месяц — «купить подарок»):
+     * какое повторение ([prepRuleId]) и к какому его дню ([prepFor]) она готовит. Это обычная задача:
+     * её переносят, она копится в «Незавершённом», пока не сделана. Создаёт её Recurrence.prepTasksDue.
+     */
+    val prepRuleId: Long? = null,
+    val prepFor: LocalDate? = null,
     /** Пример из онбординга — такие задачи помечены и легко удаляются. */
     val isSample: Boolean = false,
     val createdAt: Instant = Instant.now(),

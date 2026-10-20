@@ -112,6 +112,7 @@ fun TaskEditorSheet(
     habitHistory: HabitHistory? = null,
     goals: List<Goal> = emptyList(),
     initialHabitGoalId: Long? = null,
+    initialPrepDays: Int? = null,
     onEditAllDays: (() -> Unit)? = null,
 ) {
     ModalBottomSheet(
@@ -133,6 +134,7 @@ fun TaskEditorSheet(
             habitHistory = habitHistory,
             goals = goals,
             initialHabitGoalId = initialHabitGoalId,
+            initialPrepDays = initialPrepDays,
             onEditAllDays = onEditAllDays,
         )
     }
@@ -196,6 +198,7 @@ fun TaskEditorSheet(
             habitHistory = habitHistory,
             goals = goals,
             initialHabitGoalId = target.habitGoalId,
+            initialPrepDays = target.prepDays,
             onEditAllDays = ruleOfDay?.let { rule -> { onOpenRule(rule) } },
         )
     }
@@ -223,6 +226,7 @@ fun TaskEditorSheetBody(
     habitHistory: HabitHistory? = null,
     goals: List<Goal> = emptyList(),
     initialHabitGoalId: Long? = null,
+    initialPrepDays: Int? = null,
     onEditAllDays: (() -> Unit)? = null,
 ) {
     // Новое — и не задача из базы (id = 0), и не правка уже существующего повторения (ruleId)
@@ -253,6 +257,8 @@ fun TaskEditorSheetBody(
     var showRepeat by rememberSaveable { mutableStateOf(false) }
     var isHabit by rememberSaveable { mutableStateOf(initialHabit) }
     var habitGoalId by rememberSaveable { mutableStateOf(initialHabitGoalId) }
+    // За сколько дней готовиться к дню «раз в год»; null — без подготовки
+    var prepDays by rememberSaveable { mutableStateOf(initialPrepDays) }
     // Напоминание, как его выбрали. Если потом поменяли дату или время, «подходящее» считает
     // Reminders.fitting: например, убрали время — «за 30 минут» больше не от чего считать
     var reminder by rememberSaveable(stateSaver = ReminderSaver) { mutableStateOf(initial.reminder) }
@@ -296,6 +302,8 @@ fun TaskEditorSheetBody(
                 // Цель — только у привычки: выключили «Привычка» или убрали повторение — связь не сохраняем
                 habitGoalId = habitGoalId.takeIf { isHabit && repeat != null },
                 applyToAllDays = allDays,
+                // Подготовка — только у «раз в год»: сменили повторение на другое — её нет
+                prepDays = prepDays.takeIf { repeat is Repeat.Yearly },
             ),
         )
     }
@@ -496,6 +504,10 @@ fun TaskEditorSheetBody(
                 clearDescription = stringResource(R.string.cd_clear_repeat),
             )
             // Привычка — только у повторения: у разовой задачи «таблетки» не бывает
+            // «Раз в год» — можно подготовиться заранее: задача за месяц, 2 недели или неделю до дня
+            if (repeat is Repeat.Yearly) {
+                PrepRow(days = prepDays, onChange = { prepDays = it })
+            }
             if (repeat != null) {
                 HabitSwitchRow(checked = isHabit, onCheckedChange = { isHabit = it })
                 // «Помогает цели» — только у привычки, и только если есть цели (или связь уже есть)

@@ -197,4 +197,22 @@ class BackupFormatTest {
         ).toDomain()
         assertEquals(birthday, back)
     }
+    @Test
+    fun `backup of format 11 has no preparation, preparation survives export`() {
+        val v11 = """
+            {"formatVersion":11,"exportedAt":"2026-10-20T10:00:00Z","lists":[],
+             "tasks":[{"id":5,"title":"Купить подарок","createdAt":"2026-10-01T09:00:00Z"}],
+             "rules":[{"id":3,"title":"День рождения мамы","startDate":"2026-10-15","repeat":{"type":"YEARLY"}}]}
+        """.trimIndent()
+        val snapshot = backupJson.decodeFromString(BackupSnapshot.serializer(), v11)
+        assertEquals(null, snapshot.tasks.single().prepFor)
+        assertEquals(null, snapshot.rules.single().toDomain().prepDays)
+
+        val withPrep = snapshot.rules.single().toDomain().copy(prepDays = 14)
+        val back = backupJson.decodeFromString(
+            RuleDto.serializer(),
+            backupJson.encodeToString(RuleDto.serializer(), withPrep.toDto()),
+        ).toDomain()
+        assertEquals(withPrep, back)
+    }
 }

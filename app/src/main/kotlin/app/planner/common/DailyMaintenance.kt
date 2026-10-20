@@ -16,6 +16,7 @@ import javax.inject.Singleton
  * 2. Хвосты, забытые дольше срока из настроек (по умолчанию 7 дней), тихо возвращаются
  *    в свои списки без даты — об этом появится одно короткое сообщение.
  * 3. Если в настройках включён автоперенос — оставшееся несделанное переезжает на сегодня.
+ * 4. Ко дням «раз в год» с подготовкой появляются задачи-подготовки (см. [PrepTasks]).
  *
  * Запускает её [app.planner.MainViewModel].
  */
@@ -24,6 +25,7 @@ class DailyMaintenance @Inject constructor(
     private val tasks: ITaskRepository,
     private val settings: ISettingsRepository,
     private val messages: MessageBus,
+    private val prepTasks: PrepTasks,
 ) {
     /*
      * День последнего запуска — чтобы не делать уборку дважды за один день, пока приложение живо.
@@ -54,5 +56,8 @@ class DailyMaintenance @Inject constructor(
         if (current.overdueMode == OverdueMode.AUTO_MOVE_TO_TODAY) {
             tasks.moveOverdueToDate(today, today)
         }
+
+        // Дни «раз в год», к которым пора готовиться, — задачи-подготовки появляются в плане
+        prepTasks.create(today)
     }
 }

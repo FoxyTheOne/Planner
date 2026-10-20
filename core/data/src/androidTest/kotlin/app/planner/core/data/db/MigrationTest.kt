@@ -297,4 +297,34 @@ class MigrationTest {
             db.close()
         }
     }
+    @Test
+    fun migrate10To11_nothingIsPreparationYet() = runBlocking {
+        val oct15 = LocalDate.of(2026, 10, 15).toEpochDay()
+        helper.createDatabase(dbName, 10).apply {
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, pauses, isHabit, position) " +
+                    "VALUES (3, 'День рождения мамы', $oct15, 'YEARLY', '[]', 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO tasks (id, title, note, status, isSample, createdAt, position) " +
+                    "VALUES (10, 'Купить подарок', '', 'OPEN', 0, 0, 0)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 11, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            assertEquals(null, RoomRecurrenceRepository(db).getRule(3)!!.prepDays)
+            val task = db.taskDao().get(10)!!.toDomain()
+            assertEquals(null, task.prepFor)
+            // А подготовка записывается и читается обратно
+            db.taskDao().addOrUpdate(task.copy(prepRuleId = 3, prepFor = LocalDate.of(2026, 10, 15)).toEntity())
+            assertEquals(3L, db.taskDao().get(10)!!.toDomain().prepRuleId)
+        } finally {
+            db.close()
+        }
+    }
 }

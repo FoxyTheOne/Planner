@@ -14,7 +14,18 @@ import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.reminder.Reminders
+import java.time.LocalDate
 import java.time.LocalTime
+
+/**
+ * Начало заметки задачи — для серой подписи под названием в плане, списке и цели («каб. 214»).
+ * Берём первую непустую строку: заметка может быть длинной, а в строке задачи нужно только
+ * то, что важно увидеть на ходу. Целиком заметка — в редакторе. Заметки нет — null, подписи нет.
+ *
+ * `lineSequence()` — строки текста по одной, «лениво»: дальше первой непустой не читаем.
+ */
+val Task.notePreview: String?
+    get() = note.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }
 
 /**
  * Строка дня: обычная задача или день повторения (полив, бассейн).
@@ -107,9 +118,12 @@ fun DayItemRow(
                 // а у перенесённого ещё и «вместо ср 7»: видно, откуда он взялся
                 // У дня повторения — дела цикла и «вместо ср 7» (см. occurrenceSubtitle).
                 // У обычной задачи — начало заметки, а у шага цели ещё и его цель, через точку:
+                // У подготовки к дню «раз в год» — к какому дню и сколько осталось: «21 октября · через 30 дней».
+                // LocalDate.now() — подпись пересчитается при следующей перерисовке; в полночь экран и так обновится
                 // «взять паспорт · шаг к цели «Ремонт»». Цель не нашлась (её как раз удаляют) — без неё
                 subtitle = if (task.isOccurrence) occurrenceSubtitle(task) else listOfNotNull(
                     task.notePreview,
+                    task.prepFor?.let { prepSubtitle(it, LocalDate.now()) },
                     task.goalId?.let(goalTitles::get)
                         ?.let { stringResource(R.string.goal_step_subtitle, it) },
                 ).joinToString(" · ").ifEmpty { null },
@@ -157,13 +171,3 @@ private fun occurrenceSubtitle(task: Task): String? {
 @Composable
 fun labelColorOf(listId: Long?, lists: List<TaskList>) =
     lists.firstOrNull { it.id == listId && !it.isInbox }?.let { PlannerTheme.paper.label(it.color) }
-
-/**
- * Начало заметки задачи — для серой подписи под названием в плане, списке и цели («каб. 214»).
- * Берём первую непустую строку: заметка может быть длинной, а в строке задачи нужно только
- * то, что важно увидеть на ходу. Целиком заметка — в редакторе. Заметки нет — null, подписи нет.
- *
- * `lineSequence()` — строки текста по одной, «лениво»: дальше первой непустой не читаем.
- */
-val Task.notePreview: String?
-    get() = note.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }

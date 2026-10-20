@@ -31,6 +31,9 @@ interface ITaskRepository {
     /** Удалить все дни правила [ruleId], ставшие задачами (отметки привычки, когда её удаляют). */
     suspend fun deleteOccurrenceTasks(ruleId: Long)
 
+    /** Все задачи-подготовки к дням «раз в год» (см. Recurrence.prepTasksDue), в любом статусе. */
+    suspend fun getPrepTasks(): List<Task>
+
     /** Шаги одной цели — все: сделанные, открытые, запланированные. Порядок — см. orderedSteps. */
     fun observeGoalSteps(goalId: Long): Flow<List<Task>>
 

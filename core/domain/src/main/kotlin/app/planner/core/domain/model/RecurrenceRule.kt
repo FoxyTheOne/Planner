@@ -34,6 +34,8 @@ import java.time.MonthDay
  * @param reminder напоминание каждого дня повторения — те же варианты, что у задачи: «за N минут»
  *   у повторения со временем, «в 9:00» — без времени. null — не напоминать. Когда звонить в следующий
  *   раз, считает Reminders.nextForRule.
+ * @param prepDays только у «раз в год»: за сколько дней до дня появится задача-подготовка
+ *   («за месяц» — 30, «за 2 недели» — 14, «за неделю» — 7); null — без подготовки.
  * @param position место в ряду: привычки на «Сегодня» и на экране «Привычки» идут по нему —
  *   как человек их расставил, перетаскивая. Новые правила встают в конец (см. TaskCommands.save).
  */
@@ -51,6 +53,7 @@ data class RecurrenceRule(
     val goalId: Long? = null,
     val position: Int = 0,
     val reminder: Reminder? = null,
+    val prepDays: Int? = null,
 )
 
 /**

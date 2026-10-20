@@ -7,6 +7,7 @@ import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Recurrence.occurrencesOn
 import app.planner.core.domain.recurrence.Recurrence.toTask
+import app.planner.core.domain.reminder.Reminders
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -117,6 +118,7 @@ object Recurrence {
         // Значение по умолчанию может опираться на параметры левее: existing уже известен
         isHabit: Boolean = existing?.isHabit ?: false,
         goalId: Long? = existing?.goalId,
+        prepDays: Int? = existing?.prepDays,
     ): RecurrenceRule = RecurrenceRule(
         id = existing?.id ?: 0,
         title = draft.title,
@@ -132,6 +134,8 @@ object Recurrence {
         // Место в ряду не меняется от правки: переставляют его только перетаскиванием
         position = existing?.position ?: 0,
         reminder = draft.reminder,
+        // Подготовка бывает только у «раз в год»: сменили повторение на другое — её больше нет
+        prepDays = prepDays.takeIf { repeat is Repeat.Yearly },
     )
 
     /**
@@ -369,5 +373,44 @@ object Recurrence {
                     ?: toWeekStartExclusive,
                     toWeekStartExclusive)
             if (endWeek > firstWeek) ChronoUnit.WEEKS.between(firstWeek, endWeek) else 0L
+        }
+
+    /**
+     * Какие задачи-подготовки пора создать сегодня ([today]) — для повторений «раз в год» с подготовкой.
+     *
+     * Для каждого такого правила берём ближайший его день (сегодня или позже). Подготовка начинается
+     * за [RecurrenceRule.prepDays] дней до него. Если этот момент уже настал, а задачи-подготовки
+     * к этому дню ещё нет (среди [existing] — уже созданных, в том числе сделанных и пропущенных), —
+     * создаём её: обычная задача на сегодня с названием правила, его списком и напоминанием.
+     *
+     * Почему «на сегодня», а не на день подготовки: если приложение не открывали неделю,
+     * задача, созданная задним числом, сразу ушла бы в «Незавершённое». А так она просто появляется
+     * в плане дня. День, к которому готовимся, задача помнит ([Task.prepFor]) — его видно в подписи.
+     *
+     * Напоминание — то, что подходит задаче без времени («в 9:00»): «за 30 минут до начала»
+     * отсчитывать не от чего, у подготовки своего времени нет.
+     */
+    fun prepTasksDue(
+        rules: List<RecurrenceRule>,
+        existing: List<Task>,
+        today: LocalDate
+    ): List<Task> =
+        rules.mapNotNull { rule ->
+            val days = rule.prepDays ?: return@mapNotNull null
+            if (rule.repeat !is Repeat.Yearly) return@mapNotNull null
+            // Ближайший день правила: «раз в год» — значит, не дальше чем через год
+            val event = generateSequence(today) { it.plusDays(1) }
+                .take(367)
+                .firstOrNull { occursOn(rule, it) } ?: return@mapNotNull null
+            val alreadyMade = existing.any { it.prepRuleId == rule.id && it.prepFor == event }
+            if (today < event.minusDays(days.toLong()) || alreadyMade) return@mapNotNull null
+            Task(
+                title = rule.title,
+                date = today,
+                listId = rule.listId,
+                reminder = Reminders.fitting(rule.reminder, today, time = null),
+                prepRuleId = rule.id,
+                prepFor = event,
+            )
         }
 }

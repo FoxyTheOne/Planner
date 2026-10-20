@@ -49,6 +49,7 @@ import javax.inject.Singleton
  * - 10 — у правил напоминание, как у задач: `reminderMinutesBefore` или `reminderAt`. В старых файлах нет.
  * - 11 — повторение «раз в год» (`"type":"YEARLY"`; день в году — это `startDate`).
  *   Старое приложение такой тип не знает, поэтому номер формата растёт: оно честно скажет «файл новее».
+ * - 12 — подготовка к дню «раз в год»: у задач `prepRuleId` и `prepFor`, у правил `prepDays`. В старых файлах нет.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -58,7 +59,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 11
+        const val FORMAT_VERSION = 12
     }
 
     private val json = backupJson
@@ -163,6 +164,8 @@ data class TaskDto(
     val position: Int = 0,
     val reminderMinutesBefore: Int? = null,
     val reminderAt: String? = null,
+    val prepRuleId: Long? = null,
+    val prepFor: String? = null,
 )
 
 private fun TaskListEntity.toDto() = TaskListDto(id, name, color.name, position, isInbox)
@@ -194,6 +197,8 @@ private fun TaskEntity.toDto() = TaskDto(
     position = position,
     reminderMinutesBefore = reminderMinutesBefore,
     reminderAt = reminderAt?.toString(),
+    prepRuleId = prepRuleId,
+    prepFor = prepFor?.toString(),
 )
 
 private fun TaskDto.toEntity() = TaskEntity(
@@ -215,6 +220,8 @@ private fun TaskDto.toEntity() = TaskEntity(
     position = position,
     reminderMinutesBefore = reminderMinutesBefore,
     reminderAt = reminderAt?.let(LocalTime::parse),
+    prepRuleId = prepRuleId,
+    prepFor = prepFor?.let(LocalDate::parse),
 )
 
 /** Цель в файле. Её шаги — обычные задачи (TaskDto с goalId), этапы — отдельно (GoalStageDto). */
@@ -280,6 +287,7 @@ data class RuleDto(
     val position: Int = 0,
     val reminderMinutesBefore: Int? = null,
     val reminderAt: String? = null,
+    val prepDays: Int? = null,
 )
 
 /**
@@ -332,6 +340,7 @@ internal fun RecurrenceRule.toDto() = RuleDto(
     position = position,
     reminderMinutesBefore = (reminder as? Reminder.BeforeTime)?.minutes,
     reminderAt = (reminder as? Reminder.AtTime)?.time?.toString(),
+    prepDays = prepDays,
 )
 
 internal fun RuleDto.toDomain() = RecurrenceRule(
@@ -364,4 +373,5 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
     position = position,
     reminder = reminderMinutesBefore?.let { Reminder.BeforeTime(it) }
         ?: reminderAt?.let { Reminder.AtTime(LocalTime.parse(it)) },
+    prepDays = prepDays,
 )

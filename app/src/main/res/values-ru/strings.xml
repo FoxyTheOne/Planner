@@ -208,6 +208,21 @@
     <string name="repeat_daily">Каждый день</string>
     <string name="repeat_weekdays">По дням недели</string>
     <string name="repeat_weekdays_summary">По дням: %1$s</string>
+    <string name="prep_add">Подготовиться заранее</string>
+    <string name="prep_value">Подготовиться %1$s</string>
+    <string name="prep_month">за месяц</string>
+    <string name="prep_two_weeks">за 2 недели</string>
+    <string name="prep_week">за неделю</string>
+    <string name="cd_clear_prep">Без подготовки</string>
+    <string name="prep_today">%1$s · сегодня</string>
+    <string name="prep_tomorrow">%1$s · завтра</string>
+    <string name="prep_passed">%1$s · уже прошло</string>
+    <plurals name="prep_in_days">
+        <item quantity="one">%1$s · через %2$d день</item>
+        <item quantity="few">%1$s · через %2$d дня</item>
+        <item quantity="many">%1$s · через %2$d дней</item>
+        <item quantity="other">%1$s · через %2$d дня</item>
+    </plurals>
     <string name="repeat_every_n">Раз в N дней</string>
     <string name="repeat_yearly">Раз в год</string>
     <string name="repeat_yearly_summary">Каждый год, %1$s</string>

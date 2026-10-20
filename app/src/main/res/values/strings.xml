@@ -213,6 +213,19 @@
     <string name="repeat_daily">Every day</string>
     <string name="repeat_weekdays">On days of the week</string>
     <string name="repeat_weekdays_summary">On %1$s</string>
+    <string name="prep_add">Prepare in advance</string>
+    <string name="prep_value">Prepare %1$s</string>
+    <string name="prep_month">a month before</string>
+    <string name="prep_two_weeks">2 weeks before</string>
+    <string name="prep_week">a week before</string>
+    <string name="cd_clear_prep">No preparation</string>
+    <string name="prep_today">%1$s · today</string>
+    <string name="prep_tomorrow">%1$s · tomorrow</string>
+    <string name="prep_passed">%1$s · already passed</string>
+    <plurals name="prep_in_days">
+        <item quantity="one">%1$s · in %2$d day</item>
+        <item quantity="other">%1$s · in %2$d days</item>
+    </plurals>
     <string name="repeat_every_n">Every N days</string>
     <string name="repeat_yearly">Every year</string>
     <string name="repeat_yearly_summary">Every year, %1$s</string>

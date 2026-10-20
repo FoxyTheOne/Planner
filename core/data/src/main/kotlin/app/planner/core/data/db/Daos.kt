@@ -53,6 +53,10 @@ interface TaskDao {
     @Query("DELETE FROM tasks WHERE ruleId = :ruleId")
     suspend fun deleteOfRule(ruleId: Long)
 
+    // Задачи-подготовки к дням «раз в год» — все, и сделанные, и пропущенные: по ним видно, какие уже созданы
+    @Query("SELECT * FROM tasks WHERE prepRuleId IS NOT NULL")
+    suspend fun getPrep(): List<TaskEntity>
+
     // Шаги целей. Порядок для экрана считает orderedSteps (domain): там учитываются этапы
     @Query("SELECT * FROM tasks WHERE goalId = :goalId ORDER BY createdAt")
     fun observeByGoal(goalId: Long): Flow<List<TaskEntity>>

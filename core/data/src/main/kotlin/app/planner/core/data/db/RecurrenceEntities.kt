@@ -98,6 +98,8 @@ data class RecurrenceRuleEntity(
      */
     val reminderMinutesBefore: Int? = null,
     val reminderAt: LocalTime? = null,
+    /** За сколько дней готовиться к дню «раз в год» (см. RecurrenceRule.prepDays). Колонка — с версии базы 11. */
+    val prepDays: Int? = null,
 )
 
 // Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей
@@ -128,6 +130,7 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
         position = position,
         reminderMinutesBefore = (reminder as? Reminder.BeforeTime)?.minutes,
         reminderAt = (reminder as? Reminder.AtTime)?.time,
+        prepDays = prepDays,
         repeatType = "",
         weekdays = null,
         everyNDays = null,
@@ -190,6 +193,7 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
         position = position,
         reminder = reminderMinutesBefore?.let { Reminder.BeforeTime(it) }
             ?: reminderAt?.let { Reminder.AtTime(it) },
+        prepDays = prepDays,
     )
 }
 
