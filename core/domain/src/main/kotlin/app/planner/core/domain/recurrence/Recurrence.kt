@@ -299,16 +299,21 @@ object Recurrence {
      * «Продолжить» — снять паузу, которая идёт сейчас (в том числе паузу без даты).
      * Сегодня правило снова работает. Паузы, запланированные на будущее, не трогаем.
      */
-    fun resume(rule: RecurrenceRule, today: LocalDate): RecurrenceRule {
-        val pauses = rule.pauses.mapNotNull { pause ->
+    fun resume(rule: RecurrenceRule, today: LocalDate): RecurrenceRule =
+        rule.copy(pauses = resumed(rule.pauses, today))
+
+    /**
+     * Паузы после «Продолжить» в [today] — общая часть для повторений ([resume]) и лекарств
+     * (Medications.resume): пауза, которая идёт сейчас, заканчивается вчера, остальные — как были.
+     */
+    fun resumed(pauses: List<Pause>, today: LocalDate): List<Pause> =
+        pauses.mapNotNull { pause ->
             when {
                 today !in pause -> pause // эта пауза сейчас не идёт — оставляем как есть
                 pause.from == today -> null // началась только сегодня — убираем совсем
                 else -> pause.copy(until = today.minusDays(1)) // заканчиваем вчерашним днём
             }
         }
-        return rule.copy(pauses = pauses)
-    }
 
     /**
      * Первый день недели, в которую попадает [date], если неделя начинается с [weekStart].
