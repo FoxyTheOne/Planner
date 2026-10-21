@@ -144,6 +144,11 @@ class TaskCommands @Inject constructor(
                 )
             }
 
+            // Нетронутый день повторения (ещё не задача в базе), ответили «Все дни», а день оставили
+            // прежним — отдельная задача ему не нужна: меняем правило, и этот день поменяется вместе со всеми
+            result.applyToAllDays && saved.isOccurrenceDraft && saved.date == saved.occurrenceDate ->
+                applyDayToRule(saved)
+
             else -> {
                 // Какой задача была до правки — чтобы понять, не поменялось ли время дня (см. askAboutReminder)
                 val before = task.id.takeIf { it != 0L }?.let { tasks.getTask(it) }

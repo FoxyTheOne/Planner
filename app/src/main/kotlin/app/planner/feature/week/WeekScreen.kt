@@ -70,7 +70,6 @@ import app.planner.common.TaskSaver
 import app.planner.common.slotText
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.designsystem.theme.SerifFamily
-import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
@@ -117,8 +116,6 @@ fun WeekScreen(
         onAdd = { day -> pickSlot = Slot(day) },
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
-        // Тап по повторению — открыть его правило в том же редакторе, что и задачи
-        onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         onEdit = { editing = EditorTarget(it) },
         onDrop = { taskId, day ->
             viewModel.dropOnDay(taskId, day)
@@ -187,7 +184,6 @@ fun WeekContent(
     onAdd: (LocalDate) -> Unit,
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
-    onEditRule: (RecurrenceRule) -> Unit,
     onEdit: (Task) -> Unit,
     onDrop: (taskId: Long, day: LocalDate) -> Unit,
     onSelectFromTray: (Task) -> Unit,
@@ -221,7 +217,6 @@ fun WeekContent(
                     onAdd = { onAdd(day) },
                     onToggle = onToggle,
                     onCompleteOccurrence = onCompleteOccurrence,
-                    onEditRule = onEditRule,
                     onEdit = onEdit,
                     onDrop = { taskId -> onDrop(taskId, day) },
                     // Выбрали задачу в лотке — тап по дню ставит её туда
@@ -312,7 +307,6 @@ private fun DayBlock(
     onAdd: () -> Unit,
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
-    onEditRule: (RecurrenceRule) -> Unit,
     onEdit: (Task) -> Unit,
     onDrop: (Long) -> Unit,
     onTapInPlanning: (() -> Unit)?,
@@ -406,7 +400,6 @@ private fun DayBlock(
                 onToggle,
                 onCompleteOccurrence,
                 onEdit,
-                onEditRule
             )
         }
     }

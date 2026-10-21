@@ -7,7 +7,6 @@ import app.planner.R
 import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.PartOfDay
-import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
 import app.planner.core.domain.model.TaskStatus
@@ -90,7 +89,8 @@ fun dayItems(tasks: List<Task>, occurrences: List<Occurrence>): List<DayItem> =
  * («Сегодня» оборачивает строку в свайп «на завтра / запланировать», а рисует её этой же функцией.)
  *
  * @param goalTitles названия целей по id — для подписи под шагом цели.
- * @param onEditRule тап по неотмеченному дню повторения — открыть само правило в редакторе.
+ * @param onEdit тап по строке — открыть в редакторе. У дня повторения это редактор именно этого дня:
+ *   сверху «Только этот раз · Изменить все дни», а поменяли время или название — спросим, к чему это относится.
  */
 @Composable
 fun DayItemRow(
@@ -100,7 +100,6 @@ fun DayItemRow(
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
     onEdit: (Task) -> Unit,
-    onEditRule: (RecurrenceRule) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val description = stringResource(R.string.cd_mark_done)
@@ -140,7 +139,8 @@ fun DayItemRow(
                 title = rule.title,
                 done = false,
                 onToggle = { onCompleteOccurrence(item.occurrence) },
-                onClick = { onEditRule(rule) },
+                // Редактор этого дня, а не всего повторения: правка одного дня не должна молча менять все
+                onClick = { onEdit(item.asTask()) },
                 modifier = modifier,
                 time = rule.time?.let(DateTexts::time),
                 subtitle = item.occurrence.details,

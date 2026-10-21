@@ -44,7 +44,6 @@ import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.PartOfDay
-import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
@@ -80,8 +79,6 @@ fun DayScreen(
         onPickSlot = { pickSlot = it },
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
-        // Тап по повторению — открыть его правило в том же редакторе, что и задачи
-        onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         onEdit = { editing = EditorTarget(it) },
     )
 
@@ -141,7 +138,6 @@ fun DayContent(
     onPickSlot: (Slot) -> Unit,
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
-    onEditRule: (RecurrenceRule) -> Unit,
     onEdit: (Task) -> Unit,
 ) {
     val items = state.itemsByDay[date].orEmpty()
@@ -214,7 +210,6 @@ fun DayContent(
                             onToggle,
                             onCompleteOccurrence,
                             onEdit,
-                            onEditRule
                         )
                     }
                 }
@@ -244,7 +239,6 @@ fun DayContent(
                                 onToggle,
                                 onCompleteOccurrence,
                                 onEdit,
-                                onEditRule
                             )
                         }
                     }

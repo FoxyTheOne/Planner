@@ -271,7 +271,6 @@ fun TodayContent(
                                 goalTitles = state.goalTitles,
                                 onToggle = onToggle,
                                 onCompleteOccurrence = onCompleteOccurrence,
-                                onEditRule = onEditRule,
                                 onEdit = onEdit,
                             )
                         }

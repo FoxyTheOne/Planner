@@ -25,13 +25,19 @@ private fun sampleWeek(): WeekUiState = with(SampleData) {
         today to listOf(doctor, documents, englishChapter),
     )
     // Повторения считает тот же движок, что и в приложении
-    val occurrences = Recurrence.occurrencesBetween(listOf(poolRule, wateringRule), days.first(), days.last())
-        .groupBy { it.date }
+    val occurrences =
+        Recurrence.occurrencesBetween(listOf(poolRule, wateringRule), days.first(), days.last())
+            .groupBy { it.date }
     WeekUiState(
         today = today,
         weekStart = start,
         days = days,
-        itemsByDay = days.associateWith { dayItems(tasksByDay[it].orEmpty(), occurrences[it].orEmpty()) },
+        itemsByDay = days.associateWith {
+            dayItems(
+                tasksByDay[it].orEmpty(),
+                occurrences[it].orEmpty()
+            )
+        },
         lists = lists,
         unscheduled = listOf(readDune, buyBook),
         overdue = listOf(forgotten),
@@ -64,7 +70,6 @@ private fun DayPreview() {
             onPickSlot = {},
             onToggle = {},
             onCompleteOccurrence = {},
-            onEditRule = {},
             onEdit = {},
         )
     }
@@ -84,7 +89,6 @@ private fun WeekForPreview(planning: Boolean, selected: Task? = null) = WeekCont
     onAdd = {},
     onToggle = {},
     onCompleteOccurrence = {},
-    onEditRule = {},
     onEdit = {},
     onDrop = { _, _ -> },
     onSelectFromTray = {},
