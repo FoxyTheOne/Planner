@@ -102,10 +102,11 @@ data class RecurrenceRuleEntity(
     val prepDays: Int? = null,
 )
 
-// Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей
-private const val TYPE_DAILY = "DAILY"
-private const val TYPE_WEEKDAYS = "WEEKDAYS"
-private const val TYPE_EVERY_N_DAYS = "EVERY_N_DAYS"
+// Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей.
+// internal — видны во всём модуле data: те же названия пишет и таблица лекарств (MedicationEntities.kt)
+internal const val TYPE_DAILY = "DAILY"
+internal const val TYPE_WEEKDAYS = "WEEKDAYS"
+internal const val TYPE_EVERY_N_DAYS = "EVERY_N_DAYS"
 private const val TYPE_CYCLE = "CYCLE"
 private const val TYPE_YEARLY = "YEARLY"
 
@@ -114,6 +115,21 @@ private const val TYPE_YEARLY = "YEARLY"
 private data class PauseJson(val from: Long, val until: Long? = null)
 
 private val json = Json { ignoreUnknownKeys = true }
+
+/**
+ * Паузы → JSON-текст для колонки `pauses`. Общая для правил и лекарств (у тех тоже бывают перерывы).
+ *
+ * toEpochDay() превращает дату в число дней, прошедших с 1 января 1970 года: 12 октября 2026 → 20738.
+ * Числом удобнее, чем строкой "2026-10-12": короче, и так же даты хранятся во всей нашей базе (см. Converters).
+ */
+internal fun pausesToJson(pauses: List<Pause>): String =
+    json.encodeToString(pauses.map { PauseJson(it.from.toEpochDay(), it.until?.toEpochDay()) })
+
+/** Обратно: текст колонки `pauses` → паузы. */
+internal fun pausesFromJson(text: String): List<Pause> =
+    json.decodeFromString<List<PauseJson>>(text).map {
+        Pause(LocalDate.ofEpochDay(it.from), it.until?.let(LocalDate::ofEpochDay))
+    }
 
 fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
     // Сначала общие поля, потом заполняем колонки своего варианта через copy
@@ -138,13 +154,7 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
         cycleAnchorWeekStart = null,
         cycleAnchorWeekNumber = null,
         cycleWeekStart = null,
-        pauses = json.encodeToString(pauses.map {
-            // toEpochDay() превращает дату в число дней, прошедших с 1 января 1970 года. 12 октября 2026 → 20738, 18 октября → 20744. Числом удобнее, чем строкой "2026-10-12": короче, и так же даты хранятся во всей нашей базе (см. Converters)
-            PauseJson(
-                it.from.toEpochDay(),
-                it.until?.toEpochDay()
-            )
-        }),
+        pauses = pausesToJson(pauses),
     )
     // Зачем val r = repeat, а не просто when (repeat). repeat — свойство класса RecurrenceRule, а класс объявлен в другом модуле (domain). Для свойства из другого модуля Kotlin не делает smart cast: он не может быть уверен, что между проверкой is и обращением .n значение никто не подменит. Например, в будущей версии модуля это свойство могут переделать так, что оно будет каждый раз возвращать новый объект. Локальная переменная r не изменится точно, поэтому с ней smart cast работает. val внутри when (...) видна только внутри этого when.
     return when (val r = repeat) {
@@ -186,9 +196,7 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
     }
     return RecurrenceRule(
         id = id, title = title, repeat = repeat, startDate = startDate, endDate = endDate,
-        pauses = json.decodeFromString<List<PauseJson>>(pauses).map {
-            Pause(LocalDate.ofEpochDay(it.from), it.until?.let(LocalDate::ofEpochDay))
-        },
+        pauses = pausesFromJson(pauses),
         time = time, partOfDay = partOfDay, listId = listId, isHabit = isHabit, goalId = goalId,
         position = position,
         reminder = reminderMinutesBefore?.let { Reminder.BeforeTime(it) }
@@ -202,9 +210,9 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
  * `1 shl n` — единица, сдвинутая на n разрядов: пн → 1, вт → 2, ср → 4… `or` складывает биты.
  * Пн + ср + пт = 1 + 4 + 16 = 21.
  */
-private fun daysToBits(days: Set<DayOfWeek>): Int =
+internal fun daysToBits(days: Set<DayOfWeek>): Int =
     days.fold(0) { bits, day -> bits or (1 shl day.ordinal) }
 
 /** Обратно: оставляем дни, чей бит включён. 21 → пн, ср, пт. */
-private fun bitsToDays(bits: Int): Set<DayOfWeek> =
+internal fun bitsToDays(bits: Int): Set<DayOfWeek> =
     DayOfWeek.entries.filter { bits and (1 shl it.ordinal) != 0 }.toSet()

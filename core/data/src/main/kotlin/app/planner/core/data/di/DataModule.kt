@@ -10,11 +10,13 @@ import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
 import app.planner.core.data.db.PlannerDatabase
 import app.planner.core.data.repository.RoomGoalRepository
+import app.planner.core.data.repository.RoomMedicationRepository
 import app.planner.core.data.repository.RoomRecurrenceRepository
 import app.planner.core.data.repository.RoomTaskListRepository
 import app.planner.core.data.repository.RoomTaskRepository
 import app.planner.core.data.settings.DataStoreSettingsRepository
 import app.planner.core.domain.repository.IGoalRepository
+import app.planner.core.domain.repository.IMedicationRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskListRepository
@@ -91,6 +93,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun goalRepository(impl: RoomGoalRepository): IGoalRepository
+
+    @Binds
+    abstract fun medicationRepository(impl: RoomMedicationRepository): IMedicationRepository
 
     @Binds
     abstract fun settingsRepository(impl: DataStoreSettingsRepository): ISettingsRepository

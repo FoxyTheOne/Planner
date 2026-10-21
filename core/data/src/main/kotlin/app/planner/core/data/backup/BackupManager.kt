@@ -1,6 +1,7 @@
 package app.planner.core.data.backup
 
 import androidx.room.withTransaction
+import app.planner.core.data.db.DoseTakenEntity
 import app.planner.core.data.db.GoalEntity
 import app.planner.core.data.db.GoalStageEntity
 import app.planner.core.data.db.PlannerDatabase
@@ -8,7 +9,9 @@ import app.planner.core.data.db.TaskEntity
 import app.planner.core.data.db.TaskListEntity
 import app.planner.core.data.db.toDomain
 import app.planner.core.data.db.toEntity
+import app.planner.core.domain.model.FoodRelation
 import app.planner.core.domain.model.ListColor
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
@@ -50,6 +53,7 @@ import javax.inject.Singleton
  * - 11 — повторение «раз в год» (`"type":"YEARLY"`; день в году — это `startDate`).
  *   Старое приложение такой тип не знает, поэтому номер формата растёт: оно честно скажет «файл новее».
  * - 12 — подготовка к дню «раз в год»: у задач `prepRuleId` и `prepFor`, у правил `prepDays`. В старых файлах нет.
+ * - 13 — лекарства (`medications`) и отметки «принято» (`dosesTaken`). В старых файлах их нет — лекарств нет.
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -59,7 +63,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 12
+        const val FORMAT_VERSION = 13
     }
 
     private val json = backupJson
@@ -75,6 +79,8 @@ class BackupManager @Inject constructor(
                 rules = db.recurrenceRuleDao().getAll().map { it.toDomain().toDto() },
                 goals = db.goalDao().getAllGoals().map { it.toDto() },
                 stages = db.goalDao().getAllStages().map { it.toDto() },
+                medications = db.medicationDao().getAll().map { it.toDomain().toDto() },
+                dosesTaken = db.medicationDao().getAllTaken().map { it.toDto() },
             )
         }
         output.bufferedWriter().use {
@@ -96,6 +102,7 @@ class BackupManager @Inject constructor(
         db.taskDao().deleteAll()
         db.recurrenceRuleDao().deleteAll()
         db.goalDao().deleteAll() // этапы удалятся вместе с целями (CASCADE)
+        db.medicationDao().deleteAll() // отметки «принято» удалятся вместе с лекарствами (CASCADE)
         db.taskListDao().deleteAll()
         // Сначала списки: задачи и правила ссылаются на них (внешний ключ listId)
         db.taskListDao().insertAll(snapshot.lists.map { it.toEntity() })
@@ -105,6 +112,9 @@ class BackupManager @Inject constructor(
         // Правила раньше задач: отмеченные дни повторений ссылаются на правило (ruleId)
         db.recurrenceRuleDao().insertAll(snapshot.rules.map { it.toDomain().toEntity() })
         db.taskDao().insertAll(snapshot.tasks.map { it.toEntity() })
+        // Лекарства ни на что не ссылаются, а отметки — на лекарства: сначала лекарства
+        db.medicationDao().insertAll(snapshot.medications.map { it.toDomain().toEntity() })
+        db.medicationDao().insertAllTaken(snapshot.dosesTaken.map { it.toEntity() })
     }
 }
 
@@ -133,6 +143,9 @@ data class BackupSnapshot(
     // Целей нет в копиях форматов 1–5
     val goals: List<GoalDto> = emptyList(),
     val stages: List<GoalStageDto> = emptyList(),
+    // Лекарств нет в копиях форматов 1–12
+    val medications: List<MedicationDto> = emptyList(),
+    val dosesTaken: List<DoseTakenDto> = emptyList(),
 )
 
 @Serializable
@@ -320,21 +333,8 @@ internal fun RecurrenceRule.toDto() = RuleDto(
     time = time?.toString(),
     partOfDay = partOfDay?.name,
     listId = listId,
-    repeat = when (val r = repeat) {
-        Repeat.Daily -> RepeatDto("DAILY")
-        is Repeat.OnWeekdays -> RepeatDto("WEEKDAYS", days = r.days.sorted().map { it.name })
-        is Repeat.EveryNDays -> RepeatDto("EVERY_N_DAYS", n = r.n)
-        // Как в базе: день в году — это день начала правила (startDate)
-        is Repeat.Yearly -> RepeatDto("YEARLY")
-        is Repeat.Cycle -> RepeatDto(
-            "CYCLE",
-            weeks = r.weeks.map { week -> week.mapKeys { it.key.name } },
-            anchorWeekStart = r.anchorWeekStart.toString(),
-            anchorWeekNumber = r.anchorWeekNumber,
-            weekStart = r.weekStart.name,
-        )
-    },
-    pauses = pauses.map { PauseDto(it.from.toString(), it.until?.toString()) },
+    repeat = repeat.toDto(),
+    pauses = pauses.map { it.toDto() },
     isHabit = isHabit,
     goalId = goalId,
     position = position,
@@ -346,25 +346,10 @@ internal fun RecurrenceRule.toDto() = RuleDto(
 internal fun RuleDto.toDomain() = RecurrenceRule(
     id = id,
     title = title,
-    repeat = when (repeat.type) {
-        "DAILY" -> Repeat.Daily
-        "WEEKDAYS" -> Repeat.OnWeekdays(repeat.days.orEmpty().map(DayOfWeek::valueOf).toSet())
-        "EVERY_N_DAYS" -> Repeat.EveryNDays(repeat.n ?: 1)
-        "YEARLY" -> Repeat.Yearly(MonthDay.from(LocalDate.parse(startDate)))
-        "CYCLE" -> Repeat.Cycle(
-            weeks = repeat.weeks.orEmpty()
-                .map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },
-            // ?: — «если слева null, взять справа»: в старых файлах дата лежит в anchorMonday
-            anchorWeekStart = LocalDate.parse(repeat.anchorWeekStart ?: repeat.anchorMonday),
-            anchorWeekNumber = repeat.anchorWeekNumber ?: 1,
-            weekStart = repeat.weekStart?.let(DayOfWeek::valueOf) ?: DayOfWeek.MONDAY,
-        )
-        // Файл из более новой версии приложения не дойдёт сюда: read() отклоняет formatVersion новее нашего
-        else -> error("Unknown repeat type: ${repeat.type}")
-    },
+    repeat = repeat.toRepeat(LocalDate.parse(startDate)),
     startDate = LocalDate.parse(startDate),
     endDate = endDate?.let(LocalDate::parse),
-    pauses = pauses.map { Pause(LocalDate.parse(it.from), it.until?.let(LocalDate::parse)) },
+    pauses = pauses.map { it.toPause() },
     time = time?.let(LocalTime::parse),
     partOfDay = partOfDay?.let { runCatching { PartOfDay.valueOf(it) }.getOrNull() },
     listId = listId,
@@ -375,3 +360,115 @@ internal fun RuleDto.toDomain() = RecurrenceRule(
         ?: reminderAt?.let { Reminder.AtTime(LocalTime.parse(it)) },
     prepDays = prepDays,
 )
+
+/**
+ * «Как часто» → как это записано в файле. Общая для правил и лекарств: расписание у них одно и то же.
+ * У «раз в год» своих полей нет — как в базе, день в году — это день начала (startDate).
+ */
+internal fun Repeat.toDto(): RepeatDto = when (this) {
+    Repeat.Daily -> RepeatDto("DAILY")
+    is Repeat.OnWeekdays -> RepeatDto("WEEKDAYS", days = days.sorted().map { it.name })
+    is Repeat.EveryNDays -> RepeatDto("EVERY_N_DAYS", n = n)
+    is Repeat.Yearly -> RepeatDto("YEARLY")
+    is Repeat.Cycle -> RepeatDto(
+        "CYCLE",
+        weeks = weeks.map { week -> week.mapKeys { it.key.name } },
+        anchorWeekStart = anchorWeekStart.toString(),
+        anchorWeekNumber = anchorWeekNumber,
+        weekStart = weekStart.name,
+    )
+}
+
+/** Обратно: запись в файле → «как часто». [startDate] нужен «раз в год»: его день — это день начала. */
+internal fun RepeatDto.toRepeat(startDate: LocalDate): Repeat = when (type) {
+    "DAILY" -> Repeat.Daily
+    "WEEKDAYS" -> Repeat.OnWeekdays(days.orEmpty().map(DayOfWeek::valueOf).toSet())
+    "EVERY_N_DAYS" -> Repeat.EveryNDays(n ?: 1)
+    "YEARLY" -> Repeat.Yearly(MonthDay.from(startDate))
+    "CYCLE" -> Repeat.Cycle(
+        weeks = weeks.orEmpty().map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },
+        // ?: — «если слева null, взять справа»: в старых файлах дата лежит в anchorMonday
+        anchorWeekStart = LocalDate.parse(anchorWeekStart ?: anchorMonday),
+        anchorWeekNumber = anchorWeekNumber ?: 1,
+        weekStart = weekStart?.let(DayOfWeek::valueOf) ?: DayOfWeek.MONDAY,
+    )
+    // Файл из более новой версии приложения не дойдёт сюда: read() отклоняет formatVersion новее нашего
+    else -> error("Unknown repeat type: $type")
+}
+
+private fun Pause.toDto() = PauseDto(from.toString(), until?.toString())
+
+private fun PauseDto.toPause() = Pause(LocalDate.parse(from), until?.let(LocalDate::parse))
+
+/**
+ * Лекарство в файле. Времена приёмов — текстом («09:00»), как время у задач; расписание и перерывы —
+ * так же, как у правил ([RepeatDto], [PauseDto]). Отметки «принято» — отдельно ([DoseTakenDto]).
+ */
+@Serializable
+data class MedicationDto(
+    val id: Long,
+    val name: String,
+    val dose: String = "",
+    val food: String? = null,
+    val times: List<String>,
+    val repeat: RepeatDto,
+    val startDate: String,
+    val endDate: String? = null,
+    val pauses: List<PauseDto> = emptyList(),
+    val remind: Boolean = true,
+    val repeatReminder: Boolean = false,
+    val note: String = "",
+    val position: Int = 0,
+)
+
+/** Отметка «принято»: лекарство, день и время приёма, когда отметили. */
+@Serializable
+data class DoseTakenDto(
+    val medicationId: Long,
+    val date: String,
+    val time: String,
+    val takenAt: String
+)
+
+internal fun Medication.toDto() = MedicationDto(
+    id = id,
+    name = name,
+    dose = dose,
+    food = food?.name,
+    times = doseTimes.map { it.toString() },
+    repeat = repeat.toDto(),
+    startDate = startDate.toString(),
+    endDate = endDate?.toString(),
+    pauses = pauses.map { it.toDto() },
+    remind = remind,
+    repeatReminder = repeatReminder,
+    note = note,
+    position = position,
+)
+
+internal fun MedicationDto.toDomain() = Medication(
+    id = id,
+    name = name,
+    dose = dose,
+    food = food?.let { runCatching { FoodRelation.valueOf(it) }.getOrNull() },
+    times = times.map(LocalTime::parse),
+    repeat = repeat.toRepeat(LocalDate.parse(startDate)),
+    startDate = LocalDate.parse(startDate),
+    endDate = endDate?.let(LocalDate::parse),
+    pauses = pauses.map { it.toPause() },
+    remind = remind,
+    repeatReminder = repeatReminder,
+    note = note,
+    position = position,
+)
+
+private fun DoseTakenEntity.toDto() =
+    DoseTakenDto(medicationId, date.toString(), time.toString(), takenAt.toString())
+
+private fun DoseTakenDto.toEntity() =
+    DoseTakenEntity(
+        medicationId,
+        LocalDate.parse(date),
+        LocalTime.parse(time),
+        Instant.parse(takenAt)
+    )

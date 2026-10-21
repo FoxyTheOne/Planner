@@ -47,6 +47,8 @@ import androidx.room.migration.AutoMigrationSpec
  *   (у старых правил пустые — повторения без напоминаний, как и было).
  * - 11 — подготовка к дню «раз в год»: у задач колонки prepRuleId (какое повторение, ссылка на него)
  *   и prepFor (к какому дню), у правил prepDays (за сколько дней). У старых строк пустые — без подготовки.
+ * - 12 — лекарства: таблицы medications (сами лекарства) и doses_taken (отметки «принято»).
+ *   Новые таблицы — Room создаст их сам, старые данные не трогаются.
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
@@ -55,8 +57,9 @@ import androidx.room.migration.AutoMigrationSpec
     entities = [
         TaskEntity::class, TaskListEntity::class, RecurrenceRuleEntity::class,
         GoalEntity::class, GoalStageEntity::class,
+        MedicationEntity::class, DoseTakenEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -69,6 +72,7 @@ import androidx.room.migration.AutoMigrationSpec
         AutoMigration(from = 8, to = 9),
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
+        AutoMigration(from = 11, to = 12),
     ],
 )
 @TypeConverters(Converters::class)
@@ -77,6 +81,7 @@ abstract class PlannerDatabase : RoomDatabase() {
     abstract fun taskListDao(): TaskListDao
     abstract fun recurrenceRuleDao(): RecurrenceRuleDao
     abstract fun goalDao(): GoalDao
+    abstract fun medicationDao(): MedicationDao
 
     /**
      * Подсказка для миграции 3 → 4: колонку не удалили и создали заново, а переименовали —

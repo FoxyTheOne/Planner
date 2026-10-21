@@ -3,10 +3,12 @@ package app.planner.core.data.db
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * DAO (Data Access Object) — «пульт» таблицы задач.
@@ -246,5 +248,64 @@ interface GoalDao {
 
     // Этапы удалятся сами вместе с целями (CASCADE)
     @Query("DELETE FROM goals")
+    suspend fun deleteAll()
+}
+
+/**
+ * «Пульт» лекарств и отметок «принято» (таблицы `medications` и `doses_taken`).
+ * Одна DAO на обе таблицы: отметки без лекарств не живут, и работают с ними всегда вместе.
+ */
+@Dao
+interface MedicationDao {
+    // По месту в списке (как расставили), при равном месте — по порядку создания
+    @Query("SELECT * FROM medications ORDER BY position, id")
+    fun observeAll(): Flow<List<MedicationEntity>>
+
+    @Query("SELECT * FROM medications WHERE id = :id")
+    suspend fun get(id: Long): MedicationEntity?
+
+    @Upsert
+    suspend fun upsert(medication: MedicationEntity): Long
+
+    // Новый порядок — весь список одной транзакцией
+    @Upsert
+    suspend fun upsertAll(medications: List<MedicationEntity>)
+
+    // Отметки удалятся сами (CASCADE)
+    @Query("DELETE FROM medications WHERE id = :id")
+    suspend fun delete(id: Long)
+
+    // --- Отметки «принято» ---
+
+    @Query("SELECT * FROM doses_taken WHERE date BETWEEN :from AND :to")
+    fun observeTaken(from: LocalDate, to: LocalDate): Flow<List<DoseTakenEntity>>
+
+    @Query("SELECT * FROM doses_taken WHERE medicationId = :medicationId AND date >= :from")
+    suspend fun getTaken(medicationId: Long, from: LocalDate): List<DoseTakenEntity>
+
+    // IGNORE — приём уже отмечен (та же тройка «лекарство + день + время»): оставить первую отметку,
+    // а не падать. Так двойное нажатие (на экране и в уведомлении) ничего не ломает
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertTaken(taken: DoseTakenEntity)
+
+    @Query("DELETE FROM doses_taken WHERE medicationId = :medicationId AND date = :date AND time = :time")
+    suspend fun deleteTaken(medicationId: Long, date: LocalDate, time: LocalTime)
+
+    // --- Для резервной копии ---
+
+    @Query("SELECT * FROM medications")
+    suspend fun getAll(): List<MedicationEntity>
+
+    @Query("SELECT * FROM doses_taken")
+    suspend fun getAllTaken(): List<DoseTakenEntity>
+
+    @Insert
+    suspend fun insertAll(medications: List<MedicationEntity>)
+
+    @Insert
+    suspend fun insertAllTaken(taken: List<DoseTakenEntity>)
+
+    // Отметки удалятся вместе с лекарствами (CASCADE)
+    @Query("DELETE FROM medications")
     suspend fun deleteAll()
 }

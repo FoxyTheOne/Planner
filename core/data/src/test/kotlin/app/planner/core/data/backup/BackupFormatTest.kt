@@ -1,5 +1,7 @@
 package app.planner.core.data.backup
 
+import app.planner.core.domain.model.FoodRelation
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Reminder
@@ -214,5 +216,43 @@ class BackupFormatTest {
             backupJson.encodeToString(RuleDto.serializer(), withPrep.toDto()),
         ).toDomain()
         assertEquals(withPrep, back)
+    }
+
+    @Test
+    fun `backup of format 12 has no medications`() {
+        val v12 = """
+            {"formatVersion":12,"exportedAt":"2026-10-20T10:00:00Z","lists":[],"tasks":[]}
+        """.trimIndent()
+
+        val snapshot = backupJson.decodeFromString(BackupSnapshot.serializer(), v12)
+
+        assertTrue(snapshot.medications.isEmpty())
+        assertTrue(snapshot.dosesTaken.isEmpty())
+    }
+
+    @Test
+    fun `medication survives export`() {
+        val oct5 = LocalDate.of(2026, 10, 5)
+        val medication = Medication(
+            id = 4,
+            name = "Витамин D",
+            dose = "1 капсула",
+            food = FoodRelation.WITH,
+            times = listOf(LocalTime.of(9, 0), LocalTime.of(21, 0)),
+            repeat = Repeat.OnWeekdays(setOf(MONDAY, WEDNESDAY)),
+            startDate = oct5,
+            endDate = oct5.plusDays(9),
+            pauses = listOf(Pause(oct5.plusDays(3), oct5.plusDays(4))),
+            repeatReminder = true,
+            note = "не вместе с кофе",
+            position = 1,
+        )
+
+        val text = backupJson.encodeToString(MedicationDto.serializer(), medication.toDto())
+        val back = backupJson.decodeFromString(MedicationDto.serializer(), text).toDomain()
+
+        assertEquals(medication, back)
+        // Времена в файле — текстом, чтобы файл можно было прочитать глазами
+        assertTrue(text.contains("\"times\":[\"09:00\",\"21:00\"]"))
     }
 }

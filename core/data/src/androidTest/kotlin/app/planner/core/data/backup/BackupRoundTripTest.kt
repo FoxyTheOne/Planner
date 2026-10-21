@@ -3,13 +3,16 @@ package app.planner.core.data.backup
 import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import app.planner.core.data.db.DoseTakenEntity
 import app.planner.core.data.db.GoalEntity
 import app.planner.core.data.db.GoalStageEntity
 import app.planner.core.data.db.PlannerDatabase
 import app.planner.core.data.db.TaskEntity
 import app.planner.core.data.db.TaskListEntity
 import app.planner.core.data.db.toEntity
+import app.planner.core.domain.model.FoodRelation
 import app.planner.core.domain.model.ListColor
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
@@ -23,6 +26,7 @@ import java.io.ByteArrayOutputStream
 import java.time.DayOfWeek.WEDNESDAY
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 
 /**
  * Полный круг «экспорт → импорт» на настоящей базе: всё, что было в базе,
@@ -100,6 +104,21 @@ class BackupRoundTripTest {
                 ),
             )
 
+            // Лекарство с курсом и перерывом и одна отметка «принято»
+            source.medicationDao().insertAll(
+                listOf(
+                    Medication(
+                        id = 1, name = "Витамин D", dose = "1 капсула", food = FoodRelation.AFTER,
+                        times = listOf(LocalTime.of(9, 0), LocalTime.of(21, 0)),
+                        startDate = LocalDate.of(2026, 10, 5), endDate = LocalDate.of(2026, 11, 3),
+                        pauses = listOf(Pause(LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 22))),
+                    ).toEntity(),
+                ),
+            )
+            source.medicationDao().insertTaken(
+                DoseTakenEntity(1, LocalDate.of(2026, 10, 7), LocalTime.of(9, 0), Instant.ofEpochMilli(5_000)),
+            )
+
             // 2. Экспорт в «файл» (массив байтов в памяти) и восстановление во вторую базу
             val file = ByteArrayOutputStream()
             BackupManager(source).export(file)
@@ -112,6 +131,8 @@ class BackupRoundTripTest {
             assertEquals(source.recurrenceRuleDao().getAll(), target.recurrenceRuleDao().getAll())
             assertEquals(source.goalDao().getAllGoals(), target.goalDao().getAllGoals())
             assertEquals(source.goalDao().getAllStages(), target.goalDao().getAllStages())
+            assertEquals(source.medicationDao().getAll(), target.medicationDao().getAll())
+            assertEquals(source.medicationDao().getAllTaken(), target.medicationDao().getAllTaken())
         } finally {
             source.close()
             target.close()

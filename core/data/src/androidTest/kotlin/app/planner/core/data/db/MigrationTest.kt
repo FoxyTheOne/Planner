@@ -4,9 +4,11 @@ import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import app.planner.core.data.repository.RoomMedicationRepository
 import app.planner.core.data.repository.RoomRecurrenceRepository
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.RecurrenceRule
@@ -16,6 +18,7 @@ import app.planner.core.domain.model.TaskStatus
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -323,6 +326,45 @@ class MigrationTest {
             // А подготовка записывается и читается обратно
             db.taskDao().addOrUpdate(task.copy(prepRuleId = 3, prepFor = LocalDate.of(2026, 10, 15)).toEntity())
             assertEquals(3L, db.taskDao().get(10)!!.toDomain().prepRuleId)
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun migrate11To12_medicationsArriveEmptyAndWork() = runBlocking {
+        val oct15 = LocalDate.of(2026, 10, 15)
+        helper.createDatabase(dbName, 11).apply {
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, pauses, isHabit, position) " +
+                    "VALUES (1, 'Вода', ${oct15.toEpochDay()}, 'DAILY', '[]', 1, 0)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 12, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            // Старые данные на месте, лекарств пока нет
+            assertEquals("Вода", RoomRecurrenceRepository(db).getRule(1)!!.title)
+            val repo = RoomMedicationRepository(db)
+            assertTrue(repo.observeMedications().first().isEmpty())
+
+            // Лекарство сохраняется, приём отмечается — дважды отмеченный остаётся одной отметкой
+            val nine = LocalTime.of(9, 0)
+            val id = repo.save(Medication(name = "Витамин D", times = listOf(nine), startDate = oct15))
+            repo.setTaken(id, oct15, nine, taken = true)
+            repo.setTaken(id, oct15, nine, taken = true)
+            assertEquals(1, repo.getTaken(id, oct15).size)
+
+            // Сняли отметку — её нет; удалили лекарство — его отметки ушли вместе с ним
+            repo.setTaken(id, oct15, nine, taken = false)
+            assertTrue(repo.getTaken(id, oct15).isEmpty())
+            repo.setTaken(id, oct15, nine, taken = true)
+            repo.delete(id)
+            assertTrue(db.medicationDao().getAllTaken().isEmpty())
         } finally {
             db.close()
         }
