@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -50,17 +51,24 @@ import app.planner.common.DayItemRow
 import app.planner.common.EditorResult
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
+import app.planner.common.MedicationEditorSheet
+import app.planner.common.MedicationTarget
+import app.planner.common.MedicationTargetSaver
 import app.planner.common.RuleRow
 import app.planner.common.ScheduleSheet
 import app.planner.common.TaskEditorSheet
 import app.planner.common.TaskSaver
 import app.planner.common.asTask
+import app.planner.common.doseText
 import app.planner.common.pausedText
 import app.planner.common.slotText
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.HabitPill
 import app.planner.core.designsystem.component.SectionLabel
+import app.planner.core.designsystem.component.TaskRow
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.medication.Dose
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -99,6 +107,10 @@ fun TodayScreen(
     // Открыто ли окно «Добавить» (кнопка «+»)
     var adding by rememberSaveable { mutableStateOf(false) }
     var showOverdue by rememberSaveable { mutableStateOf(false) }
+    // Какое лекарство открыто в редакторе (id; 0 — новое); null — закрыт
+    var editingMedication by rememberSaveable(stateSaver = MedicationTargetSaver) {
+        mutableStateOf<MedicationTarget?>(null)
+    }
 
     TodayContent(
         state = state,
@@ -109,6 +121,8 @@ fun TodayScreen(
         onToggle = viewModel::toggle,
         onCompleteOccurrence = viewModel::completeOccurrence,
         onToggleHabit = viewModel::toggleHabit,
+        onToggleDose = viewModel::toggleDose,
+        onOpenMedication = { editingMedication = MedicationTarget(it.id) },
         // Тап по повторению — открыть его правило в том же редакторе, что и задачи
         onEditRule = { rule -> editing = EditorTarget.forRule(rule, state.today) },
         onEdit = { editing = EditorTarget(it) },
@@ -154,7 +168,30 @@ fun TodayScreen(
                 adding = false
                 editing = EditorTarget(Task(title = title, date = state.today))
             },
+            // «Лекарство»: набранное название переходит в редактор лекарства
+            onMedication = { name ->
+                adding = false
+                editingMedication = MedicationTarget(id = 0, name = name)
+            },
         )
+    }
+    editingMedication?.let { target ->
+        // Лекарство ищем в состоянии по id: его могли поменять (например, отметили перерыв), пока редактор открыт
+        val medication = state.medications.firstOrNull { it.id == target.id }
+        // key(target): открыли другое лекарство — поля редактора начинаются заново, а не помнят прежнее
+        key(target) {
+            MedicationEditorSheet(
+                medication = medication,
+                newName = target.name,
+                today = state.today,
+                history = medication?.let { state.medicationHistory[it.id] },
+                onDismiss = { editingMedication = null },
+                onSave = viewModel::saveMedication,
+                onDelete = viewModel::deleteMedication,
+                onPause = viewModel::pauseMedication,
+                onResume = viewModel::resumeMedication,
+            )
+        }
     }
     scheduling?.let { task ->
         ScheduleSheet(
@@ -209,6 +246,8 @@ fun TodayContent(
     onToggle: (Task) -> Unit,
     onCompleteOccurrence: (Occurrence) -> Unit,
     onToggleHabit: (HabitDay) -> Unit,
+    onToggleDose: (Dose) -> Unit,
+    onOpenMedication: (Medication) -> Unit,
     onEditRule: (RecurrenceRule) -> Unit,
     onEdit: (Task) -> Unit,
     onSwipeTomorrow: (DayItem) -> Unit,
@@ -231,15 +270,24 @@ fun TodayContent(
             }
 
             // Ряд привычек — если они вообще есть, даже когда сегодня ни одной: тогда в нём только
-            // «Все привычки», чтобы привычка, которая начнётся завтра, не потерялась
-            if (state.hasHabits) {
+            // «Все привычки», чтобы привычка, которая начнётся завтра, не потерялась.
+            // Лекарства живут на том же экране — поэтому ряд есть и тогда, когда есть только лекарства
+            if (state.hasHabits || state.hasMedications) {
                 item(key = "habits") {
                     HabitPills(
                         state.habits,
+                        withMedications = state.hasMedications,
                         onToggle = onToggleHabit,
                         onOpen = onEditRule,
                         onOpenAll = onOpenHabits,
                     )
+                }
+            }
+
+            // Приёмы лекарств на сегодня — над планом дня: их время важнее, чем «утро» у дел
+            if (state.doses.isNotEmpty()) {
+                item(key = "doses") {
+                    DosesBlock(state.doses, onToggle = onToggleDose, onOpen = onOpenMedication)
                 }
             }
 
@@ -348,6 +396,7 @@ private fun TodayHeader(state: TodayUiState, onOpenSettings: () -> Unit) {
 @Composable
 private fun HabitPills(
     habits: List<HabitDay>,
+    withMedications: Boolean,
     onToggle: (HabitDay) -> Unit,
     onOpen: (RecurrenceRule) -> Unit,
     onOpenAll: () -> Unit,
@@ -367,10 +416,43 @@ private fun HabitPills(
                 onLongClickLabel = openLabel,
             )
         }
-        // В конце ряда — вход на экран «Привычки»: все привычки, их статистика и паузы
+        // В конце ряда — вход на экран «Привычки»: все привычки, их статистика и паузы.
+        // Есть лекарства — они на том же экране, и подпись говорит об этом: «Привычки и лекарства»
         TextButton(onClick = onOpenAll) {
-            Text(stringResource(R.string.habits_all))
+            Text(stringResource(if (withMedications) R.string.habits_and_medications else R.string.habits_all))
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null)
+        }
+    }
+}
+
+/**
+ * Блок «лекарства»: приёмы на сегодня по времени — «9:00 Витамин D · 1 капсула · после еды».
+ * Тап по квадратику — отметить приём (или снять отметку), тап по строке — открыть лекарство.
+ * Принятые остаются на месте, только бледнеют: видно, что уже выпито, а что ещё нет.
+ */
+@Composable
+private fun DosesBlock(
+    doses: List<Dose>,
+    onToggle: (Dose) -> Unit,
+    onOpen: (Medication) -> Unit,
+) {
+    val description = stringResource(R.string.cd_mark_taken)
+    Column {
+        SectionLabel(stringResource(R.string.medications_section))
+        doses.forEach { dose ->
+            TaskRow(
+                title = dose.medication.name,
+                done = dose.isTaken,
+                onToggle = { onToggle(dose) },
+                onClick = { onOpen(dose.medication) },
+                time = DateTexts.time(dose.time),
+                subtitle = doseText(dose.medication),
+                // Колокольчик — как у задач: о приёме напомнят (если он ещё не принят)
+                reminder = dose.medication.remind && !dose.isTaken,
+                toggleDescription = description,
+            )
+            // Пунктир под строкой — как у дел в плане дня
+            DashedRule()
         }
     }
 }

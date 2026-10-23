@@ -378,4 +378,48 @@
     <string name="reminder_keep">Пакінуць а %1$s</string>
     <string name="reminder_half_hour_before">За 30 хвілін да пачатку</string>
     <string name="reminder_remove">Прыбраць напамін</string>
+    <!-- Лекі -->
+    <string name="medication_add">Лякарства</string>
+    <string name="medications_section">лекі</string>
+    <string name="medications_empty">Вітаміны і лекі — з дозай, часам прыёму і напамінамі.</string>
+    <string name="medications_finished">курс скончыўся</string>
+    <string name="habits_and_medications">Звычкі і лекі</string>
+    <string name="cd_mark_taken">Адзначыць прыём</string>
+    <string name="medication_name_hint">Што прымаць? Напрыклад, «Вітамін D»</string>
+    <string name="medication_dose_hint">Доза: 1 таблетка, 5 мл…</string>
+    <string name="food_any">Не важна</string>
+    <string name="food_before">да ежы</string>
+    <string name="food_with">падчас ежы</string>
+    <string name="food_after">пасля ежы</string>
+    <string name="medication_time_add">Час</string>
+    <string name="cd_remove_time">Прыбраць час</string>
+    <string name="cd_clear_course">Без тэрміну</string>
+    <string name="medication_course_endless">Бестэрмінова</string>
+    <string name="medication_course_until_date">Да даты…</string>
+    <string name="medication_course_until">Курс да %1$s · %2$s</string>
+    <string name="medication_course_finished">Курс скончыўся %1$s</string>
+    <string name="medication_course_last_day">Апошні дзень курсу</string>
+    <string name="medication_history">За %1$d дзён — %2$d з %3$d</string>
+    <string name="medication_history_since">З %1$s — %2$d з %3$d</string>
+    <string name="medication_remind">Нагадваць</string>
+    <string name="medication_remind_hint">У кожны час прыёму</string>
+    <string name="medication_repeat_reminder">Паўтараць, пакуль не адзначу</string>
+    <string name="medication_repeat_reminder_hint">Яшчэ раз праз 10 хвілін, не больш за тры разы</string>
+    <string name="medication_note_hint">Нататка: запіваць вадой, не разам з кавай…</string>
+    <string name="medication_pause">Перапынак</string>
+    <string name="msg_medication_deleted">Лякарства выдалена</string>
+    <string name="msg_medication_paused">Перапынак у прыёме</string>
+    <string name="msg_medication_resumed">Прыём працягваецца</string>
+    <plurals name="medication_course_days">
+        <item quantity="one">%d дзень</item>
+        <item quantity="few">%d дні</item>
+        <item quantity="many">%d дзён</item>
+        <item quantity="other">%d дня</item>
+    </plurals>
+    <plurals name="medication_days_left">
+        <item quantity="one">Яшчэ %d дзень</item>
+        <item quantity="few">Яшчэ %d дні</item>
+        <item quantity="many">Яшчэ %d дзён</item>
+        <item quantity="other">Яшчэ %d дня</item>
+    </plurals>
 </resources>

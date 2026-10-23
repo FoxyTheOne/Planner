@@ -14,6 +14,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Medication
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -68,6 +69,8 @@ import app.planner.core.domain.model.TaskList
  * @param onPick нажали на готовую задачу из [candidates].
  * @param onCreate «+»: новая задача с этим названием.
  * @param onMore полный редактор с уже набранным названием (может быть и пустым).
+ * @param onMedication «Лекарство» — редактор лекарства с уже набранным названием. null — кнопки нет
+ *   (лекарства принимают по дням, а не кладут в списки — кнопка есть только там, где это к месту).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,6 +83,7 @@ fun AddTaskSheet(
     onPick: (Task) -> Unit,
     onCreate: (String) -> Unit,
     onMore: (String) -> Unit,
+    onMedication: ((String) -> Unit)? = null,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -93,6 +97,7 @@ fun AddTaskSheet(
             onPick = onPick,
             onCreate = onCreate,
             onMore = onMore,
+            onMedication = onMedication,
         )
     }
 }
@@ -114,6 +119,7 @@ fun AddTaskSheetBody(
     onPick: (Task) -> Unit,
     onCreate: (String) -> Unit,
     onMore: (String) -> Unit = {},
+    onMedication: ((String) -> Unit)? = null,
     autoFocus: Boolean = true,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
@@ -157,10 +163,16 @@ fun AddTaskSheetBody(
                 modifier = Modifier.padding(start = 8.dp),
             ) { Icon(Icons.Outlined.Add, stringResource(R.string.action_add)) }
         }
-        TextButton(
-            onClick = { onMore(text.trim()) },
-            modifier = Modifier.padding(start = 8.dp),
-        ) { Text(stringResource(R.string.pick_more)) }
+        // Под полем — куда ещё можно отправить набранное: в полный редактор задачи или в лекарство
+        Row(Modifier.padding(start = 8.dp)) {
+            TextButton(onClick = { onMore(text.trim()) }) { Text(stringResource(R.string.pick_more)) }
+            if (onMedication != null) {
+                TextButton(onClick = { onMedication(text.trim()) }) {
+                    Icon(Icons.Outlined.Medication, null, Modifier.padding(end = 6.dp))
+                    Text(stringResource(R.string.medication_add))
+                }
+            }
+        }
 
         // То же поле — и поиск: пока печатаешь, остаются только подходящие готовые задачи.
         // Ничего не подошло — блок просто прячется: значит, это новая задача, жми «+»

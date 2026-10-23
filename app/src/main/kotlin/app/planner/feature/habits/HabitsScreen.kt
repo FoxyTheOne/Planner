@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -20,8 +20,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,18 +44,24 @@ import app.planner.common.DateTexts
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
 import app.planner.common.HabitHistoryView
+import app.planner.common.MedicationEditorSheet
+import app.planner.common.MedicationRow
+import app.planner.common.MedicationTarget
+import app.planner.common.MedicationTargetSaver
 import app.planner.common.RuleRow
 import app.planner.common.TaskEditorSheet
 import app.planner.common.pausedText
 import app.planner.common.ruleScheduleText
 import app.planner.core.designsystem.component.DashedRule
+import app.planner.core.designsystem.component.SectionLabel
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Recurrence
-import java.time.LocalDate
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import java.time.LocalDate
 
 /**
  * Экран «Привычки» — все привычки в одном месте. Открывается кнопкой «Все привычки» в конце
@@ -66,7 +74,8 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
  * Порядок — как у «таблеток» на «Сегодня»: подержать привычку и перетащить.
  *
  * Привычки живут здесь, а не в списках: списки — это темы («Дом», «Работа»), а привычки —
- * отдельный вид вещей, их не планируют и не закрывают. В блоке «Лекарства» тут появится второй раздел.
+ * отдельный вид вещей, их не планируют и не закрывают. Второй раздел — лекарства: они тоже повторяются
+ * и не «закрываются», и их тоже удобно видеть все сразу — какие идут, какие на перерыве, какие закончились.
  */
 @Composable
 fun HabitsScreen(
@@ -76,7 +85,15 @@ fun HabitsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     // Что открыто в редакторе: привычка (правило) или новая; null — закрыт
-    var editing by rememberSaveable(stateSaver = EditorTargetSaver) { mutableStateOf<EditorTarget?>(null) }
+    var editing by rememberSaveable(stateSaver = EditorTargetSaver) {
+        mutableStateOf<EditorTarget?>(
+            null
+        )
+    }
+    // Какое лекарство открыто в редакторе (id; 0 — новое); null — закрыт
+    var editingMedication by rememberSaveable(stateSaver = MedicationTargetSaver) {
+        mutableStateOf<MedicationTarget?>(null)
+    }
 
     HabitsContent(
         state = state,
@@ -92,7 +109,26 @@ fun HabitsScreen(
             )
         },
         onReorder = viewModel::reorder,
+        onOpenMedication = { editingMedication = MedicationTarget(it.id) },
+        onAddMedication = { editingMedication = MedicationTarget(id = 0) },
     )
+
+    editingMedication?.let { target ->
+        val item = state.medications.firstOrNull { it.medication.id == target.id }
+        // key(target): открыли другое лекарство — поля редактора начинаются заново
+        key(target) {
+            MedicationEditorSheet(
+                medication = item?.medication,
+                today = state.today,
+                history = item?.history,
+                onDismiss = { editingMedication = null },
+                onSave = viewModel::saveMedication,
+                onDelete = viewModel::deleteMedication,
+                onPause = viewModel::pauseMedication,
+                onResume = viewModel::resumeMedication,
+            )
+        }
+    }
 
     editing?.let { target ->
         TaskEditorSheet(
@@ -123,6 +159,8 @@ fun HabitsContent(
     onOpen: (HabitItem) -> Unit,
     onAdd: () -> Unit,
     onReorder: (ids: List<Long>) -> Unit,
+    onOpenMedication: (Medication) -> Unit,
+    onAddMedication: () -> Unit,
 ) {
     val paper = PlannerTheme.paper
 
@@ -162,16 +200,30 @@ fun HabitsContent(
             .padding(contentPadding)
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.cd_back))
                 }
-                Text(stringResource(R.string.habits_title), style = MaterialTheme.typography.titleLarge)
+                // Есть лекарства — они тоже здесь, и заголовок говорит об этом
+                Text(
+                    stringResource(
+                        if (state.medications.isEmpty()) R.string.habits_title else R.string.habits_and_medications,
+                    ),
+                    style = MaterialTheme.typography.titleLarge,
+                )
             }
 
             LazyColumn(
                 state = lazyListState,
-                contentPadding = PaddingValues(start = 20.dp, end = 12.dp, top = 4.dp, bottom = 96.dp),
+                contentPadding = PaddingValues(
+                    start = 20.dp,
+                    end = 12.dp,
+                    top = 4.dp,
+                    bottom = 96.dp
+                ),
             ) {
                 if (state.loaded && habits.isEmpty()) {
                     item(key = "empty") {
@@ -202,7 +254,11 @@ fun HabitsContent(
                                 // longPressDraggableHandle — тащить после долгого нажатия в любом месте
                                 // строки. Обычный тап по-прежнему открывает привычку
                                 Modifier.longPressDraggableHandle(
-                                    onDragStarted = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                    onDragStarted = {
+                                        haptic.performHapticFeedback(
+                                            HapticFeedbackType.LongPress
+                                        )
+                                    },
                                     onDragStopped = {
                                         haptic.performHapticFeedback(HapticFeedbackType.GestureEnd)
                                         commit(habits)
@@ -219,6 +275,56 @@ fun HabitsContent(
                                 DashedRule()
                             }
                         }
+                    }
+                }
+
+                // --- Лекарства: второй раздел. Ключи — строки «med_…», чтобы не совпасть с id привычек
+                // (по ним работает перетаскивание: лекарства в нём не участвуют) ---
+                item(key = "meds_label") {
+                    SectionLabel(
+                        stringResource(R.string.medications_section),
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
+                if (state.loaded && state.medications.isEmpty()) {
+                    item(key = "meds_empty") {
+                        Text(
+                            stringResource(R.string.medications_empty),
+                            color = paper.inkMuted,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                    }
+                }
+                items(state.activeMedications, key = { "med_${it.medication.id}" }) { item ->
+                    MedicationRow(
+                        item.medication,
+                        item.history,
+                        state.today,
+                        onClick = { onOpenMedication(item.medication) })
+                    DashedRule()
+                }
+                // «+ Лекарство» — под списком лекарств, как продолжение раздела
+                item(key = "meds_add") {
+                    TextButton(onClick = onAddMedication, modifier = Modifier.padding(top = 4.dp)) {
+                        Icon(Icons.Outlined.Add, null, Modifier.padding(end = 6.dp))
+                        Text(stringResource(R.string.medication_add))
+                    }
+                }
+                // Закончившиеся курсы — в конце, бледнее: вдруг курс повторят, тогда достаточно продлить
+                if (state.finishedMedications.isNotEmpty()) {
+                    item(key = "meds_finished") {
+                        SectionLabel(
+                            stringResource(R.string.medications_finished),
+                            modifier = Modifier.padding(top = 16.dp),
+                        )
+                    }
+                    items(state.finishedMedications, key = { "med_${it.medication.id}" }) { item ->
+                        MedicationRow(
+                            item.medication,
+                            item.history,
+                            state.today,
+                            onClick = { onOpenMedication(item.medication) })
+                        DashedRule()
                     }
                 }
             }

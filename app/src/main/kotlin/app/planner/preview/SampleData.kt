@@ -1,8 +1,10 @@
 package app.planner.preview
 
+import app.planner.core.domain.model.FoodRelation
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
 import app.planner.core.domain.model.ListColor
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Repeat
@@ -133,4 +135,15 @@ object SampleData {
 
     /** Достигнутая — в архиве. */
     val runGoal = Goal(id = 4, title = "Пробежать 5 км", achievedOn = LocalDate.of(2026, 8, 30))
+
+    // Лекарства: витамин D дважды в день бессрочно, магний — курсом на 30 дней (идёт уже 10)
+    val vitaminD = Medication(
+        id = 1, name = "Витамин D", dose = "1 капсула", food = FoodRelation.AFTER,
+        times = listOf(LocalTime.of(9, 0), LocalTime.of(21, 0)), startDate = today.minusMonths(2),
+    )
+    val magnesium = Medication(
+        id = 2, name = "Магний", dose = "1 таблетка", times = listOf(LocalTime.of(9, 0)),
+        startDate = today.minusDays(10), endDate = today.plusDays(19), position = 1,
+    )
+    val medications = listOf(vitaminD, magnesium)
 }

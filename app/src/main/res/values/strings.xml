@@ -368,4 +368,44 @@
     <string name="reminder_keep">Keep at %1$s</string>
     <string name="reminder_half_hour_before">30 minutes before it starts</string>
     <string name="reminder_remove">Remove reminder</string>
+    <!-- Medications -->
+    <string name="medication_add">Medication</string>
+    <string name="medications_section">medications</string>
+    <string name="medications_empty">Vitamins and medications — with dose, dose times and reminders.</string>
+    <string name="medications_finished">course finished</string>
+    <string name="habits_and_medications">Habits and medications</string>
+    <string name="cd_mark_taken">Mark as taken</string>
+    <string name="medication_name_hint">What to take? For example, “Vitamin D”</string>
+    <string name="medication_dose_hint">Dose: 1 tablet, 5 ml…</string>
+    <string name="food_any">Doesn’t matter</string>
+    <string name="food_before">before meals</string>
+    <string name="food_with">with meals</string>
+    <string name="food_after">after meals</string>
+    <string name="medication_time_add">Time</string>
+    <string name="cd_remove_time">Remove time</string>
+    <string name="cd_clear_course">No end date</string>
+    <string name="medication_course_endless">No end date</string>
+    <string name="medication_course_until_date">Until a date…</string>
+    <string name="medication_course_until">Course until %1$s · %2$s</string>
+    <string name="medication_course_finished">Course ended %1$s</string>
+    <string name="medication_course_last_day">Last day of the course</string>
+    <string name="medication_history">Last %1$d days: %2$d of %3$d</string>
+    <string name="medication_history_since">Since %1$s: %2$d of %3$d</string>
+    <string name="medication_remind">Remind me</string>
+    <string name="medication_remind_hint">At every dose time</string>
+    <string name="medication_repeat_reminder">Repeat until I mark it</string>
+    <string name="medication_repeat_reminder_hint">Again in 10 minutes, no more than three times</string>
+    <string name="medication_note_hint">Note: with water, not with coffee…</string>
+    <string name="medication_pause">Take a break</string>
+    <string name="msg_medication_deleted">Medication deleted</string>
+    <string name="msg_medication_paused">Break started</string>
+    <string name="msg_medication_resumed">Back to taking it</string>
+    <plurals name="medication_course_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="medication_days_left">
+        <item quantity="one">%d day left</item>
+        <item quantity="other">%d days left</item>
+    </plurals>
 </resources>

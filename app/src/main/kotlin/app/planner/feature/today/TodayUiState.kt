@@ -1,7 +1,10 @@
 package app.planner.feature.today
 
 import app.planner.common.DayItem
+import app.planner.core.domain.medication.Dose
+import app.planner.core.domain.medication.MedicationHistory
 import app.planner.core.domain.model.Goal
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
@@ -48,9 +51,21 @@ data class TodayUiState(
     val habitHistory: Map<Long, HabitHistory> = emptyMap(),
     /** Все правила повторений по id — из дня повторения можно открыть его правило («Изменить все дни»). */
     val rules: Map<Long, RecurrenceRule> = emptyMap(),
+    /**
+     * Приёмы лекарств на сегодня — блок «лекарства» над планом дня, по времени. Как и привычки,
+     * в счёт «2 из 5» не входят: это не дела дня, а отдельная, своя забота.
+     */
+    val doses: List<Dose> = emptyList(),
+    /** Все лекарства — чтобы открыть лекарство в редакторе и знать, есть ли они вообще. */
+    val medications: List<Medication> = emptyList(),
+    /** Как принимали каждое лекарство за 30 дней (по id) — показывается в редакторе лекарства. */
+    val medicationHistory: Map<Long, MedicationHistory> = emptyMap(),
 ) {
     /** Есть ли привычки вообще (не только сегодня) — тогда на «Сегодня» есть вход «Все привычки». */
     val hasHabits: Boolean get() = rules.values.any { it.isHabit }
+
+    /** Есть ли лекарства вообще — тогда у блока «лекарства» есть вход на экран со всеми лекарствами. */
+    val hasMedications: Boolean get() = medications.isNotEmpty()
 
     /** Названия целей по id — подпись под шагом цели («Купить плитку» → «шаг к цели «Ремонт в ванной»»). */
     val goalTitles: Map<Long, String> get() = goals.associate { it.id to it.title }

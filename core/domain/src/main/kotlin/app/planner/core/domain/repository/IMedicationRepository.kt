@@ -39,4 +39,7 @@ interface IMedicationRepository {
      * или снять отметку. Повторная отметка того же приёма ничего не меняет.
      */
     suspend fun setTaken(medicationId: Long, date: LocalDate, time: LocalTime, taken: Boolean)
+
+    /** Вернуть отметки как были (с их временем) — для «Отменить» после удаления лекарства. */
+    suspend fun addTaken(taken: List<DoseTaken>)
 }

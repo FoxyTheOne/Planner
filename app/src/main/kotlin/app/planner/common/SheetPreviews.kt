@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.planner.core.designsystem.preview.PlannerPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.medication.MedicationHistory
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
@@ -181,5 +182,25 @@ private fun OverdueSheetPreview() = SheetSurface {
         onAllToToday = {},
         onAllBack = {},
         onNotNow = {},
+    )
+}
+
+/** «Лекарство»: магний курсом на 30 дней, с историей приёмов и кнопками «Перерыв» и «Удалить». */
+@PlannerPreviews
+@Composable
+private fun MedicationEditorPreview() = SheetSurface {
+    MedicationEditorBody(
+        initial = SampleData.magnesium,
+        today = SampleData.today,
+        onSave = {},
+        history = MedicationHistory(
+            SampleData.today.minusDays(10),
+            SampleData.today,
+            planned = 11,
+            taken = 10
+        ),
+        onDelete = {},
+        onPause = {},
+        onResume = {},
     )
 }

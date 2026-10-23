@@ -654,9 +654,9 @@ fun EditorActionRow(
     }
 }
 
-/** «⏸ На паузе до 20 октября   Продолжить» — повторение сейчас на паузе. */
+/** «⏸ На паузе до 20 октября   Продолжить» — повторение (или лекарство) сейчас на паузе. */
 @Composable
-private fun PausedRow(pause: Pause, onResume: () -> Unit) {
+fun PausedRow(pause: Pause, onResume: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -674,8 +674,20 @@ private fun PausedRow(pause: Pause, onResume: () -> Unit) {
     }
 }
 
+/** «Привычка — кнопкой над планом дня» и переключатель справа. */
+@Composable
+private fun HabitSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) =
+    SwitchRow(
+        icon = Icons.Outlined.SelfImprovement,
+        title = stringResource(R.string.habit_switch),
+        hint = stringResource(R.string.habit_switch_hint),
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+    )
+
 /**
- * «Привычка — кнопкой над планом дня» и переключатель справа.
+ * Строка редактора с переключателем: значок, название, подсказка под ним и переключатель справа.
+ * Общая для редакторов задачи («Привычка») и лекарства («Напоминать», «Повторять, пока не отмечу»).
  *
  * `Modifier.toggleable` вешается на ВСЮ строку: нажать можно и на текст, не только на сам
  * маленький переключатель. Поэтому у Switch `onCheckedChange = null` — он только показывает
@@ -683,7 +695,13 @@ private fun PausedRow(pause: Pause, onResume: () -> Unit) {
  * «Привычка, …, переключатель, выключен», а не текст и переключатель по отдельности.
  */
 @Composable
-private fun HabitSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun SwitchRow(
+    icon: ImageVector,
+    title: String,
+    hint: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
     val paper = PlannerTheme.paper
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -692,18 +710,14 @@ private fun HabitSwitchRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit)
             .heightIn(min = 56.dp)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
     ) {
-        Icon(Icons.Outlined.SelfImprovement, null, tint = paper.inkMuted)
+        Icon(icon, null, tint = paper.inkMuted)
         Column(
             Modifier
                 .padding(start = 12.dp)
                 .weight(1f)
         ) {
-            Text(stringResource(R.string.habit_switch), style = MaterialTheme.typography.bodyLarge)
-            Text(
-                stringResource(R.string.habit_switch_hint),
-                color = paper.inkMuted,
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(hint, color = paper.inkMuted, style = MaterialTheme.typography.bodyMedium)
         }
         Switch(checked = checked, onCheckedChange = null)
     }
@@ -773,7 +787,7 @@ fun listName(list: TaskList): String =
  * Без дня недели: «С пт 2, 2 октября» звучало бы странно, а день недели тут и не важен.
  */
 @Composable
-private fun startText(date: LocalDate, today: LocalDate): String {
+fun startText(date: LocalDate, today: LocalDate): String {
     val day = when (date) {
         today -> stringResource(R.string.day_today_lower)
         today.plusDays(1) -> stringResource(R.string.day_tomorrow_lower)

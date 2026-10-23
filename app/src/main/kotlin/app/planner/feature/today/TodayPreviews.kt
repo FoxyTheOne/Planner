@@ -1,10 +1,12 @@
 package app.planner.feature.today
 
-import app.planner.common.DayItem
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import app.planner.common.DayItem
 import app.planner.core.designsystem.preview.PlannerScreenPreviews
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.medication.Medications
+import app.planner.core.domain.model.DoseTaken
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.overdue.OverdueGroup
@@ -42,11 +44,31 @@ private fun TodayPreview() {
             showOverdueBanner = true,
             lists = lists,
             // Внизу — повторение на паузе (отпуск на неделю)
-            paused = listOf(poolRule.copy(pauses = listOf(Pause(today.minusDays(1), today.plusDays(5))))),
+            paused = listOf(
+                poolRule.copy(
+                    pauses = listOf(
+                        Pause(
+                            today.minusDays(1),
+                            today.plusDays(5)
+                        )
+                    )
+                )
+            ),
             // Привычки: «Вода» уже отмечена (у неё есть задача-отметка), остальные — нет
             habits = HabitDay.on(
                 habitRules, today,
-                instances = listOf(Recurrence.toTask(Recurrence.occurrence(habitRules[0], today)!!, TaskStatus.DONE)),
+                instances = listOf(
+                    Recurrence.toTask(
+                        Recurrence.occurrence(habitRules[0], today)!!,
+                        TaskStatus.DONE
+                    )
+                ),
+            ),
+            // Лекарства: утренний витамин D уже принят, вечерний и магний — ещё нет
+            medications = medications,
+            doses = Medications.dosesOn(
+                medications, today,
+                taken = listOf(DoseTaken(vitaminD.id, today, vitaminD.doseTimes.first())),
             ),
         )
     }
@@ -70,6 +92,8 @@ private fun TodayContentForPreview(state: TodayUiState) = TodayContent(
     onToggle = {},
     onCompleteOccurrence = {},
     onToggleHabit = {},
+    onToggleDose = {},
+    onOpenMedication = {},
     onEditRule = {},
     onEdit = {},
     onSwipeTomorrow = {},

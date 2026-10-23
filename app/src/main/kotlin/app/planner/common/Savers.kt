@@ -202,3 +202,18 @@ val ReminderSaver: Saver<Reminder?, Any> = Saver(
             ?: (v[1] as LocalTime?)?.let { Reminder.AtTime(it) }
     },
 )
+
+/** Времена приёмов лекарства (редактор лекарства): LocalTime сам кладётся в Bundle, нужен только список. */
+val TimesSaver: Saver<List<LocalTime>, Any> = Saver(
+    save = { ArrayList(it) },
+    restore = { saved -> (saved as List<*>).map { it as LocalTime } },
+)
+
+/** Какое лекарство открыто в редакторе (см. [MedicationTarget]): id и название для нового. */
+val MedicationTargetSaver: Saver<MedicationTarget?, Any> = Saver(
+    save = { target -> target?.let { arrayListOf(it.id, it.name) } },
+    restore = { saved ->
+        val v = saved as List<*>
+        MedicationTarget(id = v[0] as Long, name = v[1] as String)
+    },
+)

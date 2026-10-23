@@ -4,10 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.planner.common.DayItem
 import app.planner.common.EditorResult
+import app.planner.common.MedicationCommands
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.common.dayItems
+import app.planner.core.domain.medication.Dose
+import app.planner.core.domain.medication.MedicationHistory
+import app.planner.core.domain.medication.Medications
 import app.planner.core.domain.model.Goal
+import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.RecurrenceRule
@@ -22,12 +27,14 @@ import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.repository.IGoalRepository
+import app.planner.core.domain.repository.IMedicationRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskListRepository
 import app.planner.core.domain.repository.ITaskRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -35,6 +42,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 /**
@@ -53,6 +61,13 @@ import javax.inject.Inject
  *
  * @param habitHistory статистика каждой привычки по id правила — и тех, что сегодня на паузе.
  */
+/** Лекарства дня: приёмы на сегодня, все лекарства и история каждого (по id). */
+private data class MedicationsOfDay(
+    val doses: List<Dose>,
+    val medications: List<Medication>,
+    val history: Map<Long, MedicationHistory>,
+)
+
 private data class RepeatsOfDay(
     val occurrences: List<Occurrence>,
     val tomorrow: List<Occurrence>,
@@ -77,7 +92,9 @@ class TodayViewModel @Inject constructor(
     listRepository: ITaskListRepository,
     goalRepository: IGoalRepository,
     private val settingsRepository: ISettingsRepository,
+    private val medicationRepository: IMedicationRepository,
     private val commands: TaskCommands,
+    private val medicationCommands: MedicationCommands,
     todayClock: TodayClock,
 ) : ViewModel() {
 
@@ -163,14 +180,58 @@ class TodayViewModel @Inject constructor(
                 repeats
             ) // ← результат уходит в поток combine
         }
+            // И лекарства — ещё одним combine поверх готового плана дня: у первого все пять «мест» заняты.
+            // План и лекарства меняются независимо, а на экран всегда уходит их последняя пара
+            .combine(medicationsOf(today)) { plan, meds ->
+                plan.copy(
+                    doses = meds.doses,
+                    medications = meds.medications,
+                    medicationHistory = meds.history,
+                )
+            }
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5_000),
         TodayUiState(todayClock.today())
     )
 
+    /**
+     * Лекарства на [today]: приёмы дня и история каждого лекарства за 30 дней.
+     * Отметки берём сразу за 30 дней — для истории; приёмам дня Medications сам выберет отметки своего дня.
+     */
+    private fun medicationsOf(today: LocalDate): Flow<MedicationsOfDay> =
+        combine(
+            medicationRepository.observeMedications(),
+            medicationRepository.observeTaken(today.minusDays(MedicationHistory.DAYS - 1L), today),
+        ) { medications, taken ->
+            MedicationsOfDay(
+                doses = Medications.dosesOn(medications, today, taken),
+                medications = medications,
+                history = medications.associate {
+                    it.id to Medications.history(
+                        it,
+                        taken,
+                        LocalDateTime.now()
+                    )
+                },
+            )
+        }
+
     // --- Действия пользователя. launch запускает корутину и сразу возвращается,
     // поэтому экран не «замирает», пока идёт запись в базу. ---
+
+    /** Отметить приём лекарства или снять отметку. */
+    fun toggleDose(dose: Dose) = viewModelScope.launch { medicationCommands.toggle(dose) }
+    fun saveMedication(medication: Medication) =
+        viewModelScope.launch { medicationCommands.save(medication) }
+
+    fun deleteMedication(medication: Medication) =
+        viewModelScope.launch { medicationCommands.delete(medication) }
+
+    fun pauseMedication(id: Long, until: LocalDate?) =
+        viewModelScope.launch { medicationCommands.pause(id, until) }
+
+    fun resumeMedication(id: Long) = viewModelScope.launch { medicationCommands.resume(id) }
 
     fun toggle(task: Task) = viewModelScope.launch { commands.toggleDone(task) }
     fun completeOccurrence(occurrence: Occurrence) =

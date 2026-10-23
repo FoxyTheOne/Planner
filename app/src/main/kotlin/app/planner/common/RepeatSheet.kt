@@ -56,6 +56,7 @@ private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, YEARLY, CYCLE }
  * открывается сама, а потом её можно открыть снова кнопкой «Настроить таблицу».
  *
  * @param today нужен новому циклу: «эта неделя — неделя N».
+ * @param simpleOnly только «каждый день», «по дням недели» и «раз в N дней» — для лекарств.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +65,7 @@ fun RepeatSheet(
     today: LocalDate,
     date: LocalDate = today,
     pauses: List<Pause> = emptyList(),
+    simpleOnly: Boolean = false,
     onDismiss: () -> Unit,
     onDone: (Repeat?) -> Unit,
 ) {
@@ -76,6 +78,7 @@ fun RepeatSheet(
             today = today,
             date = date,
             pauses = pauses,
+            simpleOnly = simpleOnly,
             onDone = onDone
         )
     }
@@ -89,6 +92,7 @@ fun RepeatSheetBody(
     today: LocalDate,
     date: LocalDate = today,
     pauses: List<Pause> = emptyList(),
+    simpleOnly: Boolean = false,
     onDone: (Repeat?) -> Unit,
 ) {
     // Вариант и его данные храним по отдельности: переключилась на «каждый день» и обратно —
@@ -136,7 +140,9 @@ fun RepeatSheetBody(
     ) {
         Text(stringResource(R.string.repeat_title), style = MaterialTheme.typography.titleLarge)
 
-        KindOption(stringResource(R.string.repeat_none), kind == RepeatKind.NONE) {
+        // У лекарства ([simpleOnly]) «не повторять», «раз в год» и цикла нет — их строки прячем.
+        // Подробности под вариантами прятать не нужно: такой вариант просто не выбрать
+        if (!simpleOnly) KindOption(stringResource(R.string.repeat_none), kind == RepeatKind.NONE) {
             kind = RepeatKind.NONE
         }
         KindOption(stringResource(R.string.repeat_daily), kind == RepeatKind.DAILY) {
@@ -186,7 +192,10 @@ fun RepeatSheetBody(
         }
 
         // Раз в год — в день из строки «📅». Под вариантом видно, какой это день и где его поменять
-        KindOption(stringResource(R.string.repeat_yearly), kind == RepeatKind.YEARLY) {
+        if (!simpleOnly) KindOption(
+            stringResource(R.string.repeat_yearly),
+            kind == RepeatKind.YEARLY
+        ) {
             kind = RepeatKind.YEARLY
         }
         if (kind == RepeatKind.YEARLY) {
@@ -201,7 +210,10 @@ fun RepeatSheetBody(
         }
 
         // Цикл: выбрали впервые — сразу открываем таблицу, иначе показываем «Цикл: 4 недели · Настроить таблицу»
-        KindOption(stringResource(R.string.repeat_cycle), kind == RepeatKind.CYCLE) {
+        if (!simpleOnly) KindOption(
+            stringResource(R.string.repeat_cycle),
+            kind == RepeatKind.CYCLE
+        ) {
             kind = RepeatKind.CYCLE
             if (cycle == null) editingCycle = true
         }

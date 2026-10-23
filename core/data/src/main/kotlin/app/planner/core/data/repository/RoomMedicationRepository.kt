@@ -63,4 +63,7 @@ class RoomMedicationRepository @Inject constructor(
             dao.deleteTaken(medicationId, date, time)
         }
     }
+
+    override suspend fun addTaken(taken: List<DoseTaken>) =
+        dao.insertAllTaken(taken.map { it.toEntity() })
 }
