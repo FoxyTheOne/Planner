@@ -5,6 +5,7 @@ import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.ToggleableStateKey
 import androidx.glance.appwidget.action.actionRunCallback
 import app.planner.core.domain.medication.Dose
 import app.planner.core.domain.recurrence.HabitDay
@@ -27,6 +28,12 @@ import java.time.LocalTime
  * а виджет подписан на неё (см. PlannerWidget) — он обновится сам.
  *
  * Данные берём из базы заново, а не из виджета: пока виджет висел на экране, задачу могли поменять.
+ *
+ * «ПОСТАВИТЬ», А НЕ «ПЕРЕКЛЮЧИТЬ». Вместе с нажатием Glance сообщает, какой стала галочка
+ * (ToggleableStateKey: true — поставили, false — сняли). Делаем именно это, а если в базе уже так —
+ * ничего. Иначе быстрое двойное нажатие (виджет ещё не успел перерисоваться, и оба раза галочка
+ * была пустой) отметило бы дело и тут же сняло отметку обратно. Если ключа почему-то нет —
+ * просто переключаем, как на «Сегодня».
  */
 
 /** Параметры действий: что именно отметить. День — числом дней от 1970 года, время — секундами от полуночи. */
@@ -43,18 +50,30 @@ private fun entry(context: Context) =
 
 private fun ActionParameters.date(): LocalDate? = this[Keys.DATE]?.let(LocalDate::ofEpochDay)
 
+/**
+ * Нужно ли что-то менять: галочку поставили или сняли, а в базе сейчас [isChecked].
+ * Совпадает — уже сделано (например, второе нажатие подряд). Нет ключа — меняем (переключаем).
+ */
+private fun ActionParameters.needsChange(isChecked: Boolean): Boolean =
+    this[ToggleableStateKey]?.let { it != isChecked } ?: true
+
 /** Галочка задачи (в том числе уже отмеченного или перенесённого дня повторения) — как на «Сегодня». */
 class ToggleTaskAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val entry = entry(context)
         val task = parameters[Keys.TASK_ID]?.let { entry.tasks().getTask(it) } ?: return
-        entry.taskCommands().toggleDone(task)
+        if (parameters.needsChange(task.isDone)) entry.taskCommands().toggleDone(task)
     }
 }
 
-/** Галочка ещё не отмеченного дня повторения: в базе его нет, есть правило и день. */
+/**
+ * Галочка ещё не отмеченного дня повторения: в базе его нет, есть правило и день.
+ * Только «отметить»: снять тут нечего (отмеченный день — уже задача, у неё ToggleTaskAction).
+ * Отметить второй раз не страшно: completeOccurrence возьмёт id уже созданной задачи, дубля не будет.
+ */
 class CompleteRepeatDayAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        if (parameters[ToggleableStateKey] == false) return
         val entry = entry(context)
         val rule = parameters[Keys.RULE_ID]?.let { entry.rules().getRule(it) } ?: return
         val occurrence = parameters.date()?.let { Recurrence.occurrence(rule, it) } ?: return
@@ -71,7 +90,8 @@ class ToggleHabitAction : ActionCallback {
         val rule = entry.rules().getRule(ruleId) ?: return
         val occurrence = Recurrence.occurrence(rule, date) ?: return
         val mark = entry.tasks().getOccurrenceTasks(ruleId).firstOrNull { it.occurrenceDate == date }
-        entry.taskCommands().toggleHabit(HabitDay(occurrence, mark))
+        val habit = HabitDay(occurrence, mark)
+        if (parameters.needsChange(habit.isDone)) entry.taskCommands().toggleHabit(habit)
     }
 }
 
@@ -84,7 +104,7 @@ class ToggleDoseAction : ActionCallback {
         val time = parameters[Keys.TIME]?.let { LocalTime.ofSecondOfDay(it.toLong()) } ?: return
         val medication = entry.medications().getMedication(medicationId) ?: return
         val taken = entry.medications().getTaken(medicationId, date).firstOrNull { it.date == date && it.time == time }
-        entry.medicationCommands().toggle(Dose(medication, date, time, taken))
+        if (parameters.needsChange(taken != null)) entry.medicationCommands().toggle(Dose(medication, date, time, taken))
     }
 }
 

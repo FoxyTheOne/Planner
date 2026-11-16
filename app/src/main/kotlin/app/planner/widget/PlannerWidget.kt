@@ -116,6 +116,11 @@ private class WidgetPalette(settings: PlannerSettings) {
     val accent = of { it.timeAccent }
 }
 
+/**
+ * Весь виджет: «бумажная» карточка со списком — сегодня (заголовок, привычки, лекарства, дела),
+ * под ним завтра, если его сейчас показывать. LazyColumn — список с прокруткой: дел больше,
+ * чем помещается, — их можно прокрутить пальцем прямо на рабочем столе.
+ */
 @Composable
 private fun WidgetBody(content: WidgetContent) {
     val context = LocalContext.current
@@ -234,6 +239,7 @@ private fun Section(text: String, palette: WidgetPalette) {
     Text(text, style = TextStyle(color = palette.muted, fontSize = 13.sp), modifier = GlanceModifier.padding(top = 6.dp))
 }
 
+/** Бледная строка-пояснение: «На сегодня ничего не запланировано». */
 @Composable
 private fun Muted(text: String, palette: WidgetPalette) {
     Text(text, style = TextStyle(color = palette.muted, fontSize = 14.sp), modifier = GlanceModifier.padding(vertical = 4.dp))

@@ -80,22 +80,35 @@ data class WidgetSource(
  * Подписка на данные виджета за [today] и завтра. Поменялось что-то в базе или в настройках —
  * поток присылает новые данные, и виджет, пока он «живой» (см. PlannerWidget), перерисуется сам.
  * У combine пять «мест», а потоков шесть — настройки добавляем вторым combine.
+ *
+ * Её же слушает WidgetUpdater, чтобы знать, когда будить виджет: так список «на что смотрит виджет»
+ * записан в одном месте, и новое на виджете не забудется в обновлении.
  */
-fun observeWidgetSource(entry: WidgetEntryPoint, today: LocalDate): Flow<WidgetSource> {
+fun observeWidgetSource(
+    tasks: ITaskRepository,
+    rules: IRecurrenceRepository,
+    medications: IMedicationRepository,
+    settings: ISettingsRepository,
+    today: LocalDate,
+): Flow<WidgetSource> {
     val tomorrow = today.plusDays(1)
     return combine(
         combine(
-            entry.tasks().observeTasksBetween(today, tomorrow),
-            entry.tasks().observeOccurrenceTasks(today, tomorrow),
-            entry.rules().observeRules(),
-            entry.medications().observeMedications(),
-            entry.medications().observeTaken(today, tomorrow),
-        ) { tasks, instances, rules, medications, taken ->
-            WidgetSource(today, tasks, instances, rules, medications, taken, PlannerSettings())
+            tasks.observeTasksBetween(today, tomorrow),
+            tasks.observeOccurrenceTasks(today, tomorrow),
+            rules.observeRules(),
+            medications.observeMedications(),
+            medications.observeTaken(today, tomorrow),
+        ) { dayTasks, instances, allRules, allMedications, taken ->
+            WidgetSource(today, dayTasks, instances, allRules, allMedications, taken, PlannerSettings())
         },
-        entry.settings().settings,
-    ) { source, settings -> source.copy(settings = settings) }
+        settings.settings,
+    ) { source, current -> source.copy(settings = current) }
 }
+
+/** То же для виджета: хранилища — из [WidgetEntryPoint]. */
+fun observeWidgetSource(entry: WidgetEntryPoint, today: LocalDate): Flow<WidgetSource> =
+    observeWidgetSource(entry.tasks(), entry.rules(), entry.medications(), entry.settings(), today)
 
 /**
  * Что показать на виджете с настройками [config] «как сейчас» ([now]).

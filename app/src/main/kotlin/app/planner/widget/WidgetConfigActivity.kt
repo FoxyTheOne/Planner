@@ -25,8 +25,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -120,7 +120,8 @@ class WidgetConfigActivity : ComponentActivity() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WidgetConfigScreen(initial: WidgetConfig, eveningTime: LocalTime, onDone: (WidgetConfig) -> Unit) {
-    var config by remember { mutableStateOf(initial) }
+    // rememberSaveable — выбранное переживёт поворот экрана (окно при этом создаётся заново)
+    var config by rememberSaveable(stateSaver = WidgetConfigSaver) { mutableStateOf(initial) }
     Surface(Modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -165,3 +166,12 @@ fun WidgetConfigScreen(initial: WidgetConfig, eveningTime: LocalTime, onDone: (W
         }
     }
 }
+
+/**
+ * Как сохранить [WidgetConfig] на время поворота экрана: разложить в список простых значений
+ * (название варианта «завтра» и два переключателя) и собрать обратно.
+ */
+private val WidgetConfigSaver = listSaver<WidgetConfig, Any>(
+    save = { listOf(it.tomorrow.name, it.medications, it.habits) },
+    restore = { WidgetConfig(TomorrowMode.valueOf(it[0] as String), it[1] as Boolean, it[2] as Boolean) },
+)
