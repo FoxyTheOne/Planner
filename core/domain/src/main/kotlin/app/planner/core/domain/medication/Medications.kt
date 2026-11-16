@@ -23,6 +23,15 @@ data class Dose(
 ) {
     val isTaken: Boolean get() = taken != null
     val at: LocalDateTime get() = date.atTime(time)
+    val key: DoseKey get() = DoseKey(medication.id, date, time)
+}
+
+/**
+ * Какой это приём — без самого лекарства: его id, день и время по расписанию.
+ * Удобно хранить и сравнивать: например, «это уведомление смахнули» (см. MedicationReminders).
+ */
+data class DoseKey(val medicationId: Long, val date: LocalDate, val time: LocalTime) {
+    val at: LocalDateTime get() = date.atTime(time)
 }
 
 /**

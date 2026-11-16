@@ -1,5 +1,6 @@
 package app.planner.common
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,13 +135,18 @@ fun doseText(medication: Medication): String? =
 
 /** «до еды», «во время еды», «после еды» — как в подписи под приёмом (с маленькой буквы). */
 @Composable
-fun foodText(food: FoodRelation): String = stringResource(
-    when (food) {
-        FoodRelation.BEFORE -> R.string.food_before
-        FoodRelation.WITH -> R.string.food_with
-        FoodRelation.AFTER -> R.string.food_after
-    },
-)
+fun foodText(food: FoodRelation): String = stringResource(foodRes(food))
+
+/**
+ * Строка ресурсов для «до / во время / после еды». Отдельно от [foodText], потому что её берут
+ * и не из Compose: уведомление о приёме собирает текст через context.getString.
+ */
+@StringRes
+fun foodRes(food: FoodRelation): Int = when (food) {
+    FoodRelation.BEFORE -> R.string.food_before
+    FoodRelation.WITH -> R.string.food_with
+    FoodRelation.AFTER -> R.string.food_after
+}
 
 /**
  * Как идёт курс: «Ещё 5 дней», «Последний день», «Курс закончился 3 ноября». null — курс бессрочный.

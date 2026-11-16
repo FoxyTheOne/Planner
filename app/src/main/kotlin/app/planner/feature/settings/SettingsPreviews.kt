@@ -22,7 +22,11 @@ private fun SettingsPreview() {
             showDonate = true,
             remindersOk = false,
             appNotificationsOn = true,
-            channels = ChannelStates(tasks = ChannelState.SOUND, habits = ChannelState.SOUND),
+            channels = ChannelStates(
+                tasks = ChannelState.SOUND,
+                habits = ChannelState.SOUND,
+                medications = ChannelState.SOUND,
+            ),
             contentPadding = PaddingValues(),
             onBack = {},
             onUpdate = {},

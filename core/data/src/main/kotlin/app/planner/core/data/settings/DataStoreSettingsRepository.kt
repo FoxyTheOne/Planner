@@ -52,6 +52,7 @@ class DataStoreSettingsRepository @Inject constructor(
         val exactAlarmOfferShown = booleanPreferencesKey("exact_alarm_offer_shown")
         val tasksSound = booleanPreferencesKey("tasks_sound")
         val habitsSound = booleanPreferencesKey("habits_sound")
+        val medicationsSound = booleanPreferencesKey("medications_sound")
     }
 
     // Подписка, которая видит изменения в dataStore.data (после update()), которая преобразует данные (.map) и рассылает подписчикам на settings.
@@ -81,6 +82,7 @@ class DataStoreSettingsRepository @Inject constructor(
             prefs[Keys.exactAlarmOfferShown] = new.exactAlarmOfferShown
             prefs[Keys.tasksSound] = new.tasksSound
             prefs[Keys.habitsSound] = new.habitsSound
+            prefs[Keys.medicationsSound] = new.medicationsSound
         }
     }
 
@@ -99,6 +101,7 @@ class DataStoreSettingsRepository @Inject constructor(
             exactAlarmOfferShown = this[Keys.exactAlarmOfferShown] ?: defaults.exactAlarmOfferShown,
             tasksSound = this[Keys.tasksSound] ?: defaults.tasksSound,
             habitsSound = this[Keys.habitsSound] ?: defaults.habitsSound,
+            medicationsSound = this[Keys.medicationsSound] ?: defaults.medicationsSound,
         )
     }
 

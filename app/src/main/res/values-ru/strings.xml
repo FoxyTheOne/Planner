@@ -349,6 +349,9 @@
     <string name="channel_tasks_desc">Задачи и повторения в выбранное время. Звук выбирают в настройках приложения</string>
     <string name="channel_habits">Привычки</string>
     <string name="channel_habits_desc">Напоминания о привычках. Звук выбирают в настройках приложения</string>
+    <string name="channel_medications">Лекарства</string>
+    <string name="channel_medications_desc">Напоминания о приёмах в их время. Звук выбирают в настройках приложения</string>
+    <string name="action_taken">Принято</string>
     <string name="notification_snooze">Отложить на 10 минут</string>
     <string name="reminder_add">Напомнить</string>
     <string name="reminder_value">Напомнить: %1$s</string>

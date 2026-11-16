@@ -344,6 +344,9 @@
     <string name="channel_tasks_desc">Tasks and repeats at the time you chose. Sound is chosen in the app settings</string>
     <string name="channel_habits">Habits</string>
     <string name="channel_habits_desc">Habit reminders. Sound is chosen in the app settings</string>
+    <string name="channel_medications">Medications</string>
+    <string name="channel_medications_desc">Dose reminders at the time you take them. Sound is chosen in the app settings</string>
+    <string name="action_taken">Taken</string>
     <string name="notification_snooze">Snooze 10 min</string>
     <string name="reminder_add">Remind me</string>
     <string name="reminder_value">Remind: %1$s</string>

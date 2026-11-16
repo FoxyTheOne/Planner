@@ -294,6 +294,14 @@ fun SettingsContent(
                     onToggle = { on -> onUpdate { it.copy(habitsSound = on) } },
                     onOpenSystem = { onOpenChannel(ReminderNotifications.CHANNEL_HABITS) },
                 )
+                DashedRule()
+                SoundRow(
+                    title = R.string.channel_medications,
+                    sound = settings.medicationsSound,
+                    state = channels.medications,
+                    onToggle = { on -> onUpdate { it.copy(medicationsSound = on) } },
+                    onOpenSystem = { onOpenChannel(ReminderNotifications.CHANNEL_MEDICATIONS) },
+                )
             } else {
                 NotificationRow(
                     icon = Icons.Outlined.NotificationsOff,
@@ -383,11 +391,12 @@ fun SettingsContent(
  * Как сейчас настроены каналы в Android (см. ReminderHealth.channelState) — чтобы заметить,
  * если телефон выключил канал или сам сделал его тихим.
  */
-data class ChannelStates(val tasks: ChannelState, val habits: ChannelState)
+data class ChannelStates(val tasks: ChannelState, val habits: ChannelState, val medications: ChannelState)
 
 private fun readChannels(context: Context) = ChannelStates(
     tasks = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_TASKS),
     habits = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_HABITS),
+    medications = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_MEDICATIONS),
 )
 
 /**

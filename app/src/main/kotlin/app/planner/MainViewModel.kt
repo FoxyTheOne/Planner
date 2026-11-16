@@ -8,9 +8,11 @@ import app.planner.common.MessageBus
 import app.planner.common.TaskCommands
 import app.planner.common.TodayClock
 import app.planner.common.UiMessage
+import app.planner.core.domain.medication.Medications
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.reminder.Reminders
+import app.planner.core.domain.repository.IMedicationRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskRepository
@@ -25,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -48,6 +51,7 @@ class MainViewModel @Inject constructor(
     private val settingsRepository: ISettingsRepository,
     tasks: ITaskRepository,
     recurrenceRepository: IRecurrenceRepository,
+    medicationRepository: IMedicationRepository,
     messageBus: MessageBus,
     reminderQuestions: ReminderQuestions,
     private val commands: TaskCommands,
@@ -73,7 +77,7 @@ class MainViewModel @Inject constructor(
     /**
      * Показать ли окно «Точное время» (ExactAlarmOfferDialog). Да, если всё сразу:
      * - его ещё не показывали (показываем один раз);
-     * - есть хотя бы одно напоминание впереди (у задачи или у повторения) — то есть человек им пользуется;
+     * - есть хотя бы одно напоминание впереди (у задачи, повторения или лекарства) — то есть человек им пользуется;
      * - уведомления включены (иначе точное время ничего не даст, а про уведомления подскажет строка
      *   «Напомнить» в редакторе);
      * - точное время выключено.
@@ -86,12 +90,14 @@ class MainViewModel @Inject constructor(
         combine(
             tasks.observeTasksWithReminders(),
             recurrenceRepository.observeRules(),
+            medicationRepository.observeMedications(),
             settingsRepository.settings
-        ) { withReminders, rules, settings ->
-            // Напоминания впереди — у задачи или у повторения (привычки)
+        ) { withReminders, rules, medications, settings ->
+            // Напоминания впереди — у задачи, у повторения (привычки) или у лекарства, чей курс ещё идёт
             val usesReminders =
                 Reminders.upcoming(withReminders, LocalDateTime.now()).isNotEmpty() ||
-                        rules.any(Reminders::hasReminder)
+                        rules.any(Reminders::hasReminder) ||
+                        medications.any { it.remind && !Medications.isFinished(it, LocalDate.now()) }
             !settings.exactAlarmOfferShown && usesReminders &&
                     ReminderHealth.notificationsOn(context) &&
                     !ReminderHealth.exactAlarmsOn(context)

@@ -350,6 +350,9 @@
     <string name="channel_tasks_desc">Задачы і паўтарэнні ў абраны час. Гук выбіраюць у наладах праграмы</string>
     <string name="channel_habits">Звычкі</string>
     <string name="channel_habits_desc">Напаміны пра звычкі. Гук выбіраюць у наладах праграмы</string>
+    <string name="channel_medications">Лекі</string>
+    <string name="channel_medications_desc">Напаміны пра прыёмы ў іх час. Гук выбіраюць у наладах праграмы</string>
+    <string name="action_taken">Прынята</string>
     <string name="notification_snooze">Адкласці на 10 хвілін</string>
     <string name="reminder_add">Нагадаць</string>
     <string name="reminder_value">Нагадаць: %1$s</string>

@@ -40,6 +40,8 @@ data class PlannerSettings(
     val tasksSound: Boolean = true,
     /** Звучат ли напоминания о привычках. По умолчанию нет: привычка — мягкий повод, а не срочное дело. */
     val habitsSound: Boolean = false,
+    /** Звучат ли напоминания о лекарствах. По умолчанию да: приём важно не пропустить. */
+    val medicationsSound: Boolean = true,
 ) {
     /** В какую часть дня попадает задача с точным временем. */
     fun partOfDayFor(time: LocalTime): PartOfDay = when {

@@ -4,26 +4,37 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import app.planner.common.TaskCommands
+import app.planner.core.domain.medication.Dose
+import app.planner.core.domain.medication.DoseKey
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.reminder.MedicationReminders
 import app.planner.core.domain.reminder.Reminders
+import app.planner.core.domain.repository.IMedicationRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_DONE
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_DOSE_DISMISSED
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_DOSE_SNOOZE
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_DOSE_TAKEN
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND_DOSE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND_RULE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_RULE_DONE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_RULE_SNOOZE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_SNOOZE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_TEST
 import app.planner.reminders.ReminderReceiver.Companion.EXTRA_DATE
+import app.planner.reminders.ReminderReceiver.Companion.EXTRA_MEDICATION_ID
 import app.planner.reminders.ReminderReceiver.Companion.EXTRA_RULE_ID
+import app.planner.reminders.ReminderReceiver.Companion.EXTRA_TIME
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import javax.inject.Inject
 
 /**
@@ -36,6 +47,11 @@ import javax.inject.Inject
  *
  * О дне повторения или привычки — то же самое, только про день правила ([EXTRA_RULE_ID] + [EXTRA_DATE]):
  * - [ACTION_REMIND_RULE], [ACTION_RULE_DONE], [ACTION_RULE_SNOOZE].
+ *
+ * О приёме лекарства — по лекарству, дню и времени приёма ([EXTRA_MEDICATION_ID] + [EXTRA_DATE] + [EXTRA_TIME]):
+ * - [ACTION_REMIND_DOSE] — будильник: время приёма, повтор или «Отложить»;
+ * - [ACTION_DOSE_TAKEN] — «Принято»; [ACTION_DOSE_SNOOZE] — «Отложить на 10 минут»;
+ * - [ACTION_DOSE_DISMISSED] — уведомление смахнули: повторов больше не нужно.
  *
  * И [ACTION_TEST] — пробное напоминание со страницы «Надёжность напоминаний».
  *
@@ -59,8 +75,16 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_RULE_DONE = "app.planner.action.RULE_REMINDER_DONE"
         const val ACTION_RULE_SNOOZE = "app.planner.action.RULE_REMINDER_SNOOZE"
         const val ACTION_TEST = "app.planner.action.REMINDER_TEST"
+        const val ACTION_REMIND_DOSE = "app.planner.action.REMIND_DOSE"
+        const val ACTION_DOSE_TAKEN = "app.planner.action.DOSE_TAKEN"
+        const val ACTION_DOSE_SNOOZE = "app.planner.action.DOSE_SNOOZE"
+        const val ACTION_DOSE_DISMISSED = "app.planner.action.DOSE_DISMISSED"
         const val EXTRA_TASK_ID = "taskId"
         const val EXTRA_RULE_ID = "ruleId"
+        const val EXTRA_MEDICATION_ID = "medicationId"
+
+        /** Время приёма лекарства — секундами от полуночи (LocalTime.toSecondOfDay). */
+        const val EXTRA_TIME = "time"
 
         /** День повторения — числом дней от 1970 года (LocalDate.toEpochDay). */
         const val EXTRA_DATE = "date"
@@ -72,6 +96,9 @@ class ReminderReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var rules: IRecurrenceRepository
+
+    @Inject
+    lateinit var medications: IMedicationRepository
 
     @Inject
     lateinit var commands: TaskCommands
@@ -91,6 +118,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     ACTION_TEST -> notifications.showTest()
                     ACTION_REMIND, ACTION_DONE, ACTION_SNOOZE -> onTask(intent)
                     ACTION_REMIND_RULE, ACTION_RULE_DONE, ACTION_RULE_SNOOZE -> onRuleDay(intent)
+                    ACTION_REMIND_DOSE, ACTION_DOSE_TAKEN, ACTION_DOSE_SNOOZE, ACTION_DOSE_DISMISSED -> onDose(intent)
                 }
             } finally {
                 pending.finish()
@@ -165,6 +193,46 @@ class ReminderReceiver : BroadcastReceiver() {
                     until = snoozeUntil()
                 )
             }
+        }
+    }
+
+    /**
+     * Приём лекарства. Как и день повторения, в базе его нет, пока его не отметили, — поэтому лекарство,
+     * день и время берём из Intent и проверяем, что напоминать ещё есть о чём (MedicationReminders.stillDue):
+     * лекарство не удалили, приём не отметили и не смахнули, время приёма не поменяли.
+     */
+    private suspend fun onDose(intent: Intent) {
+        val medicationId = intent.getLongExtra(EXTRA_MEDICATION_ID, -1)
+        val epochDay = intent.getLongExtra(EXTRA_DATE, Long.MIN_VALUE)
+        val second = intent.getIntExtra(EXTRA_TIME, -1)
+        if (medicationId < 0 || epochDay == Long.MIN_VALUE || second < 0) return
+        val key = DoseKey(medicationId, LocalDate.ofEpochDay(epochDay), LocalTime.ofSecondOfDay(second.toLong()))
+        val medication = medications.getMedication(medicationId)
+        when (intent.action) {
+            ACTION_REMIND_DOSE -> {
+                val taken = medications.getTaken(medicationId, key.date)
+                // Второе условие — приём не «из будущего» (как у задач: см. onTask)
+                if (medication != null && key.at <= soon() &&
+                    MedicationReminders.stillDue(medication, key, taken, sync.dismissedDoses())
+                ) {
+                    notifications.showDose(Dose(medication, key.date, key.time))
+                }
+                // Будильник у лекарства один: этот сработал — пусть встанет следующий (повтор или другой приём)
+                sync.syncNow()
+            }
+
+            ACTION_DOSE_TAKEN -> {
+                notifications.dismissDose(medicationId)
+                // Лекарство могли удалить, пока висело уведомление, — тогда отмечать нечего
+                if (medication != null) medications.setTaken(medicationId, key.date, key.time, taken = true)
+            }
+
+            ACTION_DOSE_SNOOZE -> {
+                notifications.dismissDose(medicationId)
+                if (medication != null) sync.snoozeDose(key, until = snoozeUntil())
+            }
+
+            ACTION_DOSE_DISMISSED -> sync.dismissDose(key)
         }
     }
 

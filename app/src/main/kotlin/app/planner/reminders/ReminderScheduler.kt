@@ -7,12 +7,14 @@ import android.content.Intent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * «Будильник» Android для напоминаний: поставить и снять будильник задачи ([schedule], [cancel])
+ * «Будильник» Android для напоминаний: поставить и снять будильник задачи ([schedule], [cancel]),
+ * лекарства ([scheduleMedication], [cancelMedication])
  * или повторения ([scheduleRule], [cancelRule]) и пробный будильник ([scheduleTest]).
  *
  * Как это устроено в Android. Приложение не может «ждать» до 10:00 — его процесс в любой момент
@@ -77,6 +79,43 @@ class ReminderScheduler @Inject constructor(
             it.cancel()
         }
     }
+
+    /**
+     * Поставить (или переставить) будильник лекарства [medicationId]: напомнить о приёме [date] в [time]
+     * в момент [at] (это время приёма, повтор через 10 минут или «Отложить»). Как у повторения,
+     * будильник у лекарства один — на ближайший звонок; Android отличает его по действию ACTION_REMIND_DOSE.
+     */
+    fun scheduleMedication(medicationId: Long, date: LocalDate, time: LocalTime, at: LocalDateTime) {
+        medicationPendingIntent(medicationId, date, time, PendingIntent.FLAG_UPDATE_CURRENT)?.let { setAlarm(at, it) }
+    }
+
+    /** Снять будильник лекарства [medicationId], если он стоит. */
+    fun cancelMedication(medicationId: Long) {
+        medicationPendingIntent(medicationId, date = null, time = null, PendingIntent.FLAG_NO_CREATE)?.let {
+            alarms.cancel(it)
+            it.cancel()
+        }
+    }
+
+    private fun medicationPendingIntent(
+        medicationId: Long,
+        date: LocalDate?,
+        time: LocalTime?,
+        flags: Int,
+    ): PendingIntent? =
+        PendingIntent.getBroadcast(
+            context,
+            medicationId.toInt(),
+            Intent(context, ReminderReceiver::class.java)
+                .setAction(ReminderReceiver.ACTION_REMIND_DOSE)
+                .putExtra(ReminderReceiver.EXTRA_MEDICATION_ID, medicationId)
+                .apply {
+                    date?.let { putExtra(ReminderReceiver.EXTRA_DATE, it.toEpochDay()) }
+                    // Время приёма — секундами от полуночи, как в базе
+                    time?.let { putExtra(ReminderReceiver.EXTRA_TIME, it.toSecondOfDay()) }
+                },
+            flags or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun rulePendingIntent(ruleId: Long, date: LocalDate?, flags: Int): PendingIntent? =
         PendingIntent.getBroadcast(
