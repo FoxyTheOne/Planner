@@ -6,6 +6,7 @@ import androidx.core.content.edit
 import app.planner.core.domain.medication.DoseKey
 import app.planner.core.domain.model.DoseTaken
 import app.planner.core.domain.model.Medication
+import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.RecurrenceRule
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.reminder.MedicationReminders
@@ -13,6 +14,7 @@ import app.planner.core.domain.reminder.Reminders
 import app.planner.core.domain.reminder.Snooze
 import app.planner.core.domain.repository.IMedicationRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
+import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -39,12 +41,13 @@ import javax.inject.Singleton
  * напоминание в редакторе, перенесли задачу смахиванием, отметили, удалили, восстановили бэкап — база
  * пришлёт новые данные, и [apply] переставит будильники. Ни экранам, ни TaskCommands думать о будильниках не нужно.
  *
- * Будильники бывают трёх видов:
+ * Будильники бывают четырёх видов:
  * - у задачи — один, на её напоминание;
  * - у повторения (и привычки) — тоже один, на ближайший день (Reminders.alarmForRule). Когда он сработает,
  *   ReminderReceiver зовёт [syncNow], и встаёт следующий — завтрашний, через неделю…
  * - у лекарства — один, на ближайший звонок о приёме (MedicationReminders.alarmFor): само время приёма,
  *   повтор через 10 минут или «Отложить». Сработал — тоже [syncNow], и встаёт следующий.
+ * - вечерняя сводка — один на всё приложение, на ближайший вечер (если сводка включена в настройках).
  *
  * Что ещё нужно помнить — какие будильники мы ставили в прошлый раз. Иначе не узнать, что задачу
  * удалили: в новом списке её просто нет, а её будильник в системе остался. Номера задач, повторений и лекарств
@@ -59,6 +62,7 @@ class ReminderSync @Inject constructor(
     private val tasks: ITaskRepository,
     private val rules: IRecurrenceRepository,
     private val medications: IMedicationRepository,
+    private val settingsRepository: ISettingsRepository,
     private val scheduler: ReminderScheduler,
     private val notifications: ReminderNotifications,
 ) {
@@ -76,7 +80,7 @@ class ReminderSync @Inject constructor(
 
     /**
      * Всё, что нужно для будильников: задачи с напоминаниями, правила и уже отмеченные дни правил,
-     * лекарства и отметки «принято».
+     * лекарства и отметки «принято», настройки.
      */
     private data class Inputs(
         val tasks: List<Task>,
@@ -84,6 +88,8 @@ class ReminderSync @Inject constructor(
         val instances: List<Task>,
         val medications: List<Medication>,
         val taken: List<DoseTaken>,
+        /** Настройки — для будильника вечерней сводки (включена ли и во сколько). */
+        val settings: PlannerSettings = PlannerSettings(),
     )
 
     // Своя «область» корутин на всё время жизни процесса. SupervisorJob — ошибка в одной корутине
@@ -120,14 +126,18 @@ class ReminderSync @Inject constructor(
     private fun inputs(): Flow<Inputs> {
         val today = LocalDate.now()
         val until = today.plusDays(Reminders.LOOKAHEAD_DAYS.toLong())
+        // У combine пять «мест», а потоков шесть: настройки добавляем вторым combine поверх первого
         return combine(
-            tasks.observeTasksWithReminders(),
-            rules.observeRules(),
-            tasks.observeOccurrenceTasks(today.minusDays(1), until),
-            medications.observeMedications(),
-            medications.observeTaken(today.minusDays(1), until),
-            ::Inputs,
-        )
+            combine(
+                tasks.observeTasksWithReminders(),
+                rules.observeRules(),
+                tasks.observeOccurrenceTasks(today.minusDays(1), until),
+                medications.observeMedications(),
+                medications.observeTaken(today.minusDays(1), until),
+                ::Inputs,
+            ),
+            settingsRepository.settings,
+        ) { inputs, settings -> inputs.copy(settings = settings) }
     }
 
     /**
@@ -262,6 +272,16 @@ class ReminderSync @Inject constructor(
         )
         // Смахнутые — только со вчерашнего дня: более старые приёмы и так не звонят
         saveDismissed(dismissed.filter { it.date >= now.toLocalDate().minusDays(1) }.toSet())
+
+        // --- Вечерняя сводка: один будильник, на ближайший вечер. Есть ли завтра что показать,
+        // решит ReminderReceiver в момент сводки: дела к вечеру ещё могут появиться ---
+        val settings = inputs.settings
+        if (settings.eveningSummary) {
+            val todayAt = now.toLocalDate().atTime(settings.eveningSummaryTime)
+            scheduler.scheduleSummary(if (todayAt > now) todayAt else todayAt.plusDays(1))
+        } else {
+            scheduler.cancelSummary()
+        }
 
         // Уведомления в шторке — только о том, о чём ещё есть смысл напоминать. Отметили задачу
         // или день повторения в приложении, удалили, вернули в список — его уведомление уходит само.

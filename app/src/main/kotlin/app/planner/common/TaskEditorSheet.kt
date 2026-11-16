@@ -805,8 +805,7 @@ fun startText(date: LocalDate, today: LocalDate): String {
 fun dayText(date: LocalDate, today: LocalDate): String = when (date) {
     today -> stringResource(R.string.day_today)
     today.plusDays(1) -> stringResource(R.string.day_tomorrow)
-    // «Вт, 29 сентября» — день недели без числа: число уже есть в «29 сентября»
-    else -> "${DateTexts.weekdayShort(date.dayOfWeek)}, ${DateTexts.dayMonth(date)}"
+    else -> DateTexts.weekdayDayMonth(date)
 }
 
 /** «Завтра · утро», «Вт, 29 сентября · 10:30» — дата задачи словами. */

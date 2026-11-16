@@ -456,4 +456,17 @@
         <item quantity="many">Праз %d гадоў пасля выканання</item>
         <item quantity="other">Праз %d года пасля выканання</item>
     </plurals>
+    <!-- Вячэрняя зводка -->
+    <string name="channel_summary">Вячэрняя зводка</string>
+    <string name="channel_summary_desc">Што заўтра — увечары, калі ёсць справы з часам</string>
+    <string name="summary_title">Заўтра, %1$s</string>
+    <string name="summary_setting_hint">Калі заўтра ёсць справы з часам</string>
+    <string name="summary_time">Час</string>
+    <string name="summary_sound">Гук</string>
+    <plurals name="summary_more">
+        <item quantity="one">І яшчэ %d справа без часу</item>
+        <item quantity="few">І яшчэ %d справы без часу</item>
+        <item quantity="many">І яшчэ %d спраў без часу</item>
+        <item quantity="other">І яшчэ %d справы без часу</item>
+    </plurals>
 </resources>

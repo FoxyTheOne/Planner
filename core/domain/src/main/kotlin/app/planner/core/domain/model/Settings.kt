@@ -42,6 +42,14 @@ data class PlannerSettings(
     val habitsSound: Boolean = false,
     /** Звучат ли напоминания о лекарствах. По умолчанию да: приём важно не пропустить. */
     val medicationsSound: Boolean = true,
+    /**
+     * Вечерняя сводка: в [eveningSummaryTime] — что завтра (дела со временем и «и ещё N»). Приходит,
+     * только если завтра есть дела со временем: к чему готовиться заранее. По умолчанию включена, в 20:00.
+     */
+    val eveningSummary: Boolean = true,
+    val eveningSummaryTime: LocalTime = LocalTime.of(20, 0),
+    /** Звучит ли сводка. По умолчанию нет: это спокойный взгляд на завтра, а не срочное напоминание. */
+    val eveningSummarySound: Boolean = false,
 ) {
     /** В какую часть дня попадает задача с точным временем. */
     fun partOfDayFor(time: LocalTime): PartOfDay = when {

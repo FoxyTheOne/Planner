@@ -22,10 +22,12 @@ import app.planner.core.domain.medication.Dose
 import app.planner.core.domain.medication.DoseKey
 import app.planner.core.domain.model.PlannerSettings
 import app.planner.core.domain.model.Task
+import app.planner.core.domain.preview.DayPreview
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_HABITS
 import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_MEDICATIONS
+import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_SUMMARY
 import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_TASKS
 import app.planner.reminders.ReminderNotifications.Companion.TAG_RULE
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -41,10 +43,11 @@ import javax.inject.Singleton
  *
  * КАНАЛЫ. С Android 8 каждое уведомление принадлежит «каналу» — группе, которую человек может
  * отдельно настроить в системных настройках (звук, вибрация, всплывать ли, выключить совсем).
- * У нас их три:
+ * Напоминаний — три:
  * - [CHANNEL_TASKS] «Напоминания о делах» — задачи и повторения. Звучат и всплывают поверх экрана;
  * - [CHANNEL_HABITS] «Привычки» — звучат, но не всплывают: привычка — мягкий повод, а не срочное дело.
  * - [CHANNEL_MEDICATIONS] «Лекарства» — звучат и всплывают: приём важно не пропустить.
+ * И ещё [CHANNEL_SUMMARY] «Вечерняя сводка» ([showEveningSummary]) — не напоминание, а взгляд на завтра.
  *
  * ЗВУК. У канала звук задаётся один раз, при создании, — дальше его меняет только человек
  * в настройках Android. А там на каждом телефоне всё по-своему: на Xiaomi, например, выключить
@@ -87,6 +90,12 @@ class ReminderNotifications @Inject constructor(
 
         /** Канал лекарств. */
         const val CHANNEL_MEDICATIONS = "medication_reminders"
+
+        /** Канал вечерней сводки. Не входит в [REMINDER_CHANNELS]: её не убирают вместе с напоминаниями. */
+        const val CHANNEL_SUMMARY = "evening_summary"
+
+        /** Метка уведомления сводки — оно одно, и номер у него всегда 0 (метка отличает его от пробного). */
+        private const val TAG_SUMMARY = "summary"
 
         /** Номер пробного уведомления. У задач номера с 1, поэтому 0 ни с одной не совпадёт. */
         const val TEST_NOTIFICATION_ID = 0
@@ -131,8 +140,14 @@ class ReminderNotifications @Inject constructor(
             // HIGH — как у дел: звучит и всплывает поверх экрана
             NotificationManager.IMPORTANCE_HIGH,
         ).apply { description = context.getString(R.string.channel_medications_desc) }
+        val summary = NotificationChannel(
+            CHANNEL_SUMMARY,
+            context.getString(R.string.channel_summary),
+            // DEFAULT — может звучать (если так выбрано в настройках), но не всплывает поверх экрана
+            NotificationManager.IMPORTANCE_DEFAULT,
+        ).apply { description = context.getString(R.string.channel_summary_desc) }
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannels(listOf(tasks, habits, medications))
+        manager.createNotificationChannels(listOf(tasks, habits, medications, summary))
         // Нет такого канала — Android просто ничего не сделает, поэтому удалять можно при каждом запуске
         manager.deleteNotificationChannel(OLD_CHANNEL_HABITS)
     }
@@ -273,6 +288,34 @@ class ReminderNotifications @Inject constructor(
             .build()
         // Метка + id лекарства: следующее напоминание того же лекарства заменит это
         post(tag = TAG_MEDICATION, id = medication.id.toInt(), notification)
+    }
+
+    /**
+     * Вечерняя сводка: что ждёт в [date] (завтра). Заголовок «Завтра, вт, 25 ноября», в свёрнутом виде —
+     * «10:30 Врач · 18:00 Бассейн», а развёрнутая — по строке на дело и «И ещё 4 дела без времени».
+     * Тап открывает приложение. Звук — как выбрано в настройках (по умолчанию тихо).
+     *
+     * InboxStyle — вид уведомления «список строк», как превью писем в почте.
+     */
+    suspend fun showEveningSummary(date: LocalDate, preview: DayPreview) {
+        val lines = preview.timed.map { "${DateTexts.time(it.time!!)}  ${it.title}" }
+        val more = preview.untimedCount.takeIf { it > 0 }
+            ?.let { context.resources.getQuantityString(R.plurals.summary_more, it, it) }
+        val style = NotificationCompat.InboxStyle()
+        lines.forEach { style.addLine(it) }
+        more?.let { style.setSummaryText(it) }
+        val notification = builder(
+            CHANNEL_SUMMARY,
+            context.getString(R.string.summary_title, DateTexts.weekdayDayMonth(date)),
+            lines.joinToString(" · "),
+            // Тап просто открывает приложение — номер «намерения» любой, у всех уведомлений оно одинаковое
+            tapId = 0L,
+            sound = settings().eveningSummarySound,
+        )
+            .setStyle(style)
+            .setCategory(NotificationCompat.CATEGORY_EVENT)
+            .build()
+        post(tag = TAG_SUMMARY, id = 0, notification)
     }
 
     /** Настройки как сейчас — один раз, без подписки (first — «первое значение потока»). */

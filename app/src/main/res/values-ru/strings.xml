@@ -455,4 +455,17 @@
         <item quantity="many">Через %d лет после выполнения</item>
         <item quantity="other">Через %d года после выполнения</item>
     </plurals>
+    <!-- Вечерняя сводка -->
+    <string name="channel_summary">Вечерняя сводка</string>
+    <string name="channel_summary_desc">Что завтра — вечером, если есть дела со временем</string>
+    <string name="summary_title">Завтра, %1$s</string>
+    <string name="summary_setting_hint">Если завтра есть дела со временем</string>
+    <string name="summary_time">Время</string>
+    <string name="summary_sound">Звук</string>
+    <plurals name="summary_more">
+        <item quantity="one">И ещё %d дело без времени</item>
+        <item quantity="few">И ещё %d дела без времени</item>
+        <item quantity="many">И ещё %d дел без времени</item>
+        <item quantity="other">И ещё %d дела без времени</item>
+    </plurals>
 </resources>

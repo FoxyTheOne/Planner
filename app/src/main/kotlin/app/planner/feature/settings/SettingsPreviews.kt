@@ -26,6 +26,7 @@ private fun SettingsPreview() {
                 tasks = ChannelState.SOUND,
                 habits = ChannelState.SOUND,
                 medications = ChannelState.SOUND,
+                summary = ChannelState.SOUND,
             ),
             contentPadding = PaddingValues(),
             onBack = {},

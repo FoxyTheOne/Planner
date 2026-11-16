@@ -38,6 +38,9 @@ object DateTexts {
     /** «Чт 24» */
     fun shortDay(date: LocalDate): String = "${weekdayShort(date.dayOfWeek)} ${date.dayOfMonth}"
 
+    /** «Вт, 29 сентября» — день недели без числа: число уже есть в «29 сентября». */
+    fun weekdayDayMonth(date: LocalDate): String = "${weekdayShort(date.dayOfWeek)}, ${dayMonth(date)}"
+
     /** «21 — 27 сентября» или «28 сент. — 4 окт.» */
     fun weekRange(start: LocalDate): String {
         val end = start.plusDays(6)

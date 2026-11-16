@@ -434,4 +434,15 @@
         <item quantity="one">%d year after it’s done</item>
         <item quantity="other">%d years after it’s done</item>
     </plurals>
+    <!-- Evening summary -->
+    <string name="channel_summary">Evening summary</string>
+    <string name="channel_summary_desc">What’s tomorrow, in the evening, if something is at a set time</string>
+    <string name="summary_title">Tomorrow, %1$s</string>
+    <string name="summary_setting_hint">If tomorrow has things at a set time</string>
+    <string name="summary_time">Time</string>
+    <string name="summary_sound">Sound</string>
+    <plurals name="summary_more">
+        <item quantity="one">And %d more without a time</item>
+        <item quantity="other">And %d more without a time</item>
+    </plurals>
 </resources>

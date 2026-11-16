@@ -20,8 +20,8 @@ import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskList
-import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.overdue.Overdue
+import app.planner.core.domain.preview.DayPreview
 import app.planner.core.domain.recurrence.HabitDay
 import app.planner.core.domain.recurrence.HabitHistory
 import app.planner.core.domain.recurrence.Occurrence
@@ -296,6 +296,7 @@ class TodayViewModel @Inject constructor(
         val (todayTasks, tomorrowTasks) = twoDays
             .filterNot { it.ruleId in repeats.habitIds }
             .partition { it.date == today }
+        val tomorrow = DayPreview.of(tomorrowTasks, repeats.tomorrow)
         // Задачи и повторения — в одну кучу, дальше они сортируются и раскладываются по частям дня вместе
         val items = dayItems(todayTasks, occurrences)
         val sections = items
@@ -308,13 +309,10 @@ class TodayViewModel @Inject constructor(
             // «1 из 5»: отмеченные повторения уже стали задачами, неотмеченные — ещё строки по правилу
             doneCount = todayTasks.count { it.isDone },
             totalCount = todayTasks.size + occurrences.size,
-            // В превью «Завтра» — и задачи, и дни повторений (бассейн в 18:30 тоже важно увидеть заранее)
-            tomorrowCount = tomorrowTasks.size + repeats.tomorrow.size,
-            tomorrowTimed = (
-                    tomorrowTasks.filter { it.time != null && !it.isDone } +
-                            repeats.tomorrow.filter { it.rule.time != null }
-                                .map { Recurrence.toTask(it, TaskStatus.OPEN) }
-                    ).sortedBy { it.time },
+            // В превью «Завтра» — и задачи, и дни повторений (бассейн в 18:30 тоже важно увидеть заранее).
+            // Считает DayPreview — так же, как вечерняя сводка
+            tomorrowCount = tomorrow.total,
+            tomorrowTimed = tomorrow.timed,
             overdue = Overdue.grouped(overdue, today),
             showOverdueBanner = overdue.isNotEmpty() && settings.overdueBannerHiddenOn != today,
             lists = lists,

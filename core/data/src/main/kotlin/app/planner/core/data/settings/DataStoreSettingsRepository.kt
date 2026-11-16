@@ -53,6 +53,9 @@ class DataStoreSettingsRepository @Inject constructor(
         val tasksSound = booleanPreferencesKey("tasks_sound")
         val habitsSound = booleanPreferencesKey("habits_sound")
         val medicationsSound = booleanPreferencesKey("medications_sound")
+        val eveningSummary = booleanPreferencesKey("evening_summary")
+        val eveningSummaryTime = intPreferencesKey("evening_summary_minutes")
+        val eveningSummarySound = booleanPreferencesKey("evening_summary_sound")
     }
 
     // Подписка, которая видит изменения в dataStore.data (после update()), которая преобразует данные (.map) и рассылает подписчикам на settings.
@@ -83,6 +86,9 @@ class DataStoreSettingsRepository @Inject constructor(
             prefs[Keys.tasksSound] = new.tasksSound
             prefs[Keys.habitsSound] = new.habitsSound
             prefs[Keys.medicationsSound] = new.medicationsSound
+            prefs[Keys.eveningSummary] = new.eveningSummary
+            prefs[Keys.eveningSummaryTime] = new.eveningSummaryTime.toMinutes()
+            prefs[Keys.eveningSummarySound] = new.eveningSummarySound
         }
     }
 
@@ -102,6 +108,9 @@ class DataStoreSettingsRepository @Inject constructor(
             tasksSound = this[Keys.tasksSound] ?: defaults.tasksSound,
             habitsSound = this[Keys.habitsSound] ?: defaults.habitsSound,
             medicationsSound = this[Keys.medicationsSound] ?: defaults.medicationsSound,
+            eveningSummary = this[Keys.eveningSummary] ?: defaults.eveningSummary,
+            eveningSummaryTime = this[Keys.eveningSummaryTime]?.let(::minutesToTime) ?: defaults.eveningSummaryTime,
+            eveningSummarySound = this[Keys.eveningSummarySound] ?: defaults.eveningSummarySound,
         )
     }
 

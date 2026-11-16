@@ -8,15 +8,18 @@ import app.planner.core.domain.medication.Dose
 import app.planner.core.domain.medication.DoseKey
 import app.planner.core.domain.model.TaskStatus
 import app.planner.core.domain.recurrence.Recurrence
+import app.planner.core.domain.preview.DayPreview
 import app.planner.core.domain.reminder.MedicationReminders
 import app.planner.core.domain.reminder.Reminders
 import app.planner.core.domain.repository.IMedicationRepository
 import app.planner.core.domain.repository.IRecurrenceRepository
+import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.core.domain.repository.ITaskRepository
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_DONE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_DOSE_DISMISSED
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_DOSE_SNOOZE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_DOSE_TAKEN
+import app.planner.reminders.ReminderReceiver.Companion.ACTION_EVENING_SUMMARY
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND_DOSE
 import app.planner.reminders.ReminderReceiver.Companion.ACTION_REMIND_RULE
@@ -31,6 +34,7 @@ import app.planner.reminders.ReminderReceiver.Companion.EXTRA_TIME
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -54,6 +58,7 @@ import javax.inject.Inject
  * - [ACTION_DOSE_DISMISSED] — уведомление смахнули: повторов больше не нужно.
  *
  * И [ACTION_TEST] — пробное напоминание со страницы «Надёжность напоминаний».
+ * И [ACTION_EVENING_SUMMARY] — вечерняя сводка: что завтра.
  *
  * BroadcastReceiver — маленький «приёмник» сигналов от системы. Android создаёт его на один
  * сигнал, вызывает [onReceive] и сразу о нём забывает. Работать долго ему нельзя: на всё около
@@ -79,6 +84,7 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_DOSE_TAKEN = "app.planner.action.DOSE_TAKEN"
         const val ACTION_DOSE_SNOOZE = "app.planner.action.DOSE_SNOOZE"
         const val ACTION_DOSE_DISMISSED = "app.planner.action.DOSE_DISMISSED"
+        const val ACTION_EVENING_SUMMARY = "app.planner.action.EVENING_SUMMARY"
         const val EXTRA_TASK_ID = "taskId"
         const val EXTRA_RULE_ID = "ruleId"
         const val EXTRA_MEDICATION_ID = "medicationId"
@@ -101,6 +107,9 @@ class ReminderReceiver : BroadcastReceiver() {
     lateinit var medications: IMedicationRepository
 
     @Inject
+    lateinit var settings: ISettingsRepository
+
+    @Inject
     lateinit var commands: TaskCommands
 
     @Inject
@@ -116,6 +125,7 @@ class ReminderReceiver : BroadcastReceiver() {
                 when (intent.action) {
                     // Пробное — без задачи: просто показать уведомление (с выбранным в настройках звуком)
                     ACTION_TEST -> notifications.showTest()
+                    ACTION_EVENING_SUMMARY -> onEveningSummary()
                     ACTION_REMIND, ACTION_DONE, ACTION_SNOOZE -> onTask(intent)
                     ACTION_REMIND_RULE, ACTION_RULE_DONE, ACTION_RULE_SNOOZE -> onRuleDay(intent)
                     ACTION_REMIND_DOSE, ACTION_DOSE_TAKEN, ACTION_DOSE_SNOOZE, ACTION_DOSE_DISMISSED -> onDose(intent)
@@ -195,6 +205,25 @@ class ReminderReceiver : BroadcastReceiver() {
                 )
             }
         }
+    }
+
+    /**
+     * Вечерняя сводка: что ждёт завтра (DayPreview — так же, как «Завтра: …» на «Сегодня»).
+     * Показываем, только если сводка включена и завтра есть дела со временем: иначе готовиться не к чему.
+     * Потом — syncNow: встанет будильник на следующий вечер.
+     */
+    private suspend fun onEveningSummary() {
+        if (settings.settings.first().eveningSummary) {
+            val tomorrow = LocalDate.now().plusDays(1)
+            val preview = DayPreview.on(
+                tomorrow,
+                tasksOfDay = tasks.observeTasksBetween(tomorrow, tomorrow).first(),
+                rules = rules.observeRules().first(),
+                instances = tasks.observeOccurrenceTasks(tomorrow, tomorrow).first(),
+            )
+            if (preview.timed.isNotEmpty()) notifications.showEveningSummary(tomorrow, preview)
+        }
+        sync.syncNow()
     }
 
     /**

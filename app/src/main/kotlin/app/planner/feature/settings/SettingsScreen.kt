@@ -20,11 +20,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.LocalCafe
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material.icons.outlined.NotificationsOff
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +52,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.planner.BuildConfig
 import app.planner.R
+import app.planner.common.DateTexts
+import app.planner.common.PlannerTimePickerDialog
 import app.planner.core.designsystem.component.DashedRule
 import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.component.SectionLabel
@@ -302,6 +307,13 @@ fun SettingsContent(
                     onToggle = { on -> onUpdate { it.copy(medicationsSound = on) } },
                     onOpenSystem = { onOpenChannel(ReminderNotifications.CHANNEL_MEDICATIONS) },
                 )
+                DashedRule()
+                EveningSummaryRows(
+                    settings = settings,
+                    state = channels.summary,
+                    onUpdate = onUpdate,
+                    onOpenSystem = { onOpenChannel(ReminderNotifications.CHANNEL_SUMMARY) },
+                )
             } else {
                 NotificationRow(
                     icon = Icons.Outlined.NotificationsOff,
@@ -391,12 +403,64 @@ fun SettingsContent(
  * Как сейчас настроены каналы в Android (см. ReminderHealth.channelState) — чтобы заметить,
  * если телефон выключил канал или сам сделал его тихим.
  */
-data class ChannelStates(val tasks: ChannelState, val habits: ChannelState, val medications: ChannelState)
+data class ChannelStates(
+    val tasks: ChannelState,
+    val habits: ChannelState,
+    val medications: ChannelState,
+    val summary: ChannelState,
+)
+
+/**
+ * Вечерняя сводка в настройках:
+ * - «Вечерняя сводка · Если завтра есть дела со временем» и переключатель;
+ * - если включена — «Время · 20:00» (тап — циферблат) и «Звук» (как у каналов напоминаний, см. [SoundRow]).
+ */
+@Composable
+private fun EveningSummaryRows(
+    settings: PlannerSettings,
+    state: ChannelState,
+    onUpdate: ((PlannerSettings) -> PlannerSettings) -> Unit,
+    onOpenSystem: () -> Unit,
+) {
+    var pickTime by rememberSaveable { mutableStateOf(false) }
+    val on = settings.eveningSummary
+    NotificationRow(
+        icon = Icons.Outlined.Bedtime,
+        title = stringResource(R.string.channel_summary),
+        subtitle = stringResource(R.string.summary_setting_hint),
+        onClick = { onUpdate { it.copy(eveningSummary = !on) } },
+    ) {
+        Switch(checked = on, onCheckedChange = { checked -> onUpdate { it.copy(eveningSummary = checked) } })
+    }
+    if (on) {
+        NotificationRow(
+            icon = Icons.Outlined.Schedule,
+            title = stringResource(R.string.summary_time),
+            subtitle = DateTexts.time(settings.eveningSummaryTime),
+            onClick = { pickTime = true },
+        )
+        SoundRow(
+            title = R.string.summary_sound,
+            sound = settings.eveningSummarySound,
+            state = state,
+            onToggle = { sound -> onUpdate { it.copy(eveningSummarySound = sound) } },
+            onOpenSystem = onOpenSystem,
+        )
+    }
+    if (pickTime) {
+        PlannerTimePickerDialog(
+            initial = settings.eveningSummaryTime,
+            onPick = { time -> pickTime = false; onUpdate { it.copy(eveningSummaryTime = time) } },
+            onDismiss = { pickTime = false },
+        )
+    }
+}
 
 private fun readChannels(context: Context) = ChannelStates(
     tasks = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_TASKS),
     habits = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_HABITS),
     medications = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_MEDICATIONS),
+    summary = ReminderHealth.channelState(context, ReminderNotifications.CHANNEL_SUMMARY),
 )
 
 /**

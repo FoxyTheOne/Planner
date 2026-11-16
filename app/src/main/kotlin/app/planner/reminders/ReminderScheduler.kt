@@ -15,7 +15,8 @@ import javax.inject.Singleton
 /**
  * «Будильник» Android для напоминаний: поставить и снять будильник задачи ([schedule], [cancel]),
  * лекарства ([scheduleMedication], [cancelMedication])
- * или повторения ([scheduleRule], [cancelRule]) и пробный будильник ([scheduleTest]).
+ * или повторения ([scheduleRule], [cancelRule]), будильник вечерней сводки ([scheduleSummary], [cancelSummary])
+ * и пробный будильник ([scheduleTest]).
  *
  * Как это устроено в Android. Приложение не может «ждать» до 10:00 — его процесс в любой момент
  * могут выгрузить из памяти. Поэтому мы просим систему (AlarmManager): «в 10:00 разбуди вот этот
@@ -96,6 +97,30 @@ class ReminderScheduler @Inject constructor(
             it.cancel()
         }
     }
+
+    /**
+     * Будильник вечерней сводки — на [at] (ближайший вечер). Он один на всё приложение;
+     * сработал — ReminderSync поставит его на следующий вечер.
+     */
+    fun scheduleSummary(at: LocalDateTime) {
+        summaryPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT)?.let { setAlarm(at, it) }
+    }
+
+    /** Снять будильник сводки — её выключили в настройках. */
+    fun cancelSummary() {
+        summaryPendingIntent(PendingIntent.FLAG_NO_CREATE)?.let {
+            alarms.cancel(it)
+            it.cancel()
+        }
+    }
+
+    private fun summaryPendingIntent(flags: Int): PendingIntent? =
+        PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(context, ReminderReceiver::class.java).setAction(ReminderReceiver.ACTION_EVENING_SUMMARY),
+            flags or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun medicationPendingIntent(
         medicationId: Long,
