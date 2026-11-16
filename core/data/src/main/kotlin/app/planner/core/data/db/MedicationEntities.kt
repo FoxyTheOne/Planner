@@ -88,7 +88,7 @@ fun Medication.toEntity(): MedicationEntity {
             is Repeat.OnWeekdays -> TYPE_WEEKDAYS
             is Repeat.EveryNDays -> TYPE_EVERY_N_DAYS
             // Таких у лекарства не бывает — их не пропустит проверка в самом Medication
-            is Repeat.Yearly, is Repeat.Cycle -> error("Лекарство не повторяется так: $r")
+            is Repeat.Yearly, is Repeat.Cycle, is Repeat.AfterDone -> error("Лекарство не повторяется так: $r")
         },
         weekdays = (r as? Repeat.OnWeekdays)?.let { daysToBits(it.days) },
         everyNDays = (r as? Repeat.EveryNDays)?.n,

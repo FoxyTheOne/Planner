@@ -65,10 +65,17 @@ import java.time.LocalTime
             childColumns = ["prepRuleId"],
             onDelete = ForeignKey.SET_NULL,
         ),
+        // И задача «следующий раз» повторения «после выполнения» — так же
+        ForeignKey(
+            entity = RecurrenceRuleEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["afterRuleId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
     indices = [
         Index("date"), Index("listId"), Index("status"), Index("ruleId", "occurrenceDate"),
-        Index("goalId"), Index("stageId"), Index("prepRuleId"),
+        Index("goalId"), Index("stageId"), Index("prepRuleId"), Index("afterRuleId"),
     ],
 )
 data class TaskEntity(
@@ -103,6 +110,8 @@ data class TaskEntity(
     /** Задача-подготовка к дню «раз в год» (см. Task.prepRuleId). Колонки появились в версии базы 11. */
     val prepRuleId: Long? = null,
     val prepFor: LocalDate? = null,
+    /** Задача «следующий раз» повторения «после выполнения» (см. Task.afterRuleId). Колонка — с версии базы 13. */
+    val afterRuleId: Long? = null,
 )
 
 /** Строка таблицы `task_lists` — список «Когда-нибудь» в базе Room. */
@@ -139,6 +148,7 @@ fun TaskEntity.toDomain() = Task(
         ?: reminderAt?.let { Reminder.AtTime(it) },
     prepRuleId = prepRuleId,
     prepFor = prepFor,
+    afterRuleId = afterRuleId,
 )
 
 fun Task.toEntity() = TaskEntity(
@@ -162,6 +172,7 @@ fun Task.toEntity() = TaskEntity(
     reminderAt = (reminder as? Reminder.AtTime)?.time,
     prepRuleId = prepRuleId,
     prepFor = prepFor,
+    afterRuleId = afterRuleId,
 )
 
 fun TaskListEntity.toDomain() =

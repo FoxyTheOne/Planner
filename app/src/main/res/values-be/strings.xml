@@ -425,4 +425,35 @@
         <item quantity="many">Яшчэ %d дзён</item>
         <item quantity="other">Яшчэ %d дня</item>
     </plurals>
+    <!-- Паўтор «пасля выканання» -->
+    <string name="repeat_after_done">Пасля выканання</string>
+    <string name="repeat_after_done_hint">Адлік — ад дня, калі адзначыце «зроблена». Пакуль не зроблена, задача не знікае.</string>
+    <string name="interval_days">Дні</string>
+    <string name="interval_weeks">Тыдні</string>
+    <string name="interval_months">Месяцы</string>
+    <string name="interval_years">Гады</string>
+    <plurals name="repeat_after_done_days">
+        <item quantity="one">Праз %d дзень пасля выканання</item>
+        <item quantity="few">Праз %d дні пасля выканання</item>
+        <item quantity="many">Праз %d дзён пасля выканання</item>
+        <item quantity="other">Праз %d дня пасля выканання</item>
+    </plurals>
+    <plurals name="repeat_after_done_weeks">
+        <item quantity="one">Праз %d тыдзень пасля выканання</item>
+        <item quantity="few">Праз %d тыдні пасля выканання</item>
+        <item quantity="many">Праз %d тыдняў пасля выканання</item>
+        <item quantity="other">Праз %d тыдня пасля выканання</item>
+    </plurals>
+    <plurals name="repeat_after_done_months">
+        <item quantity="one">Праз %d месяц пасля выканання</item>
+        <item quantity="few">Праз %d месяцы пасля выканання</item>
+        <item quantity="many">Праз %d месяцаў пасля выканання</item>
+        <item quantity="other">Праз %d месяца пасля выканання</item>
+    </plurals>
+    <plurals name="repeat_after_done_years">
+        <item quantity="one">Праз %d год пасля выканання</item>
+        <item quantity="few">Праз %d гады пасля выканання</item>
+        <item quantity="many">Праз %d гадоў пасля выканання</item>
+        <item quantity="other">Праз %d года пасля выканання</item>
+    </plurals>
 </resources>

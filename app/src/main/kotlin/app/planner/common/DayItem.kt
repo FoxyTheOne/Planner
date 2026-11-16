@@ -126,7 +126,8 @@ fun DayItemRow(
                     task.goalId?.let(goalTitles::get)
                         ?.let { stringResource(R.string.goal_step_subtitle, it) },
                 ).joinToString(" · ").ifEmpty { null },
-                repeating = task.isOccurrence,
+                // ↻ — и у дня повторения, и у «следующего раза» повторения «после выполнения»
+                repeating = task.repeatRuleId != null,
                 reminder = Reminders.hasReminder(task),
                 labelColor = labelColorOf(task.listId, lists),
                 toggleDescription = description,

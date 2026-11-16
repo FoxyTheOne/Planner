@@ -1,5 +1,6 @@
 package app.planner.core.data.db
 
+import app.planner.core.domain.model.IntervalUnit
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
@@ -97,5 +98,16 @@ class RecurrenceEntitiesTest {
         val entity = base(Repeat.OnWeekdays(setOf(MONDAY, WEDNESDAY, FRIDAY))).toEntity()
         assertEquals(21, entity.weekdays)
         assertEquals("WEEKDAYS", entity.repeatType)
+    }
+
+    @Test
+    fun `after done survives the round trip`() {
+        val rule = base(Repeat.AfterDone(6, IntervalUnit.WEEKS))
+        val entity = rule.toEntity()
+
+        assertEquals(rule, entity.toDomain())
+        // Число — в той же колонке, что «раз в N дней», единица — в своей
+        assertEquals(6, entity.everyNDays)
+        assertEquals("WEEKS", entity.intervalUnit)
     }
 }

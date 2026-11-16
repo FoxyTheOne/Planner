@@ -144,7 +144,8 @@ class ReminderReceiver : BroadcastReceiver() {
 
             ACTION_DONE -> {
                 notifications.dismiss(taskId)
-                if (fireAt != null) tasks.setDone(taskId, true)
+                // Через TaskCommands, как галочка на экране: у «после выполнения» сразу появится следующий раз
+                if (task != null && fireAt != null) commands.toggleDone(task)
             }
 
             ACTION_SNOOZE -> {

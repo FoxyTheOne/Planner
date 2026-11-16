@@ -8,6 +8,7 @@ import app.planner.core.data.repository.RoomMedicationRepository
 import app.planner.core.data.repository.RoomRecurrenceRepository
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.GoalStage
+import app.planner.core.domain.model.IntervalUnit
 import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Reminder
@@ -365,6 +366,41 @@ class MigrationTest {
             repo.setTaken(id, oct15, nine, taken = true)
             repo.delete(id)
             assertTrue(db.medicationDao().getAllTaken().isEmpty())
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test
+    fun migrate12To13_oldRulesAndTasksStayAsTheyWere() = runBlocking {
+        val oct15 = LocalDate.of(2026, 10, 15)
+        helper.createDatabase(dbName, 12).apply {
+            execSQL(
+                "INSERT INTO recurrence_rules (id, title, startDate, repeatType, everyNDays, pauses, isHabit, position) " +
+                    "VALUES (1, 'Полив', ${oct15.toEpochDay()}, 'EVERY_N_DAYS', 3, '[]', 0, 0)",
+            )
+            execSQL(
+                "INSERT INTO tasks (id, title, note, status, isSample, createdAt, position) " +
+                    "VALUES (10, 'Купить лампу', '', 'OPEN', 0, 0, 0)",
+            )
+            close()
+        }
+
+        helper.runMigrationsAndValidate(dbName, 13, true).close()
+
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val db = Room.databaseBuilder(context, PlannerDatabase::class.java, dbName).build()
+        try {
+            // «Раз в 3 дня» остался собой: колонка единицы у него пустая
+            val repo = RoomRecurrenceRepository(db)
+            assertEquals(Repeat.EveryNDays(3), repo.getRule(1)!!.repeat)
+            assertEquals(null, db.taskDao().get(10)!!.toDomain().afterRuleId)
+            // А «после выполнения» записывается и читается обратно, с задачей «следующий раз»
+            val after = Repeat.AfterDone(1, IntervalUnit.YEARS)
+            repo.save(repo.getRule(1)!!.copy(repeat = after))
+            assertEquals(after, repo.getRule(1)!!.repeat)
+            db.taskDao().addOrUpdate(db.taskDao().get(10)!!.toDomain().copy(afterRuleId = 1).toEntity())
+            assertEquals(1L, db.taskDao().getAfterDone(1).single().afterRuleId)
         } finally {
             db.close()
         }

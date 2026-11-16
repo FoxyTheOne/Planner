@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import app.planner.R
 import app.planner.core.designsystem.component.PaperChip
 import app.planner.core.designsystem.theme.PlannerTheme
+import app.planner.core.domain.model.IntervalUnit
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.Repeat
 import java.time.DayOfWeek
@@ -45,10 +46,11 @@ import java.time.LocalDate
 import java.time.MonthDay
 
 /** Какой вариант выбран в шторке «Повторять» — отдельно от данных (дней, числа N). */
-private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, YEARLY, CYCLE }
+private enum class RepeatKind { NONE, DAILY, WEEKDAYS, EVERY_N, AFTER_DONE, YEARLY, CYCLE }
 
 /**
- * Шторка «Повторять»: не повторять / каждый день / по дням недели / раз в N дней / раз в год / цикл по неделям.
+ * Шторка «Повторять»: не повторять / каждый день / по дням недели / раз в N дней / после выполнения /
+ * раз в год / цикл по неделям.
  * Открывается из редактора задачи по строке «↻». Возвращает выбранное повторение
  * (null — «Не повторять») в [onDone].
  *
@@ -104,6 +106,7 @@ fun RepeatSheetBody(
                 Repeat.Daily -> RepeatKind.DAILY
                 is Repeat.OnWeekdays -> RepeatKind.WEEKDAYS
                 is Repeat.EveryNDays -> RepeatKind.EVERY_N
+                is Repeat.AfterDone -> RepeatKind.AFTER_DONE
                 is Repeat.Yearly -> RepeatKind.YEARLY
                 is Repeat.Cycle -> RepeatKind.CYCLE
             },
@@ -115,6 +118,9 @@ fun RepeatSheetBody(
         )
     }
     var n by rememberSaveable { mutableIntStateOf((initial as? Repeat.EveryNDays)?.n ?: 2) }
+    // «После выполнения»: по умолчанию раз в год — как УЗИ или осмотр у врача
+    var afterAmount by rememberSaveable { mutableIntStateOf((initial as? Repeat.AfterDone)?.amount ?: 1) }
+    var afterUnit by rememberSaveable { mutableStateOf((initial as? Repeat.AfterDone)?.unit ?: IntervalUnit.YEARS) }
     // Таблица цикла (RepeatSaver хранит Repeat?, поэтому и здесь тип Repeat?, а читаем как Cycle)
     var cycle by rememberSaveable(stateSaver = RepeatSaver) { mutableStateOf<Repeat?>(initial as? Repeat.Cycle) }
     var editingCycle by rememberSaveable { mutableStateOf(false) }
@@ -125,6 +131,7 @@ fun RepeatSheetBody(
         RepeatKind.DAILY -> Repeat.Daily
         RepeatKind.WEEKDAYS -> days.takeIf { it.isNotEmpty() }?.let { Repeat.OnWeekdays(it) }
         RepeatKind.EVERY_N -> Repeat.EveryNDays(n)
+        RepeatKind.AFTER_DONE -> Repeat.AfterDone(afterAmount, afterUnit)
         // День в году — день повторения из строки «📅» (редактор держит их одинаковыми)
         RepeatKind.YEARLY -> Repeat.Yearly(MonthDay.from(date))
         RepeatKind.CYCLE -> cycle
@@ -188,6 +195,39 @@ fun RepeatSheetBody(
                 IconButton(onClick = { n = (n + 1).coerceAtMost(365) }) {
                     Icon(Icons.Outlined.Add, stringResource(R.string.cd_more))
                 }
+            }
+        }
+
+        // После выполнения: «−  Через 1 год после выполнения  +» и единица — дни, недели, месяцы, годы.
+        // Ниже подсказка, чем это отличается от «раз в N дней»: отсчёт — от дня, когда сделали
+        if (!simpleOnly) KindOption(stringResource(R.string.repeat_after_done), kind == RepeatKind.AFTER_DONE) {
+            kind = RepeatKind.AFTER_DONE
+        }
+        if (kind == RepeatKind.AFTER_DONE) {
+            Column(Modifier.padding(start = 36.dp, bottom = 4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { afterAmount = (afterAmount - 1).coerceAtLeast(1) }, enabled = afterAmount > 1) {
+                        Icon(Icons.Outlined.Remove, stringResource(R.string.cd_less))
+                    }
+                    Text(repeatSummary(Repeat.AfterDone(afterAmount, afterUnit)), color = paper.ink)
+                    IconButton(onClick = { afterAmount = (afterAmount + 1).coerceAtMost(365) }) {
+                        Icon(Icons.Outlined.Add, stringResource(R.string.cd_more))
+                    }
+                }
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(start = 12.dp),
+                ) {
+                    IntervalUnit.entries.forEach { unit ->
+                        PaperChip(intervalUnitText(unit), afterUnit == unit, { afterUnit = unit })
+                    }
+                }
+                Text(
+                    stringResource(R.string.repeat_after_done_hint),
+                    color = paper.inkMuted,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 12.dp, top = 6.dp),
+                )
             }
         }
 
@@ -308,4 +348,27 @@ fun repeatSummary(repeat: Repeat?): String = when (repeat) {
         repeat.weeks.size,
         repeat.weeks.size
     )
+
+    // «Через 6 недель после выполнения», «Через 1 год после выполнения»
+    is Repeat.AfterDone -> pluralStringResource(
+        when (repeat.unit) {
+            IntervalUnit.DAYS -> R.plurals.repeat_after_done_days
+            IntervalUnit.WEEKS -> R.plurals.repeat_after_done_weeks
+            IntervalUnit.MONTHS -> R.plurals.repeat_after_done_months
+            IntervalUnit.YEARS -> R.plurals.repeat_after_done_years
+        },
+        repeat.amount,
+        repeat.amount,
+    )
 }
+
+/** «Дни», «Недели», «Месяцы», «Годы» — на кнопках выбора единицы у «после выполнения». */
+@Composable
+private fun intervalUnitText(unit: IntervalUnit): String = stringResource(
+    when (unit) {
+        IntervalUnit.DAYS -> R.string.interval_days
+        IntervalUnit.WEEKS -> R.string.interval_weeks
+        IntervalUnit.MONTHS -> R.string.interval_months
+        IntervalUnit.YEARS -> R.string.interval_years
+    },
+)

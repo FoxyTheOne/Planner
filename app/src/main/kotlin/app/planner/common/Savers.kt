@@ -3,6 +3,7 @@ package app.planner.common
 import androidx.compose.runtime.saveable.Saver
 import app.planner.core.domain.model.Goal
 import app.planner.core.domain.model.ListColor
+import app.planner.core.domain.model.IntervalUnit
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Repeat
@@ -63,6 +64,11 @@ val TaskSaver: Saver<Task?, Any> = Saver(
                 // Напоминание — двумя простыми значениями, как в базе: минуты «до» или час «в»
                 (it.reminder as? Reminder.BeforeTime)?.minutes,
                 (it.reminder as? Reminder.AtTime)?.time,
+                // Связь с повторением у подготовки и у «следующего раза» — без них после поворота экрана
+                // задача «забыла» бы, откуда она, и наутро появилась бы ещё одна такая же
+                it.prepRuleId,
+                it.prepFor,
+                it.afterRuleId,
             )
         }
     },
@@ -87,6 +93,9 @@ val TaskSaver: Saver<Task?, Any> = Saver(
             position = v[15] as Int,
             reminder = (v[16] as Int?)?.let { Reminder.BeforeTime(it) }
                 ?: (v[17] as LocalTime?)?.let { Reminder.AtTime(it) },
+            prepRuleId = v[18] as Long?,
+            prepFor = v[19] as LocalDate?,
+            afterRuleId = v[20] as Long?,
         )
     },
 )
@@ -128,6 +137,7 @@ val RepeatSaver: Saver<Repeat?, Any> = Saver(
             is Repeat.OnWeekdays -> arrayListOf<Any?>("W", ArrayList(repeat.days))
             is Repeat.EveryNDays -> arrayListOf<Any?>("N", repeat.n)
             is Repeat.Yearly -> arrayListOf<Any?>("Y", repeat.day.monthValue, repeat.day.dayOfMonth)
+            is Repeat.AfterDone -> arrayListOf<Any?>("A", repeat.amount, repeat.unit)
             is Repeat.Cycle -> arrayListOf<Any?>(
                 "C", ArrayList(repeat.weeks.map { HashMap(it) }),
                 repeat.anchorWeekStart, repeat.anchorWeekNumber, repeat.weekStart,
@@ -142,6 +152,7 @@ val RepeatSaver: Saver<Repeat?, Any> = Saver(
             "W" -> Repeat.OnWeekdays((v[1] as List<DayOfWeek>).toSet())
             "N" -> Repeat.EveryNDays(v[1] as Int)
             "Y" -> Repeat.Yearly(MonthDay.of(v[1] as Int, v[2] as Int))
+            "A" -> Repeat.AfterDone(v[1] as Int, v[2] as IntervalUnit)
             else -> Repeat.Cycle(
                 weeks = v[1] as List<Map<DayOfWeek, String>>,
                 anchorWeekStart = v[2] as LocalDate,

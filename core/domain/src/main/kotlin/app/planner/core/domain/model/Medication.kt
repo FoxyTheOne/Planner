@@ -22,7 +22,7 @@ import java.time.LocalTime
  * @param food как принимать относительно еды; null — неважно.
  * @param times во сколько приёмы в течение дня. Хотя бы один; порядок и повторы не важны —
  *   движок сам отсортирует (см. [doseTimes]).
- * @param repeat в какие дни: каждый день, по дням недели или раз в N дней. «Раз в год» и цикл
+ * @param repeat в какие дни: каждый день, по дням недели или раз в N дней. «Раз в год», цикл и «после выполнения»
  *   у лекарств не бывают — их редактор лекарства не предлагает.
  * @param startDate с какого дня принимать (и точка отсчёта для «раз в N дней»).
  * @param endDate последний день курса включительно; null — бессрочно.
@@ -51,7 +51,7 @@ data class Medication(
 ) {
     init {
         require(times.isNotEmpty()) { "Нужен хотя бы один приём в день" }
-        require(repeat !is Repeat.Yearly && repeat !is Repeat.Cycle) {
+        require(repeat is Repeat.Daily || repeat is Repeat.OnWeekdays || repeat is Repeat.EveryNDays) {
             "У лекарства бывают только «каждый день», «по дням недели» и «раз в N дней»"
         }
         require(endDate == null || endDate >= startDate) { "Курс не может закончиться раньше, чем начался" }

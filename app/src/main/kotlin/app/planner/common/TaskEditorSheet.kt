@@ -175,7 +175,9 @@ fun TaskEditorSheet(
     onOpenRule: (RecurrenceRule) -> Unit = {},
 ) {
     // Открыт один день повторения — по его ruleId находим правило, чтобы дать «Изменить все дни»
-    val ruleOfDay = target.task.ruleId?.takeIf { target.task.isOccurrenceDay }?.let(rules::get)
+    // У «следующего раза» повторения «после выполнения» — тоже: его повторение (afterRuleId)
+    val ruleOfDay = (target.task.ruleId?.takeIf { target.task.isOccurrenceDay } ?: target.task.afterRuleId)
+        ?.let(rules::get)
     // Открыто правило повторения (черновик: id = 0 и ruleId) — у него есть пауза
     val ruleId = target.task.ruleId.takeIf { target.task.isRuleDraft }
     // key(target): открыли другое (например, из дня повторения перешли к правилу) — редактор
@@ -495,7 +497,8 @@ fun TaskEditorSheetBody(
         // У дня повторения (отмечен, перенесён) своего повторения нет — оно у правила.
         // Иначе «Сделать повторяющейся» создало бы новое правило из одного дня старого.
         // У шага цели тоже нет: шаг делают один раз (а то, что повторяется, — это привычка цели)
-        if (!initial.isOccurrenceDay && !initial.isGoalStep) {
+        // И у «следующего раза» повторения «после выполнения»: оно уже есть — у его правила
+        if (!initial.isOccurrenceDay && !initial.isGoalStep && initial.afterRuleId == null) {
             EditorActionRow(
                 icon = Icons.Outlined.Repeat,
                 value = repeat?.let { repeatSummary(it) },
@@ -509,7 +512,8 @@ fun TaskEditorSheetBody(
             if (repeat is Repeat.Yearly) {
                 PrepRow(days = prepDays, onChange = { prepDays = it })
             }
-            if (repeat != null) {
+            // «После выполнения» привычкой не бывает: у привычки «таблетка» по дням, а у него одна задача
+            if (repeat != null && repeat !is Repeat.AfterDone) {
                 HabitSwitchRow(checked = isHabit, onCheckedChange = { isHabit = it })
                 // «Помогает цели» — только у привычки, и только если есть цели (или связь уже есть)
                 if (isHabit && (goals.any { !it.isAchieved } || habitGoalId != null)) {

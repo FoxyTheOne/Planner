@@ -1,6 +1,7 @@
 package app.planner.core.data.backup
 
 import app.planner.core.domain.model.FoodRelation
+import app.planner.core.domain.model.IntervalUnit
 import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
@@ -254,5 +255,21 @@ class BackupFormatTest {
         assertEquals(medication, back)
         // Времена в файле — текстом, чтобы файл можно было прочитать глазами
         assertTrue(text.contains("\"times\":[\"09:00\",\"21:00\"]"))
+    }
+
+    @Test
+    fun `backup of format 13 has no after done tasks, after done survives export`() {
+        val v13 = """
+            {"formatVersion":13,"exportedAt":"2026-10-23T10:00:00Z","lists":[],
+             "tasks":[{"id":5,"title":"УЗИ","date":"2026-11-20","createdAt":"2026-10-01T09:00:00Z"}]}
+        """.trimIndent()
+        assertEquals(null, backupJson.decodeFromString(BackupSnapshot.serializer(), v13).tasks.single().afterRuleId)
+
+        val rule = RecurrenceRule(
+            id = 3, title = "УЗИ", repeat = Repeat.AfterDone(1, IntervalUnit.YEARS), startDate = LocalDate.of(2026, 11, 20),
+        )
+        val text = backupJson.encodeToString(RuleDto.serializer(), rule.toDto())
+        assertEquals(rule, backupJson.decodeFromString(RuleDto.serializer(), text).toDomain())
+        assertTrue(text.contains("\"type\":\"AFTER_DONE\""))
     }
 }

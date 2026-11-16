@@ -65,6 +65,12 @@ data class Task(
      */
     val prepRuleId: Long? = null,
     val prepFor: LocalDate? = null,
+    /**
+     * «Следующий раз» повторения «после выполнения» (УЗИ раз в год от последнего): какое это повторение.
+     * Тоже обычная задача, как подготовка: её переносят, она копится в «Незавершённом», пока не сделана.
+     * Отметили — Recurrence.afterDoneTaskDue создаст следующую (см. Repeat.AfterDone).
+     */
+    val afterRuleId: Long? = null,
     /** Пример из онбординга — такие задачи помечены и легко удаляются. */
     val isSample: Boolean = false,
     val createdAt: Instant = Instant.now(),
@@ -80,6 +86,12 @@ data class Task(
 
     /** Это день повторения, а не обычная задача. */
     val isOccurrence: Boolean get() = ruleId != null
+
+    /**
+     * Повторение, с которым связана задача: её день ([ruleId]) или «следующий раз» повторения
+     * «после выполнения» ([afterRuleId]). Нужно редактору — «Изменить все дни» открывает это повторение.
+     */
+    val repeatRuleId: Long? get() = ruleId ?: afterRuleId
 
     /** Шаг цели — живёт в цели, а не в списке. */
     val isGoalStep: Boolean get() = goalId != null

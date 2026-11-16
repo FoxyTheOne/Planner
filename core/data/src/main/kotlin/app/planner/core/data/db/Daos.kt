@@ -59,6 +59,10 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE prepRuleId IS NOT NULL")
     suspend fun getPrep(): List<TaskEntity>
 
+    // Задачи «следующий раз» повторения «после выполнения» — тоже все, по ним видно, когда делали в последний раз
+    @Query("SELECT * FROM tasks WHERE afterRuleId = :ruleId")
+    suspend fun getAfterDone(ruleId: Long): List<TaskEntity>
+
     // Шаги целей. Порядок для экрана считает orderedSteps (domain): там учитываются этапы
     @Query("SELECT * FROM tasks WHERE goalId = :goalId ORDER BY createdAt")
     fun observeByGoal(goalId: Long): Flow<List<TaskEntity>>

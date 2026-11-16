@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import app.planner.core.domain.model.IntervalUnit
 import app.planner.core.domain.model.PartOfDay
 import app.planner.core.domain.model.Pause
 import app.planner.core.domain.model.RecurrenceRule
@@ -22,7 +23,7 @@ import java.time.MonthDay
  *
  * В домене «как часто» — это [Repeat] с четырьмя вариантами, у каждого свои данные.
  * В таблице так нельзя: у всех строк одинаковые колонки. Поэтому раскладываем так:
- * - [repeatType] — какой это вариант: DAILY, WEEKDAYS, EVERY_N_DAYS, CYCLE или YEARLY
+ * - [repeatType] — какой это вариант: DAILY, WEEKDAYS, EVERY_N_DAYS, CYCLE, YEARLY или AFTER_DONE
  *   (у YEARLY своих колонок нет: день в году — это [startDate]);
  * - колонки под данные каждого варианта; у «чужих» вариантов они пустые (null).
  *   Например, у «по дням недели» заполнено [weekdays], а [everyNDays] и cycle… — null.
@@ -100,6 +101,11 @@ data class RecurrenceRuleEntity(
     val reminderAt: LocalTime? = null,
     /** За сколько дней готовиться к дню «раз в год» (см. RecurrenceRule.prepDays). Колонка — с версии базы 11. */
     val prepDays: Int? = null,
+    /**
+     * «После выполнения»: в чём интервал — DAYS / WEEKS / MONTHS / YEARS, а само число — в [everyNDays].
+     * Колонка появилась в версии базы 13; у других вариантов пустая.
+     */
+    val intervalUnit: String? = null,
 )
 
 // Названия вариантов в колонке repeatType. Их нельзя переименовывать: они уже лежат в базах людей.
@@ -109,6 +115,7 @@ internal const val TYPE_WEEKDAYS = "WEEKDAYS"
 internal const val TYPE_EVERY_N_DAYS = "EVERY_N_DAYS"
 private const val TYPE_CYCLE = "CYCLE"
 private const val TYPE_YEARLY = "YEARLY"
+private const val TYPE_AFTER_DONE = "AFTER_DONE"
 
 /** Как пауза лежит внутри JSON. Отдельная модель уровня data, чтобы модель уровня domain не зависела от формата хранения. */
 @Serializable
@@ -166,6 +173,8 @@ fun RecurrenceRule.toEntity(): RecurrenceRuleEntity {
         ) // результат, если r — это вариант EveryNDays. EveryNDays - это data class, проверка с is: это какой-нибудь EveryNDays?
         // День в году отдельно не храним: это день начала правила (startDate)
         is Repeat.Yearly -> base.copy(repeatType = TYPE_YEARLY)
+        // Число — в той же колонке, что «раз в N дней», единица — в своей
+        is Repeat.AfterDone -> base.copy(repeatType = TYPE_AFTER_DONE, everyNDays = r.amount, intervalUnit = r.unit.name)
         is Repeat.Cycle -> base.copy(
             repeatType = TYPE_CYCLE,
             // Ключи словаря — названия дней (MONDAY…), чтобы JSON было легко прочитать глазами
@@ -184,6 +193,7 @@ fun RecurrenceRuleEntity.toDomain(): RecurrenceRule {
         TYPE_WEEKDAYS -> Repeat.OnWeekdays(bitsToDays(weekdays!!))
         TYPE_EVERY_N_DAYS -> Repeat.EveryNDays(everyNDays!!)
         TYPE_YEARLY -> Repeat.Yearly(MonthDay.from(startDate))
+        TYPE_AFTER_DONE -> Repeat.AfterDone(everyNDays!!, IntervalUnit.valueOf(intervalUnit!!))
         TYPE_CYCLE -> Repeat.Cycle(
             weeks = json.decodeFromString<List<Map<String, String>>>(cycleWeeks!!)
                 .map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },

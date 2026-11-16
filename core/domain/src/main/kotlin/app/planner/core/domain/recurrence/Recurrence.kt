@@ -11,6 +11,7 @@ import app.planner.core.domain.reminder.Reminders
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 
@@ -66,6 +67,10 @@ object Recurrence {
                 // Дела этой недели цикла на этот день недели; нет дел — нет и выпадения
                 week[date.dayOfWeek]?.let { details -> Occurrence(rule, date, details) }
             }
+
+            // «После выполнения» по календарю не выпадает: у него одна настоящая задача «следующий раз»
+            // (см. afterDoneTaskDue). Иначе в плане была бы и задача, и строка по правилу
+            is Repeat.AfterDone -> null
         }
     }
 
@@ -129,8 +134,10 @@ object Recurrence {
         time = draft.time,
         partOfDay = draft.partOfDay,
         listId = draft.listId,
-        isHabit = isHabit,
-        goalId = goalId.takeIf { isHabit },
+        // «После выполнения» привычкой не бывает: у привычки «таблетка» каждый день по календарю,
+        // а у него — одна задача до тех пор, пока её не сделают
+        isHabit = isHabit && repeat !is Repeat.AfterDone,
+        goalId = goalId.takeIf { isHabit && repeat !is Repeat.AfterDone },
         // Место в ряду не меняется от правки: переставляют его только перетаскиванием
         position = existing?.position ?: 0,
         reminder = draft.reminder,
@@ -418,4 +425,48 @@ object Recurrence {
                 prepFor = event,
             )
         }
+
+    /**
+     * Какую задачу «следующий раз» создать для повторения «после выполнения» ([Repeat.AfterDone]);
+     * null — создавать не нужно.
+     *
+     * У такого повторения всегда одна открытая задача. Поэтому:
+     * - открытая уже есть (среди [linked] — задач этого правила, Task.afterRuleId) — ничего не делаем;
+     * - ещё ни разу не делали — первый раз в день начала правила;
+     * - иначе — через интервал после последнего раза: от дня, когда отметили «сделано»
+     *   (или, если этот раз пропустили, — от дня, на который он был).
+     *
+     * Если этот день попал на паузу — после неё (пауза «пока не продолжу» — пока ничего не создаём).
+     * Если повторение к этому дню уже закончилось ([RecurrenceRule.endDate]) — тоже ничего.
+     *
+     * @param zone часовой пояс телефона: «сделано» хранится моментом (Instant), а нам нужен день.
+     */
+    fun afterDoneTaskDue(
+        rule: RecurrenceRule,
+        linked: List<Task>,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): Task? {
+        val repeat = rule.repeat as? Repeat.AfterDone ?: return null
+        if (linked.any { it.status == TaskStatus.OPEN }) return null
+        val lastTime = linked.maxOfOrNull { finishedOn(it, zone) }
+        var due = lastTime?.let(repeat::after) ?: rule.startDate
+        // Попали на паузу — следующий день после неё; у паузы без даты «после» ещё не наступило
+        activePause(rule, due)?.let { pause -> due = pause.until?.plusDays(1) ?: return null }
+        if (rule.endDate != null && due > rule.endDate) return null
+        return Task(
+            title = rule.title,
+            date = due,
+            time = rule.time,
+            partOfDay = rule.partOfDay,
+            listId = rule.listId,
+            reminder = Reminders.fitting(rule.reminder, due, rule.time),
+            afterRuleId = rule.id,
+        )
+    }
+
+    /** День, когда закончили с задачей «следующий раз»: когда отметили или — если пропустили — её день. */
+    private fun finishedOn(task: Task, zone: ZoneId): LocalDate =
+        task.doneAt?.atZone(zone)?.toLocalDate()
+            ?: task.date
+            ?: task.createdAt.atZone(zone).toLocalDate()
 }

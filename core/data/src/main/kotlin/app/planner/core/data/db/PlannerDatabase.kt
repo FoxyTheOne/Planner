@@ -49,6 +49,8 @@ import androidx.room.migration.AutoMigrationSpec
  *   и prepFor (к какому дню), у правил prepDays (за сколько дней). У старых строк пустые — без подготовки.
  * - 12 — лекарства: таблицы medications (сами лекарства) и doses_taken (отметки «принято»).
  *   Новые таблицы — Room создаст их сам, старые данные не трогаются.
+ * - 13 — повторение «после выполнения» (УЗИ раз в год от последнего): у правил колонка intervalUnit
+ *   (в чём интервал), у задач afterRuleId (задача «следующий раз»). У старых строк пустые.
  *
  * Класс абстрактный: реализацию Room генерирует сам при сборке.
  * Создаётся в `StorageModule` (см. `di/DataModule.kt`).
@@ -59,7 +61,7 @@ import androidx.room.migration.AutoMigrationSpec
         GoalEntity::class, GoalStageEntity::class,
         MedicationEntity::class, DoseTakenEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 1, to = 2),
@@ -73,6 +75,7 @@ import androidx.room.migration.AutoMigrationSpec
         AutoMigration(from = 9, to = 10),
         AutoMigration(from = 10, to = 11),
         AutoMigration(from = 11, to = 12),
+        AutoMigration(from = 12, to = 13),
     ],
 )
 @TypeConverters(Converters::class)

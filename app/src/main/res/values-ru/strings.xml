@@ -424,4 +424,35 @@
         <item quantity="many">Ещё %d дней</item>
         <item quantity="other">Ещё %d дня</item>
     </plurals>
+    <!-- Повторение «после выполнения» -->
+    <string name="repeat_after_done">После выполнения</string>
+    <string name="repeat_after_done_hint">Отсчёт — от дня, когда отметите «сделано». Пока не сделано, задача не пропадает.</string>
+    <string name="interval_days">Дни</string>
+    <string name="interval_weeks">Недели</string>
+    <string name="interval_months">Месяцы</string>
+    <string name="interval_years">Годы</string>
+    <plurals name="repeat_after_done_days">
+        <item quantity="one">Через %d день после выполнения</item>
+        <item quantity="few">Через %d дня после выполнения</item>
+        <item quantity="many">Через %d дней после выполнения</item>
+        <item quantity="other">Через %d дня после выполнения</item>
+    </plurals>
+    <plurals name="repeat_after_done_weeks">
+        <item quantity="one">Через %d неделю после выполнения</item>
+        <item quantity="few">Через %d недели после выполнения</item>
+        <item quantity="many">Через %d недель после выполнения</item>
+        <item quantity="other">Через %d недели после выполнения</item>
+    </plurals>
+    <plurals name="repeat_after_done_months">
+        <item quantity="one">Через %d месяц после выполнения</item>
+        <item quantity="few">Через %d месяца после выполнения</item>
+        <item quantity="many">Через %d месяцев после выполнения</item>
+        <item quantity="other">Через %d месяца после выполнения</item>
+    </plurals>
+    <plurals name="repeat_after_done_years">
+        <item quantity="one">Через %d год после выполнения</item>
+        <item quantity="few">Через %d года после выполнения</item>
+        <item quantity="many">Через %d лет после выполнения</item>
+        <item quantity="other">Через %d года после выполнения</item>
+    </plurals>
 </resources>

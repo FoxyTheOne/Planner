@@ -2,6 +2,7 @@ package app.planner.common
 
 import app.planner.R
 import app.planner.core.domain.model.RecurrenceRule
+import app.planner.core.domain.model.Repeat
 import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
@@ -45,6 +46,7 @@ class TaskCommands @Inject constructor(
     private val reminderQuestions: ReminderQuestions,
     private val todayClock: TodayClock,
     private val prepTasks: PrepTasks,
+    private val afterDoneTasks: AfterDoneTasks,
 ) {
 
     suspend fun toggleDone(task: Task) {
@@ -56,6 +58,22 @@ class TaskCommands @Inject constructor(
         } else {
             tasks.setDone(task.id, !task.isDone)
         }
+        // «Следующий раз» повторения «после выполнения»: отметили — сразу появляется следующий,
+        // через интервал от сегодняшнего дня; сняли отметку — тот следующий больше не нужен
+        if (task.afterRuleId != null) {
+            if (task.isDone) dropNextAfterDone(task) else afterDoneTasks.create()
+        }
+    }
+
+    /**
+     * Задача «следующий раз» [task] снова открыта (сняли отметку, отменили удаление) — а следующий
+     * за ней раз уже успел появиться. Открытая задача у такого повторения одна, поэтому лишний убираем.
+     */
+    private suspend fun dropNextAfterDone(task: Task) {
+        val ruleId = task.afterRuleId ?: return
+        tasks.getAfterDoneTasks(ruleId)
+            .filter { it.status == TaskStatus.OPEN && it.id != task.id }
+            .forEach { tasks.delete(it) }
     }
 
     /**
@@ -127,11 +145,14 @@ class TaskCommands @Inject constructor(
                                 )
                             )
                         }
+                    syncAfterDone(existing, rule)
                 }
                 // Обычная задача из базы стала повторяющейся — сама по себе она больше не нужна
                 if (task.id != 0L && !task.isOccurrence) tasks.delete(task)
                 // «Раз в год» с подготовкой: если готовиться пора уже сейчас — задача появится сразу
                 prepTasks.create(todayClock.today())
+                // «После выполнения»: первый раз — задача в день начала
+                afterDoneTasks.create()
             }
 
             ruleDraftId != null -> {
@@ -169,7 +190,8 @@ class TaskCommands @Inject constructor(
      * у них остаётся своё: их переносили нарочно (так же, как при правке правила, см. save).
      */
     private suspend fun applyDayToRule(day: Task) {
-        val rule = day.ruleId?.let { rules.getRule(it) } ?: return
+        // repeatRuleId — и день обычного повторения, и «следующий раз» повторения «после выполнения»
+        val rule = day.repeatRuleId?.let { rules.getRule(it) } ?: return
         val updated = rule.copy(title = day.title, time = day.time, partOfDay = day.partOfDay)
         rules.save(updated)
         tasks.getOccurrenceTasks(rule.id)
@@ -271,13 +293,19 @@ class TaskCommands @Inject constructor(
         // (человек удалил «полив в четверг», а он вернулся в среду). Для него «удалить» = «этот раз не нужен»
         if (task.isOccurrenceDay) return skipOccurrence(task)
         // Подготовку к дню «раз в год» тоже не удаляем, а пропускаем: иначе утренняя уборка увидела бы,
-        // что подготовки к этому дню нет, и создала бы её снова
-        if (task.prepFor != null) {
+        // что подготовки к этому дню нет, и создала бы её снова.
+        // «Следующий раз» повторения «после выполнения» — так же: удалить = «этот раз пропускаю»,
+        // и следующий появится через интервал от его дня
+        if (task.prepFor != null || task.afterRuleId != null) {
             tasks.addOrUpdate(task.copy(status = TaskStatus.SKIPPED))
+            afterDoneTasks.create()
             messages.post(
                 UiMessage(
                     UiText.Res(R.string.msg_deleted),
-                    undo = { tasks.addOrUpdate(task) })
+                    undo = {
+                        tasks.addOrUpdate(task)
+                        dropNextAfterDone(task)
+                    })
             )
             return
         }
@@ -391,10 +419,41 @@ class TaskCommands @Inject constructor(
      */
     private suspend fun removeRule(rule: RecurrenceRule): List<Task> {
         val days = tasks.getOccurrenceTasks(rule.id)
+        // У «после выполнения» — его задачи «следующий раз». Сделанные остаются в истории (как дни дела),
+        // а открытую убираем: повторения больше нет — и «следующего раза» тоже
+        val afterDone = tasks.getAfterDoneTasks(rule.id)
+        afterDone.filter { it.status == TaskStatus.OPEN }.forEach { tasks.delete(it) }
         // Сначала отметки, потом правило: после удаления правила у них уже не будет ruleId
         if (rule.isHabit) tasks.deleteOccurrenceTasks(rule.id)
         rules.delete(rule)
-        return days
+        return days + afterDone
+    }
+
+    /**
+     * Повторение «после выполнения» поправили в редакторе — его открытая задача «следующий раз»:
+     * - получает новое название и список (как перенесённые дни других повторений, см. save);
+     * - если повторение больше не «после выполнения» — убирается: теперь у него дни по календарю;
+     * - если его ещё ни разу не делали, а день начала поменяли — переезжает на новый день начала:
+     *   первый раз и есть день начала.
+     */
+    private suspend fun syncAfterDone(existing: RecurrenceRule, rule: RecurrenceRule) {
+        val linked = tasks.getAfterDoneTasks(rule.id)
+        val open = linked.filter { it.status == TaskStatus.OPEN }
+        if (rule.repeat !is Repeat.AfterDone) {
+            open.forEach { tasks.delete(it) }
+            return
+        }
+        val neverDone = linked.none { it.status != TaskStatus.OPEN }
+        val startChanged = existing.repeat is Repeat.AfterDone && existing.startDate != rule.startDate
+        open.forEach {
+            tasks.addOrUpdate(
+                it.copy(
+                    title = rule.title,
+                    listId = rule.listId,
+                    date = if (neverDone && startChanged) rule.startDate else it.date,
+                ),
+            )
+        }
     }
 
 }

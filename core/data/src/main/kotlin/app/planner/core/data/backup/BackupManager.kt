@@ -10,6 +10,7 @@ import app.planner.core.data.db.TaskListEntity
 import app.planner.core.data.db.toDomain
 import app.planner.core.data.db.toEntity
 import app.planner.core.domain.model.FoodRelation
+import app.planner.core.domain.model.IntervalUnit
 import app.planner.core.domain.model.ListColor
 import app.planner.core.domain.model.Medication
 import app.planner.core.domain.model.PartOfDay
@@ -54,6 +55,8 @@ import javax.inject.Singleton
  *   Старое приложение такой тип не знает, поэтому номер формата растёт: оно честно скажет «файл новее».
  * - 12 — подготовка к дню «раз в год»: у задач `prepRuleId` и `prepFor`, у правил `prepDays`. В старых файлах нет.
  * - 13 — лекарства (`medications`) и отметки «принято» (`dosesTaken`). В старых файлах их нет — лекарств нет.
+ * - 14 — повторение «после выполнения» (`"type":"AFTER_DONE"`, число в `n`, единица в `unit`), у задач `afterRuleId`.
+ *   Старое приложение такой тип не знает, поэтому номер формата растёт: оно честно скажет «файл новее».
  *
  * Даты в файле записаны текстом (`"2026-10-12"`), а не числами, как в базе: файл — это
  * «на всякий случай», и его должно быть можно прочитать глазами и через много лет.
@@ -63,7 +66,7 @@ class BackupManager @Inject constructor(
     private val db: PlannerDatabase,
 ) {
     companion object {
-        const val FORMAT_VERSION = 13
+        const val FORMAT_VERSION = 14
     }
 
     private val json = backupJson
@@ -179,6 +182,7 @@ data class TaskDto(
     val reminderAt: String? = null,
     val prepRuleId: Long? = null,
     val prepFor: String? = null,
+    val afterRuleId: Long? = null,
 )
 
 private fun TaskListEntity.toDto() = TaskListDto(id, name, color.name, position, isInbox)
@@ -212,6 +216,7 @@ private fun TaskEntity.toDto() = TaskDto(
     reminderAt = reminderAt?.toString(),
     prepRuleId = prepRuleId,
     prepFor = prepFor?.toString(),
+    afterRuleId = afterRuleId,
 )
 
 private fun TaskDto.toEntity() = TaskEntity(
@@ -235,6 +240,7 @@ private fun TaskDto.toEntity() = TaskEntity(
     reminderAt = reminderAt?.let(LocalTime::parse),
     prepRuleId = prepRuleId,
     prepFor = prepFor?.let(LocalDate::parse),
+    afterRuleId = afterRuleId,
 )
 
 /** Цель в файле. Её шаги — обычные задачи (TaskDto с goalId), этапы — отдельно (GoalStageDto). */
@@ -304,7 +310,7 @@ data class RuleDto(
 )
 
 /**
- * «Как часто» в файле. [type]: DAILY, WEEKDAYS, EVERY_N_DAYS, CYCLE или YEARLY.
+ * «Как часто» в файле. [type]: DAILY, WEEKDAYS, EVERY_N_DAYS, CYCLE, YEARLY или AFTER_DONE.
  * Дни недели — названиями (`"MONDAY"`), а не битами, как в базе: так файл понятен человеку.
  */
 @Serializable
@@ -318,6 +324,8 @@ data class RepeatDto(
     val weekStart: String? = null,
     /** Так поле называлось в формате 2–3. Пишем всегда null, читаем — только из старых файлов. */
     val anchorMonday: String? = null,
+    /** «После выполнения»: DAYS / WEEKS / MONTHS / YEARS (число — в [n]). */
+    val unit: String? = null,
 )
 
 @Serializable
@@ -370,6 +378,7 @@ internal fun Repeat.toDto(): RepeatDto = when (this) {
     is Repeat.OnWeekdays -> RepeatDto("WEEKDAYS", days = days.sorted().map { it.name })
     is Repeat.EveryNDays -> RepeatDto("EVERY_N_DAYS", n = n)
     is Repeat.Yearly -> RepeatDto("YEARLY")
+    is Repeat.AfterDone -> RepeatDto("AFTER_DONE", n = amount, unit = unit.name)
     is Repeat.Cycle -> RepeatDto(
         "CYCLE",
         weeks = weeks.map { week -> week.mapKeys { it.key.name } },
@@ -385,6 +394,7 @@ internal fun RepeatDto.toRepeat(startDate: LocalDate): Repeat = when (type) {
     "WEEKDAYS" -> Repeat.OnWeekdays(days.orEmpty().map(DayOfWeek::valueOf).toSet())
     "EVERY_N_DAYS" -> Repeat.EveryNDays(n ?: 1)
     "YEARLY" -> Repeat.Yearly(MonthDay.from(startDate))
+    "AFTER_DONE" -> Repeat.AfterDone(n ?: 1, unit?.let { runCatching { IntervalUnit.valueOf(it) }.getOrNull() } ?: IntervalUnit.DAYS)
     "CYCLE" -> Repeat.Cycle(
         weeks = weeks.orEmpty().map { week -> week.mapKeys { DayOfWeek.valueOf(it.key) } },
         // ?: — «если слева null, взять справа»: в старых файлах дата лежит в anchorMonday

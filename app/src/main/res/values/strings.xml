@@ -411,4 +411,27 @@
         <item quantity="one">%d day left</item>
         <item quantity="other">%d days left</item>
     </plurals>
+    <!-- Repeat "after it's done" -->
+    <string name="repeat_after_done">After it’s done</string>
+    <string name="repeat_after_done_hint">Counted from the day you mark it done. Until then, the task stays.</string>
+    <string name="interval_days">Days</string>
+    <string name="interval_weeks">Weeks</string>
+    <string name="interval_months">Months</string>
+    <string name="interval_years">Years</string>
+    <plurals name="repeat_after_done_days">
+        <item quantity="one">%d day after it’s done</item>
+        <item quantity="other">%d days after it’s done</item>
+    </plurals>
+    <plurals name="repeat_after_done_weeks">
+        <item quantity="one">%d week after it’s done</item>
+        <item quantity="other">%d weeks after it’s done</item>
+    </plurals>
+    <plurals name="repeat_after_done_months">
+        <item quantity="one">%d month after it’s done</item>
+        <item quantity="other">%d months after it’s done</item>
+    </plurals>
+    <plurals name="repeat_after_done_years">
+        <item quantity="one">%d year after it’s done</item>
+        <item quantity="other">%d years after it’s done</item>
+    </plurals>
 </resources>

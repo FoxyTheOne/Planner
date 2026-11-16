@@ -56,6 +56,9 @@ data class RecurrenceRule(
     val prepDays: Int? = null,
 )
 
+/** В чём считается интервал «после выполнения» (см. [Repeat.AfterDone]). */
+enum class IntervalUnit { DAYS, WEEKS, MONTHS, YEARS }
+
 /**
  * Пауза: с [from] по [until] включительно правило не выпадает.
  *
@@ -115,6 +118,30 @@ sealed interface Repeat {
      * 29 февраля в невисокосный год выпадает на 28-е: MonthDay.atYear сам так и делает.
      */
     data class Yearly(val day: MonthDay) : Repeat
+
+    /**
+     * Через [amount] дней / недель / месяцев / лет ПОСЛЕ ВЫПОЛНЕНИЯ: УЗИ раз в год, стрижка раз в 6 недель,
+     * замена фильтра раз в 3 месяца. Отсчёт — от дня, когда дело сделали на самом деле, а не от дня,
+     * когда собирались: сделала УЗИ на три месяца позже — следующее через год от этого дня.
+     *
+     * Поэтому у такого повторения нет «дней по календарю» (Recurrence.occurrence их не выдаёт).
+     * Вместо них всегда одна настоящая задача — «следующий раз» (Task.afterRuleId): её переносят,
+     * она копится в «Незавершённом», пока не сделана. Отметили — Recurrence.afterDoneTaskDue создаст
+     * следующую. Первый раз — в день начала правила (startDate).
+     */
+    data class AfterDone(val amount: Int, val unit: IntervalUnit) : Repeat {
+        init {
+            require(amount >= 1) { "Интервал должен быть не меньше 1" }
+        }
+
+        /** День, когда пора снова: [done] + интервал. 31 января + 1 месяц = 28 (29) февраля. */
+        fun after(done: LocalDate): LocalDate = when (unit) {
+            IntervalUnit.DAYS -> done.plusDays(amount.toLong())
+            IntervalUnit.WEEKS -> done.plusWeeks(amount.toLong())
+            IntervalUnit.MONTHS -> done.plusMonths(amount.toLong())
+            IntervalUnit.YEARS -> done.plusYears(amount.toLong())
+        }
+    }
 
     /**
      * Цикл из нескольких недель, у каждой недели — свои дела по дням.
