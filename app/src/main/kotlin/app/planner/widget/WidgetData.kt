@@ -1,6 +1,8 @@
 package app.planner.widget
 
 import app.planner.common.DayItem
+import app.planner.common.MedicationCommands
+import app.planner.common.TaskCommands
 import app.planner.common.dayItems
 import app.planner.core.domain.medication.Dose
 import app.planner.core.domain.medication.Medications
@@ -35,6 +37,8 @@ interface WidgetEntryPoint {
     fun rules(): IRecurrenceRepository
     fun medications(): IMedicationRepository
     fun settings(): ISettingsRepository
+    fun taskCommands(): TaskCommands
+    fun medicationCommands(): MedicationCommands
 }
 
 /**

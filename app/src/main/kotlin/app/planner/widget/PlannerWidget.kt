@@ -38,6 +38,7 @@ import androidx.glance.unit.ColorProvider
 import app.planner.MainActivity
 import app.planner.R
 import app.planner.common.DateTexts
+import app.planner.common.DayItem
 import app.planner.common.asTask
 import app.planner.common.foodRes
 import app.planner.core.designsystem.theme.PaperColors
@@ -51,7 +52,8 @@ import java.time.LocalDateTime
 
 /**
  * Виджет «Сегодня» на рабочем столе: план дня с галочками, приёмы лекарств и привычки (по настройке),
- * а вечером (или всегда) — и завтрашний день. Тап по виджету открывает приложение.
+ * а вечером (или всегда) — и завтрашний день. Галочки отмечают прямо на виджете (WidgetActions),
+ * тап по строке открывает приложение.
  *
  * GLANCE. Виджет рисует не приложение, а сам рабочий стол — и только из простых «кирпичиков»
  * (RemoteViews). Jetpack Glance разрешает описывать их почти как обычный Compose: Column, Row, Text.
@@ -167,7 +169,12 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.dayRows(
     if (day.habits.isNotEmpty()) {
         item { Section(context.getString(R.string.widget_habits_section), palette) }
         day.habits.forEach { habit ->
-            item { CheckRow(habit.isDone, habit.rule.title, null, null, palette, openApp) }
+            item {
+                CheckRow(
+                    habit.isDone, habit.rule.title, null, null, palette, openApp,
+                    onCheck = toggleHabit(habit.rule.id, habit.occurrence.date),
+                )
+            }
         }
     }
     if (day.doses.isNotEmpty()) {
@@ -178,7 +185,12 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.dayRows(
                 medication.dose.ifBlank { null },
                 medication.food?.let { context.getString(foodRes(it)) },
             ).joinToString(" · ").ifEmpty { null }
-            item { CheckRow(dose.isTaken, medication.name, DateTexts.time(dose.time), subtitle, palette, openApp) }
+            item {
+                CheckRow(
+                    dose.isTaken, medication.name, DateTexts.time(dose.time), subtitle, palette, openApp,
+                    onCheck = toggleDose(medication.id, dose.date, dose.time),
+                )
+            }
         }
     }
     // Дела — своим разделом «план», если выше были привычки или лекарства (иначе подпись лишняя)
@@ -187,6 +199,11 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.dayRows(
     }
     day.items.forEach { dayItem ->
         val task = dayItem.asTask()
+        // Задача (и уже отмеченный день повторения) — переключить; день повторения по правилу — отметить
+        val onCheck = when (dayItem) {
+            is DayItem.TaskItem -> toggleTask(dayItem.task.id)
+            is DayItem.RepeatItem -> completeRepeatDay(dayItem.occurrence.rule.id, dayItem.occurrence.date)
+        }
         item {
             CheckRow(
                 checked = dayItem.isDone,
@@ -195,6 +212,7 @@ private fun androidx.glance.appwidget.lazy.LazyListScope.dayRows(
                 subtitle = null,
                 palette = palette,
                 onClick = openApp,
+                onCheck = onCheck,
             )
         }
     }
@@ -223,7 +241,7 @@ private fun Muted(text: String, palette: WidgetPalette) {
 
 /**
  * Строка с галочкой: «☐ 10:30 Врач». Сделанное — бледнее и зачёркнуто, как на «Сегодня».
- * Тап по строке открывает приложение.
+ * Галочка ([onCheck]) отмечает прямо на виджете (см. WidgetActions), тап по строке ([onClick]) — открывает приложение.
  */
 @Composable
 private fun CheckRow(
@@ -233,6 +251,7 @@ private fun CheckRow(
     subtitle: String?,
     palette: WidgetPalette,
     onClick: androidx.glance.action.Action,
+    onCheck: androidx.glance.action.Action,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -240,7 +259,7 @@ private fun CheckRow(
     ) {
         CheckBox(
             checked = checked,
-            onCheckedChange = null,
+            onCheckedChange = onCheck,
             colors = CheckboxDefaults.colors(checkedColor = palette.accent, uncheckedColor = palette.muted),
         )
         time?.let {

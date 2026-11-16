@@ -237,19 +237,8 @@ class TodayViewModel @Inject constructor(
     fun completeOccurrence(occurrence: Occurrence) =
         viewModelScope.launch { commands.completeOccurrence(occurrence) }
 
-    /**
-     * Нажали на «таблетку» привычки.
-     * - Отмечена — снимаем: toggleDone удалит задачу, и «таблетка» снова будет пустой (по правилу).
-     * - Не отмечена — отмечаем через completeOccurrence, даже если задача на этот день уже есть.
-     *   Так бывает, если правило раньше было делом и этот день перенесли или пропустили.
-     *   completeOccurrence возьмёт id той задачи и запишет её заново: сделано, на свой день.
-     *   (toggleDone тут не подошёл бы: отметил бы сделанным перенесённый день — на чужую дату.)
-     */
-    fun toggleHabit(habit: HabitDay) = viewModelScope.launch {
-        val task = habit.task
-        if (task != null && task.isDone) commands.toggleDone(task)
-        else commands.completeOccurrence(habit.occurrence)
-    }
+    /** Нажали на «таблетку» привычки — отметить или снять отметку (см. TaskCommands.toggleHabit). */
+    fun toggleHabit(habit: HabitDay) = viewModelScope.launch { commands.toggleHabit(habit) }
 
     fun skipOccurrence(task: Task) = viewModelScope.launch { commands.skipOccurrence(task) }
     fun pauseRule(ruleId: Long, until: LocalDate?) =

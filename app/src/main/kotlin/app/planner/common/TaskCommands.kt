@@ -7,6 +7,7 @@ import app.planner.core.domain.model.Reminder
 import app.planner.core.domain.model.Slot
 import app.planner.core.domain.model.Task
 import app.planner.core.domain.model.TaskStatus
+import app.planner.core.domain.recurrence.HabitDay
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.recurrence.Recurrence
 import app.planner.core.domain.reminder.Reminders
@@ -83,6 +84,19 @@ class TaskCommands @Inject constructor(
     suspend fun completeOccurrence(occurrence: Occurrence) {
         val draft = Recurrence.toTask(occurrence, TaskStatus.DONE)
         tasks.addOrUpdate(withExistingId(draft))
+    }
+
+    /**
+     * Отметить привычку на день или снять отметку — «таблетка» на «Сегодня» или галочка на виджете.
+     * - Отмечена — снимаем: toggleDone удалит задачу, и «таблетка» снова будет пустой (по правилу).
+     * - Не отмечена — отмечаем через completeOccurrence, даже если задача на этот день уже есть.
+     *   Так бывает, если правило раньше было делом и этот день перенесли или пропустили.
+     *   completeOccurrence возьмёт id той задачи и запишет её заново: сделано, на свой день.
+     *   (toggleDone тут не подошёл бы: отметил бы сделанным перенесённый день — на чужую дату.)
+     */
+    suspend fun toggleHabit(habit: HabitDay) {
+        val task = habit.task
+        if (task != null && task.isDone) toggleDone(task) else completeOccurrence(habit.occurrence)
     }
 
     /** Создать новую задачу (id = 0) без нового списка — например, из шторки недели. */
