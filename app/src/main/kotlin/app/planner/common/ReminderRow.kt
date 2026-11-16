@@ -1,37 +1,25 @@
 package app.planner.common
 
-import android.Manifest
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.LifecycleResumeEffect
 import app.planner.R
-import app.planner.core.designsystem.theme.PlannerTheme
 import app.planner.core.domain.model.Reminder
-import app.planner.reminders.ReminderHealth
 import java.time.LocalTime
 
 /**
@@ -42,36 +30,22 @@ import java.time.LocalTime
  * - есть («10:30 врач») — «в момент начала», «за 10 / 30 минут», «за час», «за день»;
  * - нет («купить подарок» в субботу) — «в 9:00», «в 12:00», «в 18:00», «другое время…».
  *
- * РАЗРЕШЕНИЕ НА УВЕДОМЛЕНИЯ (Android 13+). Спрашиваем в тот момент, когда человек впервые выбрал
+ * РАЗРЕШЕНИЕ НА УВЕДОМЛЕНИЯ (Android 13+) — см. [NotificationAccess]. Спрашиваем в тот момент, когда человек впервые выбрал
  * напоминание: тогда понятно, зачем оно приложению. Отказал или выключил уведомления в настройках —
  * под строкой спокойная подсказка «Уведомления выключены — напоминание не придёт» и «Включить»,
  * которое открывает настройки уведомлений приложения.
  */
 @Composable
 fun ReminderRow(reminder: Reminder?, timed: Boolean, onChange: (Reminder?) -> Unit) {
-    val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(false) }
     var pickTime by rememberSaveable { mutableStateOf(false) }
-
-    // Включены ли уведомления. Человек может включить их в настройках и вернуться — поэтому
-    // перепроверяем каждый раз, когда экран снова на виду (LifecycleResumeEffect — «при возвращении»)
-    var notificationsOn by remember { mutableStateOf(ReminderHealth.notificationsOn(context)) }
-    LifecycleResumeEffect(Unit) {
-        notificationsOn = ReminderHealth.notificationsOn(context)
-        onPauseOrDispose { }
-    }
-    // Системное окно «Разрешить уведомления?». Ответ приходит сюда, в лямбду
-    val askPermission =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-            notificationsOn = ReminderHealth.notificationsOn(context)
-        }
+    // Включены ли уведомления и как о них попросить — см. NotificationAccess
+    val notifications = rememberNotificationAccess()
 
     fun choose(chosen: Reminder) {
         onChange(chosen)
         menuOpen = false
-        if (!notificationsOn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            askPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        notifications.requestIfNeeded()
     }
 
     Column {
@@ -112,27 +86,8 @@ fun ReminderRow(reminder: Reminder?, timed: Boolean, onChange: (Reminder?) -> Un
         }
 
         // Напоминание выбрано, а уведомления выключены — оно не придёт. Говорим об этом спокойно, один раз здесь
-        if (reminder != null && !notificationsOn) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 36.dp)
-            ) {
-                Text(
-                    stringResource(R.string.reminder_notifications_off),
-                    color = PlannerTheme.paper.inkMuted,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = {
-                    context.startActivity(
-                        ReminderHealth.notificationSettings(
-                            context
-                        )
-                    )
-                }) {
-                    Text(stringResource(R.string.reminder_notifications_enable))
-                }
-            }
+        if (reminder != null && !notifications.isOn) {
+            NotificationsOffHint(Modifier.padding(start = 36.dp))
         }
     }
 

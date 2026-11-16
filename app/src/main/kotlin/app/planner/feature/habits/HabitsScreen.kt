@@ -23,7 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,7 +43,7 @@ import app.planner.common.DateTexts
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
 import app.planner.common.HabitHistoryView
-import app.planner.common.MedicationEditorSheet
+import app.planner.common.MedicationEditor
 import app.planner.common.MedicationRow
 import app.planner.common.MedicationTarget
 import app.planner.common.MedicationTargetSaver
@@ -114,20 +113,17 @@ fun HabitsScreen(
     )
 
     editingMedication?.let { target ->
-        val item = state.medications.firstOrNull { it.medication.id == target.id }
-        // key(target): открыли другое лекарство — поля редактора начинаются заново
-        key(target) {
-            MedicationEditorSheet(
-                medication = item?.medication,
-                today = state.today,
-                history = item?.history,
-                onDismiss = { editingMedication = null },
-                onSave = viewModel::saveMedication,
-                onDelete = viewModel::deleteMedication,
-                onPause = viewModel::pauseMedication,
-                onResume = viewModel::resumeMedication,
-            )
-        }
+        MedicationEditor(
+            target = target,
+            medications = state.medications.map { it.medication },
+            history = { id -> state.medications.firstOrNull { it.medication.id == id }?.history },
+            today = state.today,
+            onDismiss = { editingMedication = null },
+            onSave = viewModel::saveMedication,
+            onDelete = viewModel::deleteMedication,
+            onPause = viewModel::pauseMedication,
+            onResume = viewModel::resumeMedication,
+        )
     }
 
     editing?.let { target ->

@@ -25,6 +25,7 @@ import app.planner.core.domain.model.Task
 import app.planner.core.domain.recurrence.Occurrence
 import app.planner.core.domain.repository.ISettingsRepository
 import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_HABITS
+import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_MEDICATIONS
 import app.planner.reminders.ReminderNotifications.Companion.CHANNEL_TASKS
 import app.planner.reminders.ReminderNotifications.Companion.TAG_RULE
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -392,11 +393,14 @@ class ReminderNotifications @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    /** Тап по уведомлению — открыть приложение (на экране «Сегодня»). */
-    private fun openApp(taskId: Long): PendingIntent =
+    /**
+     * Тап по уведомлению — открыть приложение (на экране «Сегодня»). [requestCode] — id задачи,
+     * повторения или лекарства: у Android номер «намерения», а куда вести, у всех одно и то же.
+     */
+    private fun openApp(requestCode: Long): PendingIntent =
         PendingIntent.getActivity(
             context,
-            taskId.toInt(),
+            requestCode.toInt(),
             Intent(
                 context,
                 MainActivity::class.java

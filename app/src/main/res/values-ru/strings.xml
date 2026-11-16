@@ -401,7 +401,7 @@
     <string name="medication_course_until">Курс до %1$s · %2$s</string>
     <string name="medication_course_finished">Курс закончился %1$s</string>
     <string name="medication_course_last_day">Последний день курса</string>
-    <string name="medication_history">За %1$d дней — %2$d из %3$d</string>
+    <string name="medication_history">За 30 дней — %1$d из %2$d</string>
     <string name="medication_history_since">С %1$s — %2$d из %3$d</string>
     <string name="medication_remind">Напоминать</string>
     <string name="medication_remind_hint">В каждое время приёма</string>

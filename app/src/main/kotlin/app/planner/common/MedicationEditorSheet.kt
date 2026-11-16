@@ -43,6 +43,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -75,6 +76,50 @@ data class MedicationTarget(val id: Long, val name: String = "")
 
 /** Готовые варианты курса в меню: неделя, 10 дней, две недели, месяц. */
 private val COURSE_DAYS = listOf(7, 10, 14, 30)
+
+/**
+ * Шторка «Лекарство» для экранов: открыть лекарство [target] — найти его по id среди [medications]
+ * и показать редактор. Общая для «Сегодня» и экрана «Привычки и лекарства».
+ *
+ * Лекарство берём из свежего списка, а не запоминаем само: пока редактор открыт, его могли поменять
+ * (например, поставили на перерыв).
+ *
+ * Если лекарство уже сохранено (id ≠ 0), а в списке его нет, шторку не показываем. Так бывает
+ * сразу после того, как Android вернул выгруженное из памяти приложение: список ещё не загрузился.
+ * Без этой проверки открылся бы редактор «нового» лекарства с полями старого, и «Сохранить» создало бы копию.
+ *
+ * key(target): открыли другое лекарство — поля редактора начинаются заново, а не помнят прежнее.
+ *
+ * @param history как принимали лекарство за 30 дней — по id.
+ */
+@Composable
+fun MedicationEditor(
+    target: MedicationTarget,
+    medications: List<Medication>,
+    history: (medicationId: Long) -> MedicationHistory?,
+    today: LocalDate,
+    onDismiss: () -> Unit,
+    onSave: (Medication) -> Unit,
+    onDelete: (Medication) -> Unit,
+    onPause: (medicationId: Long, until: LocalDate?) -> Unit,
+    onResume: (medicationId: Long) -> Unit,
+) {
+    val medication = medications.firstOrNull { it.id == target.id }
+    if (target.id != 0L && medication == null) return
+    key(target) {
+        MedicationEditorSheet(
+            medication = medication,
+            newName = target.name,
+            today = today,
+            history = medication?.let { history(it.id) },
+            onDismiss = onDismiss,
+            onSave = onSave,
+            onDelete = onDelete,
+            onPause = onPause,
+            onResume = onResume,
+        )
+    }
+}
 
 /**
  * Шторка «Лекарство»: новое ([medication] = null) или правка существующего.
@@ -166,8 +211,11 @@ fun MedicationEditorBody(
     val paper = PlannerTheme.paper
     val canSave = name.isNotBlank() && times.isNotEmpty()
 
-    fun save() {
-        if (!canSave) return
+    // Включены ли уведомления и как о них попросить (см. NotificationAccess)
+    val notifications = rememberNotificationAccess()
+
+    // Локальная функция видна только ниже своего объявления — поэтому saveNow раньше save, который её зовёт
+    fun saveNow() {
         onSave(
             Medication(
                 id = initial?.id ?: 0,
@@ -186,6 +234,16 @@ fun MedicationEditorBody(
                 position = initial?.position ?: 0,
             ),
         )
+    }
+
+    /**
+     * «Добавить» / «Сохранить». С напоминаниями — сначала, если нужно, системное окно
+     * «Разрешить уведомления?» (Android 13+): без разрешения напоминания о приёмах просто не придут.
+     * Сохраняем после ответа, каким бы он ни был: лекарство нужно и без напоминаний.
+     */
+    fun save() {
+        if (!canSave) return
+        if (remind) notifications.requestIfNeeded(then = ::saveNow) else saveNow()
     }
 
     Column(
@@ -349,6 +407,10 @@ fun MedicationEditorBody(
             checked = remind,
             onCheckedChange = { remind = it },
         )
+        // Напоминать — да, а уведомления выключены: спокойно говорим, что напоминания не придут
+        if (remind && !notifications.isOn) {
+            NotificationsOffHint(Modifier.padding(start = 36.dp))
+        }
         if (remind) {
             SwitchRow(
                 icon = Icons.Outlined.NotificationsActive,

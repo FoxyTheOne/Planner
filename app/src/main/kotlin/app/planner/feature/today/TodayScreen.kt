@@ -31,7 +31,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,7 +50,7 @@ import app.planner.common.DayItemRow
 import app.planner.common.EditorResult
 import app.planner.common.EditorTarget
 import app.planner.common.EditorTargetSaver
-import app.planner.common.MedicationEditorSheet
+import app.planner.common.MedicationEditor
 import app.planner.common.MedicationTarget
 import app.planner.common.MedicationTargetSaver
 import app.planner.common.RuleRow
@@ -176,22 +175,17 @@ fun TodayScreen(
         )
     }
     editingMedication?.let { target ->
-        // Лекарство ищем в состоянии по id: его могли поменять (например, отметили перерыв), пока редактор открыт
-        val medication = state.medications.firstOrNull { it.id == target.id }
-        // key(target): открыли другое лекарство — поля редактора начинаются заново, а не помнят прежнее
-        key(target) {
-            MedicationEditorSheet(
-                medication = medication,
-                newName = target.name,
-                today = state.today,
-                history = medication?.let { state.medicationHistory[it.id] },
-                onDismiss = { editingMedication = null },
-                onSave = viewModel::saveMedication,
-                onDelete = viewModel::deleteMedication,
-                onPause = viewModel::pauseMedication,
-                onResume = viewModel::resumeMedication,
-            )
-        }
+        MedicationEditor(
+            target = target,
+            medications = state.medications,
+            history = state.medicationHistory::get,
+            today = state.today,
+            onDismiss = { editingMedication = null },
+            onSave = viewModel::saveMedication,
+            onDelete = viewModel::deleteMedication,
+            onPause = viewModel::pauseMedication,
+            onResume = viewModel::resumeMedication,
+        )
     }
     scheduling?.let { task ->
         ScheduleSheet(

@@ -180,7 +180,6 @@ fun medicationHistoryText(history: MedicationHistory): String? {
     } else {
         stringResource(
             R.string.medication_history,
-            MedicationHistory.DAYS,
             history.taken,
             history.planned
         )
