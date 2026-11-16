@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Описание виджета «Сегодня» для рабочего стола:
+  - minWidth / minHeight и targetCell… — размер по умолчанию (3 × 2 клетки), resizeMode — можно растянуть;
+  - updatePeriodMillis — раз в полчаса система сама перерисует виджет (новый день, «завтра» вечером),
+    даже если приложение не запущено. Чаще Android не разрешает;
+  - configure — окно настройки при добавлении; widgetFeatures="reconfigurable" — на Android 12+
+    его можно открыть и потом, долгим нажатием на виджет;
+  - initialLayout — что показать, пока Glance готовит виджет («Загрузка…», есть в самой библиотеке).
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:configure="app.planner.widget.WidgetConfigActivity"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="80dp"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:widgetCategory="home_screen"
+    android:widgetFeatures="reconfigurable" />

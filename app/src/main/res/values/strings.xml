@@ -445,4 +445,20 @@
         <item quantity="one">And %d more without a time</item>
         <item quantity="other">And %d more without a time</item>
     </plurals>
+    <!-- "Today" widget -->
+    <string name="widget_name">Today</string>
+    <string name="widget_description">Your plan for the day with checkboxes, and tomorrow in the evening</string>
+    <string name="widget_config_title">Today widget</string>
+    <string name="widget_tomorrow">show tomorrow</string>
+    <string name="widget_tomorrow_evening">In the evening, from %1$s</string>
+    <string name="widget_tomorrow_always">Always</string>
+    <string name="widget_tomorrow_never">Never</string>
+    <string name="widget_show_medications">Medications</string>
+    <string name="widget_show_medications_hint">Today’s doses</string>
+    <string name="widget_show_habits">Habits</string>
+    <string name="widget_show_habits_hint">They take up space, a small widget is better without them</string>
+    <string name="widget_day_title">%1$s · %2$s</string>
+    <string name="widget_empty">Nothing planned for today</string>
+    <string name="widget_habits_section">habits</string>
+    <string name="widget_plan_section">plan</string>
 </resources>

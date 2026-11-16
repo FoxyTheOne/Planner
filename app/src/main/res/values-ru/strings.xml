@@ -468,4 +468,20 @@
         <item quantity="many">И ещё %d дел без времени</item>
         <item quantity="other">И ещё %d дела без времени</item>
     </plurals>
+    <!-- Виджет «Сегодня» -->
+    <string name="widget_name">Сегодня</string>
+    <string name="widget_description">План дня с галочками, вечером — и завтра</string>
+    <string name="widget_config_title">Виджет «Сегодня»</string>
+    <string name="widget_tomorrow">показывать завтра</string>
+    <string name="widget_tomorrow_evening">Вечером, с %1$s</string>
+    <string name="widget_tomorrow_always">Всегда</string>
+    <string name="widget_tomorrow_never">Нет</string>
+    <string name="widget_show_medications">Лекарства</string>
+    <string name="widget_show_medications_hint">Приёмы на сегодня</string>
+    <string name="widget_show_habits">Привычки</string>
+    <string name="widget_show_habits_hint">Занимают место — на маленьком виджете лучше без них</string>
+    <string name="widget_day_title">%1$s · %2$s</string>
+    <string name="widget_empty">На сегодня ничего не запланировано</string>
+    <string name="widget_habits_section">привычки</string>
+    <string name="widget_plan_section">план</string>
 </resources>

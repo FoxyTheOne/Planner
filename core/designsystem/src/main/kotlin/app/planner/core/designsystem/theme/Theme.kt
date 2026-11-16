@@ -50,11 +50,7 @@ fun PlannerTheme(
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    val paper = if (!dark) LightPaper else when (darkVariant) {
-        DarkVariant.GRAPHITE -> GraphitePaper
-        DarkVariant.INK -> InkPaper
-        DarkVariant.BLACK -> BlackPaper
-    }
+    val paper = paperColors(dark, darkVariant)
     val scheme = when {
         // Цвета из обоев доступны только с Android 12 (API 31, «S»)
         systemColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
@@ -76,3 +72,14 @@ fun PlannerTheme(
         }
     }
 }
+
+/**
+ * Палитра «бумаги»: светлая или одна из тёмных ([darkVariant]). Общая для [PlannerTheme] и виджета
+ * на рабочем столе — он рисуется не в Compose-теме приложения (см. app/widget), но должен выглядеть так же.
+ */
+fun paperColors(dark: Boolean, darkVariant: DarkVariant): PaperColors =
+    if (!dark) LightPaper else when (darkVariant) {
+        DarkVariant.GRAPHITE -> GraphitePaper
+        DarkVariant.INK -> InkPaper
+        DarkVariant.BLACK -> BlackPaper
+    }

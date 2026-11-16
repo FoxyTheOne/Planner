@@ -48,6 +48,30 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <!-- Виджет «Сегодня». exported="true": виджетами управляет рабочий стол — он и шлёт сюда сигналы.
+             Описание виджета (размер, окно настройки) — в res/xml/planner_widget_info.xml -->
+        <receiver
+            android:name=".widget.PlannerWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/planner_widget_info" />
+        </receiver>
+
+        <!-- Окно настройки виджета: его открывает рабочий стол, поэтому exported="true" -->
+        <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Planner">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

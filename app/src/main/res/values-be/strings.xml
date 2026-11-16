@@ -469,4 +469,20 @@
         <item quantity="many">І яшчэ %d спраў без часу</item>
         <item quantity="other">І яшчэ %d справы без часу</item>
     </plurals>
+    <!-- Віджэт «Сёння» -->
+    <string name="widget_name">Сёння</string>
+    <string name="widget_description">План дня з адзнакамі, увечары — і заўтра</string>
+    <string name="widget_config_title">Віджэт «Сёння»</string>
+    <string name="widget_tomorrow">паказваць заўтра</string>
+    <string name="widget_tomorrow_evening">Увечары, з %1$s</string>
+    <string name="widget_tomorrow_always">Заўсёды</string>
+    <string name="widget_tomorrow_never">Не</string>
+    <string name="widget_show_medications">Лекі</string>
+    <string name="widget_show_medications_hint">Прыёмы на сёння</string>
+    <string name="widget_show_habits">Звычкі</string>
+    <string name="widget_show_habits_hint">Займаюць месца — на маленькім віджэце лепш без іх</string>
+    <string name="widget_day_title">%1$s · %2$s</string>
+    <string name="widget_empty">На сёння нічога не запланавана</string>
+    <string name="widget_habits_section">звычкі</string>
+    <string name="widget_plan_section">план</string>
 </resources>

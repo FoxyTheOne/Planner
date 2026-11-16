@@ -3,6 +3,7 @@ package app.planner
 import android.app.Application
 import app.planner.reminders.ReminderNotifications
 import app.planner.reminders.ReminderSync
+import app.planner.widget.WidgetUpdater
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -13,8 +14,9 @@ import javax.inject.Inject
  * `@HiltAndroidApp` запускает Hilt: отсюда начинается «дерево» зависимостей,
  * из которого потом получают базу, репозитории и ViewModel все экраны.
  *
- * При запуске здесь же включаются напоминания: создаётся канал уведомлений и запускается
+ * При запуске здесь же включаются напоминания: создаются каналы уведомлений и запускается
  * [ReminderSync] — он следит за задачами с напоминаниями и держит будильники в порядке.
+ * И [WidgetUpdater] — он перерисовывает виджет «Сегодня», когда меняются дела.
  * Процесс приложения запускается и без экранов — например, когда сработал будильник или
  * телефон перезагрузили, — поэтому это место надёжнее, чем MainActivity.
  */
@@ -28,9 +30,13 @@ class PlannerApplication : Application() {
     @Inject
     lateinit var reminderSync: ReminderSync
 
+    @Inject
+    lateinit var widgetUpdater: WidgetUpdater
+
     override fun onCreate() {
         super.onCreate()
         reminderNotifications.createChannels()
         reminderSync.start()
+        widgetUpdater.start()
     }
 }

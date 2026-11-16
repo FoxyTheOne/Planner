@@ -31,6 +31,7 @@ import app.planner.reminders.ReminderReceiver.Companion.EXTRA_DATE
 import app.planner.reminders.ReminderReceiver.Companion.EXTRA_MEDICATION_ID
 import app.planner.reminders.ReminderReceiver.Companion.EXTRA_RULE_ID
 import app.planner.reminders.ReminderReceiver.Companion.EXTRA_TIME
+import app.planner.widget.WidgetUpdater
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -108,6 +109,9 @@ class ReminderReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var settings: ISettingsRepository
+
+    @Inject
+    lateinit var widgetUpdater: WidgetUpdater
 
     @Inject
     lateinit var commands: TaskCommands
@@ -210,7 +214,8 @@ class ReminderReceiver : BroadcastReceiver() {
     /**
      * Вечерняя сводка: что ждёт завтра (DayPreview — так же, как «Завтра: …» на «Сегодня»).
      * Показываем, только если сводка включена и завтра есть дела со временем: иначе готовиться не к чему.
-     * Потом — syncNow: встанет будильник на следующий вечер.
+     * Заодно перерисовываем виджет (вечером он показывает и завтра). Потом — syncNow: встанет будильник
+     * на следующий вечер.
      */
     private suspend fun onEveningSummary() {
         if (settings.settings.first().eveningSummary) {
@@ -223,6 +228,8 @@ class ReminderReceiver : BroadcastReceiver() {
             )
             if (preview.timed.isNotEmpty()) notifications.showEveningSummary(tomorrow, preview)
         }
+        // Наступил вечер — виджет, у которого «завтра — вечером», сразу показывает и завтрашний день
+        widgetUpdater.updateAll()
         sync.syncNow()
     }
 
